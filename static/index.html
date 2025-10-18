@@ -126,7 +126,7 @@
             <button id="titlePrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
             <span id="titleCount" class="muted hidden">1/1</span>
             <button id="titleNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
-            <button id="regenTitle" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+            <button id="regenTitle" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
             <button id="regenTitlePrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
             <button id="copyTitle" class="btn" title="Copiar título"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
           </div>
@@ -144,10 +144,10 @@
           <button id="descPrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
           <span id="descCount" class="muted hidden">1/1</span>
           <button id="descNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
-          <button id="regenDesc" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+          <button id="regenDesc" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
           <button id="regenDescPrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
-          <button id="copyDesc" class="btn" title="Copiar descrição (com FAQ)"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
-          <button id="copyDescNoFAQ" class="btn" title="Copiar descrição (sem FAQ)"><svg class="icon-fill" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M4 4h11v11H4z"/></svg></button>
+          <button id="copyDesc" class="btn" title="Copiar descrição (com FAQ)"><svg class="icon-fill" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M4 4h11v11H4z"/></svg></button>
+          <button id="copyDescNoFAQ" class="btn" title="Copiar descrição (sem FAQ)"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
         </div>
         <textarea id="outDesc" rows="10" class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
       </div>
@@ -413,7 +413,7 @@ Restrições:
               <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx>0?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
               <span class="muted" data-role="count" ${line.versions.length>1?"":"style='display:none'"}>${line.vIdx+1}/${line.versions.length}</span>
               <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx<line.versions.length-1)?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
-              <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
               <button class="btn" data-action="prompt" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
               <button class="btn" data-action="approve" title="Aprovar/Recusar"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14" stroke-width="1.5"/></svg></button>
             </div>
@@ -471,7 +471,7 @@ Restrições:
               <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx>0?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
               <span class="muted" data-role="count" ${line.versions.length>1?"":"style='display:none'"}>${line.vIdx+1}/${line.versions.length}</span>
               <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx<line.versions.length-1)?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
-              <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
               <button class="btn" data-action="prompt" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
             </div>
             <div class="floating-right"></div>
