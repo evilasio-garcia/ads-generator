@@ -509,6 +509,7 @@ Restrições:
 
     // -------- TTS / Playlist --------
     let playlist = []; let curIdx = -1; let autoplay = true; let rate = parseFloat(localStorage.getItem(LS_TTS_RATE) || "1") || 1;
+    let isPaused = false;
     const ttsNow = $("#ttsNow"); const ttsAuto = $("#ttsAuto"); const ttsRateBtn = $("#ttsRate");
     ttsRateBtn.textContent = rate+"x";
     ttsRateFloat.textContent = rate+"x";
@@ -529,6 +530,7 @@ Restrições:
       const part = playlist[curIdx];
       ttsNow.textContent = `Lendo: ${part.label} (${rate}x)`;
       window.speechSynthesis.cancel();
+      isPaused = false;
       const utter = new SpeechSynthesisUtterance(part.text);
       utter.lang = "pt-BR"; utter.rate = rate;
       utter.onend = ()=> { 
@@ -554,10 +556,16 @@ Restrições:
       ttsPlayFloat.classList.add("tts-active");
       $("#ttsPause").classList.remove("tts-active");
       ttsPauseFloat.classList.remove("tts-active");
-      speakCurrent(); 
+      
+      if(isPaused) {
+        window.speechSynthesis.resume();
+        isPaused = false;
+      } else {
+        speakCurrent();
+      }
     });
-    $("#ttsPrev").addEventListener("click", ()=> { if(curIdx>0){ curIdx--; speakCurrent(); } });
-    $("#ttsNext").addEventListener("click", ()=> { if(curIdx<playlist.length-1){ curIdx++; speakCurrent(); } });
+    $("#ttsPrev").addEventListener("click", ()=> { if(curIdx>0){ curIdx--; isPaused=false; speakCurrent(); } });
+    $("#ttsNext").addEventListener("click", ()=> { if(curIdx<playlist.length-1){ curIdx++; isPaused=false; speakCurrent(); } });
     $("#ttsPause").addEventListener("click", ()=> { 
       autoplay=false; 
       ttsAuto.textContent="Autoplay OFF"; 
@@ -565,6 +573,7 @@ Restrições:
       ttsPauseFloat.classList.add("tts-active");
       $("#ttsPlay").classList.remove("tts-active");
       ttsPlayFloat.classList.remove("tts-active");
+      isPaused = true;
       window.speechSynthesis.pause(); 
     });
     $("#ttsStop").addEventListener("click", ()=> { 
@@ -574,6 +583,7 @@ Restrições:
       ttsPlayFloat.classList.remove("tts-active");
       $("#ttsPause").classList.remove("tts-active");
       ttsPauseFloat.classList.remove("tts-active");
+      isPaused = false;
       window.speechSynthesis.cancel(); 
       ttsNow.textContent=""; 
     });
