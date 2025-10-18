@@ -28,6 +28,11 @@
     .toolbar .grow { flex:1 1 auto; }
     .floating-right { margin-left:auto; display:flex; gap:.5rem; }
     .label-row { display:flex; align-items:center; justify-content:space-between; }
+    .floating-tts { position:fixed; bottom:1.5rem; right:1.5rem; background:white; border:1px solid #e5e7eb; border-radius:1rem; box-shadow:0 10px 25px rgba(0,0,0,.15); padding:1rem; z-index:40; display:none; max-width:90vw; }
+    .floating-tts.show { display:block; animation: slideUp 0.3s ease-out; }
+    @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    .floating-tts .controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .floating-tts .label { font-size:.75rem; font-weight:600; color:#6b7280; margin-right:.5rem; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -86,10 +91,10 @@
     </section>
 
     <!-- Leitor (TTS) -->
-    <section class="card p-5">
+    <section class="card p-5" id="ttsSection">
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-800">Leitura em voz alta</h2>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2" id="ttsControls">
           <button id="ttsPlay" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" stroke-width="1.5"/></svg></button>
           <button id="ttsPrev" class="btn" title="Anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M11 6l-7 6 7 6V6zM20 5v14" stroke-width="1.5"/></svg></button>
           <button id="ttsNext" class="btn" title="Próximo"><svg class="icon" viewBox="0 0 24 24"><path d="M13 6l7 6-7 6V6zM4 5v14" stroke-width="1.5"/></svg></button>
@@ -164,6 +169,19 @@
     </section>
   </main>
 
+  <!-- Controles TTS Flutuantes -->
+  <div id="floatingTTS" class="floating-tts">
+    <div class="controls">
+      <span class="label">🔊 Leitura</span>
+      <button id="ttsPlayFloat" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" stroke-width="1.5"/></svg></button>
+      <button id="ttsPrevFloat" class="btn" title="Anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M11 6l-7 6 7 6V6zM20 5v14" stroke-width="1.5"/></svg></button>
+      <button id="ttsNextFloat" class="btn" title="Próximo"><svg class="icon" viewBox="0 0 24 24"><path d="M13 6l7 6-7 6V6zM4 5v14" stroke-width="1.5"/></svg></button>
+      <button id="ttsPauseFloat" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5"/></svg></button>
+      <button id="ttsStopFloat" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" stroke-width="1.5"/></svg></button>
+      <button id="ttsRateFloat" class="btn" title="Velocidade">1x</button>
+    </div>
+  </div>
+
   <!-- Modal Prompt -->
   <div id="promptModal" class="modal">
     <div class="modal-card card p-5">
@@ -236,6 +254,37 @@
 
     const titlePrev=$("#titlePrev"), titleNext=$("#titleNext"), titleCount=$("#titleCount");
     const descPrev=$("#descPrev"), descNext=$("#descNext"), descCount=$("#descCount");
+
+    // Controles TTS Flutuantes
+    const ttsSection = $("#ttsSection");
+    const floatingTTS = $("#floatingTTS");
+    const ttsPlayFloat = $("#ttsPlayFloat");
+    const ttsPrevFloat = $("#ttsPrevFloat");
+    const ttsNextFloat = $("#ttsNextFloat");
+    const ttsPauseFloat = $("#ttsPauseFloat");
+    const ttsStopFloat = $("#ttsStopFloat");
+    const ttsRateFloat = $("#ttsRateFloat");
+
+    // Observador de Interseção para mostrar/esconder controles flutuantes
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          floatingTTS.classList.remove("show");
+        } else {
+          floatingTTS.classList.add("show");
+        }
+      });
+    }, { threshold: 0.1 });
+
+    if (ttsSection) observer.observe(ttsSection);
+
+    // Sincronizar botões flutuantes com originais
+    ttsPlayFloat.addEventListener("click", () => $("#ttsPlay").click());
+    ttsPrevFloat.addEventListener("click", () => $("#ttsPrev").click());
+    ttsNextFloat.addEventListener("click", () => $("#ttsNext").click());
+    ttsPauseFloat.addEventListener("click", () => $("#ttsPause").click());
+    ttsStopFloat.addEventListener("click", () => $("#ttsStop").click());
+    ttsRateFloat.addEventListener("click", () => $("#ttsRate").click());
 
     // Prompt Modal
     const promptModal=$("#promptModal"); const promptTitleEl=$("#promptTitle"); const promptTextEl=$("#promptText");
@@ -460,6 +509,7 @@ Restrições:
     let playlist = []; let curIdx = -1; let autoplay = true; let rate = parseFloat(localStorage.getItem(LS_TTS_RATE) || "1") || 1;
     const ttsNow = $("#ttsNow"); const ttsAuto = $("#ttsAuto"); const ttsRateBtn = $("#ttsRate");
     ttsRateBtn.textContent = rate+"x";
+    ttsRateFloat.textContent = rate+"x";
 
     function rebuildPlaylist(){
       playlist = [];
@@ -492,6 +542,7 @@ Restrições:
       if(rate===1) next=1.5; else if(rate===1.5) next=2; else next=1;
       rate = next; localStorage.setItem(LS_TTS_RATE, String(rate));
       ttsRateBtn.textContent = rate+"x";
+      ttsRateFloat.textContent = rate+"x";
       if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); speakCurrent(); }
     });
 
