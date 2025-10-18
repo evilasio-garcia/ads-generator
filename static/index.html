@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ads Generator — Gerador de Anúncios Multi-Marketplace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --indigo-600:#4f46e5; --indigo-700:#4338ca; --bg:#f3f4f6; --card:#ffffff; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); }
+    .card { background:var(--card); border:1px solid #e5e7eb; border-radius:1rem; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .btn { display:inline-flex; align-items:center; justify-content:center; padding:.45rem .7rem; border-radius:.5rem; background:white; color:#374151; border:1px solid #e5e7eb; }
+    .btn:hover{ background:#f9fafb; }
+    .icon { width:18px; height:18px; stroke:#4b5563; fill:none; }
+    .icon-fill { width:18px; height:18px; stroke:#4b5563; fill:#4b5563; }
+    .loader { width:22px; height:22px; border-radius:9999px; border:3px solid #e5e7eb; border-top-color:#6b7280; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .modal { position:fixed; inset:0; background:rgba(15,23,42,.28); display:none; align-items:center; justify-content:center; padding:1.25rem; z-index:50; }
+    .modal.open { display:flex; }
+    .modal-card { width:100%; max-width:44rem; }
+    .muted { color:#6b7280 }
+    .badge { padding:.125rem .5rem; font-size:.75rem; border:1px solid #e5e7eb; border-radius:9999px; }
+    .subctrl { display:flex; align-items:center; gap:.5rem; font-size:.8rem; color:#4b5563; }
+    .pulse { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%{opacity:.6} 50%{opacity:1} 100%{opacity:.6} }
+    .toolbar { display:flex; align-items:center; gap:.5rem; }
+    .toolbar .grow { flex:1 1 auto; }
+    .floating-right { margin-left:auto; display:flex; gap:.5rem; }
+    .label-row { display:flex; align-items:center; justify-content:space-between; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <main class="w-full max-w-5xl mx-auto p-4 grid gap-6">
+    <section class="card p-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold text-gray-900">Ads Generator — Gerador de Anúncios Multi-Marketplace</h1>
+          <p class="text-sm text-gray-600 mt-1">Python • FastAPI • OpenAI/Gemini</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="btnConfig" class="btn" title="Configurar">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8 4a8 8 0 01-.32 2.24l2.06 1.6-2 3.46-2.45-1a8.06 8.06 0 01-1.93 1.12l-.37 2.62h-4l-.37-2.62A8.06 8.06 0 017.7 20.3l-2.45 1-2-3.46 2.06-1.6A7.93 7.93 0 015 12a7.93 7.93 0 01.32-2.24L3.26 8.16l2-3.46 2.45 1A8.06 8.06 0 019.64 4.6L10 2h4l.37 2.62a8.06 8.06 0 011.93 1.12l2.45-1 2 3.46-2.06 1.6A8 8 0 0120 12z" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4 grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm text-gray-700 font-medium">Produto</label>
+          <input id="productName" type="text" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ex.: Tapete higiênico 80x60 lavanda">
+        </div>
+        <div>
+          <label class="text-sm text-gray-700 font-medium">Marketplace</label>
+          <select id="marketplace" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="mercadolivre">Mercado Livre</option>
+            <option value="shopee">Shopee</option>
+            <option value="amazon">Amazon</option>
+            <option value="magalu">Magalu</option>
+            <option value="shein">Shein</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-gray-700 font-medium">LLM</label>
+          <select id="llm" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Google Gemini</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <!-- Azul padrão em todos os botões principais -->
+          <button id="btnGenerate" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full"><span class="mr-2">⚡</span>Gerar conteúdo</button>
+        </div>
+      </div>
+
+      <div id="statusArea" class="mt-4 hidden">
+        <div class="flex items-center gap-3 text-sm text-gray-700">
+          <div class="loader" id="loader" aria-hidden="true"></div>
+          <span id="statusText">Gerando…</span>
+        </div>
+      </div>
+
+      <div id="demoWarn" class="mt-4 hidden">
+        <div class="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800" id="demoText"></div>
+      </div>
+    </section>
+
+    <!-- Leitor (TTS) -->
+    <section class="card p-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-800">Leitura em voz alta</h2>
+        <div class="flex items-center gap-2">
+          <button id="ttsPlay" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" stroke-width="1.5"/></svg></button>
+          <button id="ttsPrev" class="btn" title="Anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M11 6l-7 6 7 6V6zM20 5v14" stroke-width="1.5"/></svg></button>
+          <button id="ttsNext" class="btn" title="Próximo"><svg class="icon" viewBox="0 0 24 24"><path d="M13 6l7 6-7 6V6zM4 5v14" stroke-width="1.5"/></svg></button>
+          <button id="ttsPause" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5"/></svg></button>
+          <button id="ttsStop" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" stroke-width="1.5"/></svg></button>
+          <button id="ttsRate" class="btn" title="Velocidade">1x</button>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600 mt-2">Ordem: <b>Título</b> → <b>Descrição</b> → <b>FAQ (aprovada)</b> → <b>Cards</b>. <span class="badge muted" id="ttsAuto">Autoplay ON</span></p>
+      <div id="ttsNow" class="text-sm text-gray-700 mt-2"></div>
+    </section>
+
+    <section class="card p-5" id="resultCard">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-800">Resultado</h2>
+        <div class="flex gap-2">
+          <button id="copyAll" class="btn" title="Copiar tudo"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Título -->
+      <div class="mt-4">
+        <div class="label-row">
+          <h3 class="font-medium text-gray-700 mt-1">Título</h3>
+          <div class="toolbar">
+            <div class="grow"></div>
+            <button id="titlePrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+            <span id="titleCount" class="muted hidden">1/1</span>
+            <button id="titleNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+            <button id="regenTitle" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+            <button id="regenTitlePrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
+            <button id="copyTitle" class="btn" title="Copiar título"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+          </div>
+        </div>
+        <textarea id="outTitle" rows="2" class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
+      </div>
+
+      <!-- Descrição -->
+      <div class="mt-6">
+        <div class="label-row">
+          <h3 class="font-medium text-gray-700 mt-1">Descrição</h3>
+        </div>
+        <div class="toolbar mt-1">
+          <div class="grow"></div>
+          <button id="descPrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+          <span id="descCount" class="muted hidden">1/1</span>
+          <button id="descNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+          <button id="regenDesc" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+          <button id="regenDescPrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
+          <button id="copyDesc" class="btn" title="Copiar descrição (com FAQ)"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+          <button id="copyDescNoFAQ" class="btn" title="Copiar descrição (sem FAQ)"><svg class="icon-fill" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M4 4h11v11H4z"/></svg></button>
+        </div>
+        <textarea id="outDesc" rows="10" class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
+      </div>
+
+      <!-- FAQ -->
+      <div class="mt-6">
+        <div class="label-row">
+          <h3 class="font-medium text-gray-700">FAQ</h3>
+          <div class="toolbar">
+            <button id="copyFAQApproved" class="btn" title="Copiar FAQ aprovada"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+          </div>
+        </div>
+        <div id="faqList" class="mt-2 grid gap-2"></div>
+      </div>
+
+      <!-- Cards -->
+      <div class="mt-6">
+        <h3 class="font-medium text-gray-700">Cards</h3>
+        <div id="cardsList" class="mt-2 grid gap-3"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Prompt -->
+  <div id="promptModal" class="modal">
+    <div class="modal-card card p-5">
+      <h3 id="promptTitle" class="text-lg font-semibold text-gray-800">Instruções adicionais</h3>
+      <textarea id="promptText" rows="6" class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Descreva o que ajustar, corrigir ou detalhar..."></textarea>
+      <div class="mt-3 flex justify-end gap-2">
+        <button id="promptCancel" class="btn">Cancelar</button>
+        <button id="promptOk" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Config -->
+  <div id="configModal" class="modal">
+    <div class="modal-card card p-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-800">Configurações</h3>
+        <button id="cfgClose" class="btn" title="Fechar">Fechar</button>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4 mt-3">
+        <div>
+          <label class="text-sm text-gray-700 font-medium">OpenAI API Key</label>
+          <input id="cfgOpenAI" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="text-sm text-gray-700 font-medium">OpenAI Base URL (opcional)</label>
+          <input id="cfgOpenAIBase" type="text" placeholder="https://api.openai.com/v1" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="text-sm text-gray-700 font-medium">Gemini API Key</label>
+          <input id="cfgGemini" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="text-sm text-gray-700 font-medium">Gemini Base URL (opcional)</label>
+          <input id="cfgGeminiBase" type="text" placeholder="https://generativelanguage.googleapis.com" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="text-sm text-gray-700 font-medium">RuleSets (JSON por marketplace)</label>
+        <textarea id="cfgRules" rows="8" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder='{"mercadolivre":{"title_max_chars":60}}'></textarea>
+      </div>
+
+      <div class="mt-4">
+        <label class="text-sm text-gray-700 font-medium">Prompt Template</label>
+        <textarea id="cfgPromptTpl" rows="12" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+          placeholder='Use {product}, {marketplace} e {specs}. As demais chaves {{ }} do JSON podem ficar sem escape.'></textarea>
+      </div>
+
+      <div class="mt-4 flex justify-end gap-2">
+        <button id="cfgCancel" class="btn">Cancelar</button>
+        <button id="cfgSave" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function $(q){ return document.querySelector(q); }
+    const LS_KEY = "adsgen_settings_v2";
+    const LS_STATE = "adsgen_state_v3";
+    const LS_TTS_RATE = "adsgen_tts_rate";
+
+    const productName = $("#productName"), marketplace=$("#marketplace"), llm=$("#llm");
+    const btnGenerate=$("#btnGenerate");
+    const outTitle=$("#outTitle"), outDesc=$("#outDesc");
+    const faqList=$("#faqList"), cardsList=$("#cardsList");
+    const statusArea=$("#statusArea"), statusText=$("#statusText"), loader=$("#loader");
+    const demoWarn=$("#demoWarn"), demoText=$("#demoText");
+
+    const titlePrev=$("#titlePrev"), titleNext=$("#titleNext"), titleCount=$("#titleCount");
+    const descPrev=$("#descPrev"), descNext=$("#descNext"), descCount=$("#descCount");
+
+    // Prompt Modal
+    const promptModal=$("#promptModal"); const promptTitleEl=$("#promptTitle"); const promptTextEl=$("#promptText");
+    const promptOk=$("#promptOk"); const promptCancel=$("#promptCancel"); let promptResolve=null;
+    function openPrompt(title){ promptTitleEl.textContent=title||"Instruções adicionais"; promptTextEl.value=""; promptModal.classList.add("open"); return new Promise(res=>{promptResolve=res}); }
+    promptCancel.addEventListener("click", ()=>{ promptModal.classList.remove("open"); if(promptResolve) promptResolve(null); });
+    promptOk.addEventListener("click", ()=>{ promptModal.classList.remove("open"); if(promptResolve) promptResolve(promptTextEl.value); });
+
+    // Config Modal
+    const cfgModal = $("#configModal"); const btnConfig = $("#btnConfig");
+    const cfgOpenAI=$("#cfgOpenAI"), cfgOpenAIBase=$("#cfgOpenAIBase");
+    const cfgGemini=$("#cfgGemini"), cfgGeminiBase=$("#cfgGeminiBase");
+    const cfgRules=$("#cfgRules"), cfgPromptTpl=$("#cfgPromptTpl");
+    const cfgSave=$("#cfgSave"), cfgCancel=$("#cfgCancel"), cfgClose=$("#cfgClose");
+
+    const DEFAULT_PROMPT_TEMPLATE =
+`Produto: "{product}"
+Marketplace: {marketplace}
+Especificações agregadas (parciais e possivelmente ruidosas): {specs}
+
+Tarefas:
+1) TÍTULO (apenas texto, 1 linha) — incluir marca, atributo-chave e variante quando relevante.
+2) DESCRIÇÃO (sem emojis; clara, escaneável; 3-6 bullets iniciais + 3-5 parágrafos).
+3) FAQ (10 pares Q->A) – foque objeções reais, uso, compatibilidades, garantia, manutenção, devolução.
+4) CARDS (11 itens) – para imagens 1200x1200: cada item = { "title": "...", "text": "..." } curto e direto.
+
+Restrições:
+- Sem “frete grátis”, “brinde”, “promoção” ou equivalentes.
+- Não use emojis. Escreva em português do Brasil.
+- Adapte o tom ao marketplace especificado.
+- Responda em JSON com as chaves: title, description, faq (array de objetos {q,a}), cards (array de objetos {title,text}).
+`;
+
+    btnConfig.addEventListener("click", ()=> {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
+      cfgOpenAI.value = saved.openai || "";
+      cfgOpenAIBase.value = saved.openai_base || "";
+      cfgGemini.value = saved.gemini || "";
+      cfgGeminiBase.value = saved.gemini_base || "";
+      cfgRules.value = saved.rules ? JSON.stringify(saved.rules, null, 2) : "";
+      cfgPromptTpl.value = saved.prompt_template || DEFAULT_PROMPT_TEMPLATE;
+      cfgModal.classList.add("open");
+    });
+    function closeCfg(){ cfgModal.classList.remove("open"); }
+    cfgCancel.addEventListener("click", closeCfg);
+    cfgClose.addEventListener("click", closeCfg);
+    cfgSave.addEventListener("click", ()=> {
+      let rules = {};
+      if (cfgRules.value.trim()) {
+        try { rules = JSON.parse(cfgRules.value); } catch(e){ alert("RuleSets inválido (JSON). Corrija e tente novamente."); return; }
+      }
+      const payload = {
+        openai: cfgOpenAI.value.trim(),
+        openai_base: cfgOpenAIBase.value.trim(),
+        gemini: cfgGemini.value.trim(),
+        gemini_base: cfgGeminiBase.value.trim(),
+        rules,
+        prompt_template: cfgPromptTpl.value
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
+      closeCfg();
+    });
+
+    // -------- Estado / Histórico --------
+    const history = { title:[], titleIdx:-1, description:[], descIdx:-1, faq:[], cards:[], cardLines:[] };
+    function persistState(){ localStorage.setItem(LS_STATE, JSON.stringify(history)); }
+    function restoreState(){
+      try{
+        const st = JSON.parse(localStorage.getItem(LS_STATE)||"null");
+        if(!st) return;
+        Object.assign(history, st);
+        if(history.titleIdx>=0) outTitle.value = history.title[history.titleIdx];
+        if(history.descIdx>=0) outDesc.value = history.description[history.descIdx];
+        renderFAQFromState(); renderCardsFromState(); updateVersionControls(); rebuildPlaylist();
+      }catch(e){}
+    }
+    function pushHistory(key, value){
+      if(key==="title"){
+        history.title = history.title.slice(0, history.titleIdx+1);
+        history.title.push(value); history.titleIdx = history.title.length-1; outTitle.value=value;
+      }else if(key==="description"){
+        history.description = history.description.slice(0, history.descIdx+1);
+        history.description.push(value); history.descIdx = history.description.length-1; outDesc.value=value;
+      }
+      persistState(); updateVersionControls(); rebuildPlaylist();
+    }
+    function navHistory(key, dir){
+      if(key==="title"){
+        const next = history.titleIdx + dir;
+        if(next>=0 && next<history.title.length){ history.titleIdx=next; outTitle.value=history.title[next]; }
+      }else if(key==="description"){
+        const next = history.descIdx + dir;
+        if(next>=0 && next<history.description.length){ history.descIdx=next; outDesc.value=history.description[next]; }
+      }
+      persistState(); updateVersionControls(); rebuildPlaylist();
+    }
+    function updateVersionControls(){
+      const tCount = history.title.length, tIdx = history.titleIdx;
+      const dCount = history.description.length, dIdx = history.descIdx;
+      titlePrev.classList.toggle("hidden", !(tCount>1 && tIdx>0));
+      titleNext.classList.toggle("hidden", !(tCount>1 && tIdx<tCount-1));
+      titleCount.classList.toggle("hidden", !(tCount>1));
+      if(tCount>1) titleCount.textContent = `${tIdx+1}/${tCount}`;
+      descPrev.classList.toggle("hidden", !(dCount>1 && dIdx>0));
+      descNext.classList.toggle("hidden", !(dCount>1 && dIdx<dCount-1));
+      descCount.classList.toggle("hidden", !(dCount>1));
+      if(dCount>1) descCount.textContent = `${dIdx+1}/${dCount}`;
+    }
+
+    // -------- FAQ --------
+    function renderFAQ(items){
+      history.faq = (items||[]).map(x=>({ approved:true, versions:[{q:x.q,a:x.a}], vIdx:0 }));
+      renderFAQFromState();
+    }
+    function renderFAQFromState(){
+      faqList.innerHTML = "";
+      history.faq.forEach((line, idx)=>{
+        const cur = line.versions[line.vIdx];
+        const el = document.createElement("div");
+        el.className = "relative rounded-md p-3 text-sm bg-white border " + (line.approved ? "border-gray-200" : "border-red-400");
+        el.innerHTML = `
+          <div class="label-row mb-1">
+            <div class="toolbar">
+              <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx>0?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+              <span class="muted" data-role="count" ${line.versions.length>1?"":"style='display:none'"}>${line.vIdx+1}/${line.versions.length}</span>
+              <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx<line.versions.length-1)?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="prompt" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="approve" title="Aprovar/Recusar"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14" stroke-width="1.5"/></svg></button>
+            </div>
+            <div class="floating-right">
+              <button class="btn" data-action="copy" title="Copiar item"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+            </div>
+          </div>
+          <div class="font-medium text-gray-800">P: <span class="q"></span></div>
+          <div class="text-gray-700 mt-1">R: <span class="a"></span></div>
+        `;
+        const qEl = el.querySelector(".q"), aEl = el.querySelector(".a");
+        qEl.textContent = cur.q; aEl.textContent = cur.a;
+
+        function setProcessing(on){
+          if(on){ qEl.parentElement.classList.add("pulse"); aEl.parentElement.classList.add("pulse"); }
+          else{ qEl.parentElement.classList.remove("pulse"); aEl.parentElement.classList.remove("pulse"); }
+        }
+
+        const prevBtn = el.querySelector('[data-action="prev"]');
+        if(prevBtn) prevBtn.addEventListener("click", ()=>{ if(line.vIdx>0){ line.vIdx--; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
+        const nextBtn = el.querySelector('[data-action="next"]');
+        if(nextBtn) nextBtn.addEventListener("click", ()=>{ if(line.vIdx<line.versions.length-1){ line.vIdx++; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
+
+        el.querySelector('[data-action="copy"]').addEventListener("click", ()=> {
+          navigator.clipboard.writeText(`P: ${cur.q}\nR: ${cur.a}`);
+        });
+        el.querySelector('[data-action="approve"]').addEventListener("click", ()=> {
+          line.approved = !line.approved;
+          el.className = "relative rounded-md p-3 text-sm bg-white border " + (line.approved ? "border-gray-200" : "border-red-400");
+          persistState(); rebuildPlaylist();
+        });
+        el.querySelector('[data-action="regen"]').addEventListener("click", async ()=>{ setProcessing(true); await regenFAQ(idx); setProcessing(false); });
+        el.querySelector('[data-action="prompt"]').addEventListener("click", async ()=>{ const txt = await openPrompt("Instruções para regerar esta FAQ:"); if(txt!==null){ setProcessing(true); await regenFAQ(idx, txt); setProcessing(false); } });
+
+        faqList.appendChild(el);
+      });
+      persistState(); rebuildPlaylist();
+    }
+
+    // -------- Cards --------
+    function renderCards(items){
+      history.cardLines = (items||[]).map(x=>({ versions:[{title:x.title||"", text:x.text||""}], vIdx:0 }));
+      buildCurrentCards(); renderCardsFromState();
+    }
+    function buildCurrentCards(){ history.cards = history.cardLines.map(l => l.versions[l.vIdx]); }
+    function renderCardsFromState(){
+      cardsList.innerHTML = "";
+      history.cardLines.forEach((line, idx)=>{
+        const cur = line.versions[line.vIdx];
+        const el = document.createElement("div");
+        el.className = "relative border border-gray-200 rounded-md p-3 text-sm bg-white";
+        el.innerHTML = `
+          <div class="label-row mb-1">
+            <div class="toolbar">
+              <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx>0?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+              <span class="muted" data-role="count" ${line.versions.length>1?"":"style='display:none'"}>${line.vIdx+1}/${line.versions.length}</span>
+              <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx<line.versions.length-1)?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.657-5.657L20 4v6h-6l2.343-2.343A6 6 0 106 12" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="prompt" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
+            </div>
+            <div class="floating-right"></div>
+          </div>
+          <div class="font-medium text-gray-800 flex items-center justify-between">
+            <span><b>Título:</b> <span class="ctitle"></span></span>
+            <button class="btn" data-action="copyTitle" title="Copiar título"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+          </div>
+          <div class="text-gray-700 flex items-center justify-between mt-1">
+            <span><b>Texto:</b> <span class="ctext"></span></span>
+            <button class="btn" data-action="copyText" title="Copiar texto"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+          </div>
+        `;
+        const tEl = el.querySelector(".ctitle"), xEl = el.querySelector(".ctext");
+        tEl.textContent = cur.title; xEl.textContent = cur.text;
+
+        function setProcessing(on){
+          if(on){ tEl.parentElement.classList.add("pulse"); xEl.parentElement.classList.add("pulse"); }
+          else { tEl.parentElement.classList.remove("pulse"); xEl.parentElement.classList.remove("pulse"); }
+        }
+
+        const prevBtn = el.querySelector('[data-action="prev"]');
+        if(prevBtn) prevBtn.addEventListener("click", ()=>{ if(line.vIdx>0){ line.vIdx--; buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist(); } });
+        const nextBtn = el.querySelector('[data-action="next"]');
+        if(nextBtn) nextBtn.addEventListener("click", ()=>{ if(line.vIdx<line.versions.length-1){ line.vIdx++; buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist(); } });
+        el.querySelector('[data-action="regen"]').addEventListener("click", async ()=>{ setProcessing(true); await regenCard(idx); setProcessing(false); });
+        el.querySelector('[data-action="prompt"]').addEventListener("click", async ()=>{ const txt = await openPrompt("Instruções para regerar este card:"); if(txt!==null){ setProcessing(true); await regenCard(idx, txt); setProcessing(false); } });
+
+        el.querySelector('[data-action="copyTitle"]').addEventListener("click", ()=> navigator.clipboard.writeText(cur.title||""));
+        el.querySelector('[data-action="copyText"]').addEventListener("click", ()=> navigator.clipboard.writeText(cur.text||""));
+
+        cardsList.appendChild(el);
+      });
+    }
+
+    // -------- TTS / Playlist --------
+    let playlist = []; let curIdx = -1; let autoplay = true; let rate = parseFloat(localStorage.getItem(LS_TTS_RATE) || "1") || 1;
+    const ttsNow = $("#ttsNow"); const ttsAuto = $("#ttsAuto"); const ttsRateBtn = $("#ttsRate");
+    ttsRateBtn.textContent = rate+"x";
+
+    function rebuildPlaylist(){
+      playlist = [];
+      if(outTitle.value.trim()) playlist.push({label:"Título", text: outTitle.value.trim()});
+      if(outDesc.value.trim()) playlist.push({label:"Descrição", text: outDesc.value.trim()});
+      history.faq.filter(f=>f.approved).forEach((f,i)=>{
+        const cur = f.versions[f.vIdx]; playlist.push({label:`FAQ ${i+1}`, text:`Pergunta: ${cur.q}. Resposta: ${cur.a}.`});
+      });
+      (history.cards||[]).forEach((c,i)=> playlist.push({label:`Card ${i+1}`, text:`${c.title}. ${c.text}`}));
+      if(curIdx >= playlist.length) curIdx = playlist.length - 1;
+      if(curIdx === -1 && playlist.length) curIdx = 0;
+    }
+    function speakCurrent(){
+      if(curIdx < 0 || curIdx >= playlist.length) return;
+      const part = playlist[curIdx];
+      ttsNow.textContent = `Lendo: ${part.label} (${rate}x)`;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(part.text);
+      utter.lang = "pt-BR"; utter.rate = rate;
+      utter.onend = ()=> { if(autoplay && curIdx < playlist.length-1){ curIdx++; speakCurrent(); } };
+      window.speechSynthesis.speak(utter);
+    }
+    $("#ttsPlay").addEventListener("click", ()=> { if(curIdx<0 && playlist.length){curIdx=0;} autoplay = true; ttsAuto.textContent="Autoplay ON"; speakCurrent(); });
+    $("#ttsPrev").addEventListener("click", ()=> { if(curIdx>0){ curIdx--; speakCurrent(); } });
+    $("#ttsNext").addEventListener("click", ()=> { if(curIdx<playlist.length-1){ curIdx++; speakCurrent(); } });
+    $("#ttsPause").addEventListener("click", ()=> { autoplay=false; ttsAuto.textContent="Autoplay OFF"; window.speechSynthesis.pause(); });
+    $("#ttsStop").addEventListener("click", ()=> { autoplay=false; ttsAuto.textContent="Autoplay OFF"; window.speechSynthesis.cancel(); ttsNow.textContent=""; });
+    ttsRateBtn.addEventListener("click", ()=> {
+      let next = 1;
+      if(rate===1) next=1.5; else if(rate===1.5) next=2; else next=1;
+      rate = next; localStorage.setItem(LS_TTS_RATE, String(rate));
+      ttsRateBtn.textContent = rate+"x";
+      if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); speakCurrent(); }
+    });
+
+    // -------- Regenerações (backend) --------
+    async function regenTitle(withPrompt=false){
+      outTitle.classList.add("pulse");
+      let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+      let promptText = "";
+      if(withPrompt){ const txt = await openPrompt("Instruções para regerar o título:"); if(txt===null){ outTitle.classList.remove("pulse"); return; } promptText = txt; }
+      const body = {
+        product_name: productName.value.trim(),
+        marketplace: marketplace.value,
+        field: "title",
+        prompt: promptText,
+        context: { previous: outTitle.value },
+        options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      };
+      try {
+        const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+        const data = await r.json();
+        if(data.title && data.title !== outTitle.value){ pushHistory("title", data.title); }
+      } finally { outTitle.classList.remove("pulse"); }
+    }
+    async function regenDesc(withPrompt=false){
+      outDesc.classList.add("pulse");
+      let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+      let promptText = "";
+      if(withPrompt){ const txt = await openPrompt("Instruções para regerar a descrição:"); if(txt===null){ outDesc.classList.remove("pulse"); return; } promptText = txt; }
+      const body = {
+        product_name: productName.value.trim(),
+        marketplace: marketplace.value,
+        field: "description",
+        prompt: promptText,
+        context: { previous: outDesc.value },
+        options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      };
+      try {
+        const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+        const data = await r.json();
+        if(data.description && data.description !== outDesc.value){ pushHistory("description", data.description); }
+      } finally { outDesc.classList.remove("pulse"); }
+    }
+    async function regenFAQ(index, promptText=""){
+      let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+      const body = {
+        product_name: productName.value.trim(),
+        marketplace: marketplace.value,
+        field: "faq_item",
+        index,
+        prompt: promptText,
+        context: { previous: history.faq[index].versions[history.faq[index].vIdx] },
+        options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      };
+      const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+      const data = await r.json();
+      const item = (data.faq && data.faq[0]) ? data.faq[0] : null;
+      if(item){
+        const line = history.faq[index];
+        const curt = line.versions[line.vIdx];
+        if(item.q!==curt.q || item.a!==curt.a){
+          line.versions = line.versions.slice(0, line.vIdx+1);
+          line.versions.push({q:item.q||curt.q, a:item.a||curt.a});
+          line.vIdx = line.versions.length-1;
+          renderFAQFromState();
+        }
+      }
+    }
+    async function regenCard(index, promptText=""){
+      let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+      const body = {
+        product_name: productName.value.trim(),
+        marketplace: marketplace.value,
+        field: "card",
+        index,
+        prompt: promptText,
+        context: { previous: history.cardLines[index].versions[history.cardLines[index].vIdx] },
+        options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      };
+      const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+      const data = await r.json();
+      const item = (data.cards && data.cards[0]) ? data.cards[0] : null;
+      if(item){
+        const line = history.cardLines[index];
+        const cur = line.versions[line.vIdx];
+        if(item.title!==cur.title || item.text!==cur.text){
+          line.versions = line.versions.slice(0, line.vIdx+1);
+          line.versions.push({title:item.title||cur.title, text:item.text||cur.text});
+          line.vIdx = line.versions.length-1;
+          buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
+        }
+      }
+    }
+
+    // Copiar
+    $("#copyAll").addEventListener("click", ()=> {
+      const approvedFAQ = history.faq.filter(f=>f.approved).map(f => {
+        const cur = f.versions[f.vIdx]; return `P: ${cur.q}\nR: ${cur.a}`;
+      }).join("\n\n");
+      const cardsTxt = (history.cards||[]).map(c => `• ${c.title}: ${c.text}`).join("\n");
+      const text = ["Título:", outTitle.value, "", "Descrição:", outDesc.value, "", "Cards:", cardsTxt, "", "Perguntas frequentes:", approvedFAQ].join("\n");
+      navigator.clipboard.writeText(text);
+    });
+    $("#copyTitle").addEventListener("click", ()=> navigator.clipboard.writeText(outTitle.value));
+    $("#copyDesc").addEventListener("click", ()=> {
+      const approved = history.faq.filter(f=>f.approved).map(f=> f.versions[f.vIdx] );
+      const lines = [outDesc.value];
+      if(approved.length){ lines.push("", "Perguntas frequentes"); approved.forEach(x=>{ lines.push(`P: ${x.q}`); lines.push(`R: ${x.a}`); lines.push(""); }); }
+      navigator.clipboard.writeText(lines.join("\n"));
+    });
+    $("#copyDescNoFAQ").addEventListener("click", ()=> navigator.clipboard.writeText(outDesc.value || ""));
+    $("#copyFAQApproved").addEventListener("click", ()=> {
+      const faqApproved = history.faq.filter(f=>f.approved).map(f => {
+        const cur = f.versions[f.vIdx]; return `P: ${cur.q}\nR: ${cur.a}`;
+      }).join("\n\n");
+      navigator.clipboard.writeText(faqApproved);
+    });
+
+    // Geração principal
+    async function generate(){
+      statusArea.classList.remove("hidden"); loader.style.display="inline-block"; statusText.textContent="Gerando…";
+      demoWarn.classList.add("hidden");
+      let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+      const req = {
+        product_name: productName.value.trim(),
+        marketplace: marketplace.value,
+        options: {
+          llm: llm.value,
+          openai_api_key: (saved.openai || "").trim(),
+          openai_base_url: (saved.openai_base || "").trim(),
+          gemini_api_key: (saved.gemini || "").trim(),
+          gemini_base_url: (saved.gemini_base || "").trim(),
+          rules: saved.rules || {},
+          prompt_template: saved.prompt_template || DEFAULT_PROMPT_TEMPLATE
+        }
+      };
+      try{
+        const r = await fetch("/api/generate", {method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(req)});
+        const data = await r.json();
+        pushHistory("title", data.title || "");
+        pushHistory("description", data.description || "");
+        renderFAQ(data.faq || []); renderCards(data.cards || []);
+        if(data?.sources_used?.mock){
+          demoWarn.classList.remove("hidden");
+          demoText.textContent = data?.sources_used?.message || "Modo demonstração: cadastre uma chave.";
+        }
+      } catch(err){
+        alert("Erro ao gerar: " + (err?.message || String(err)));
+      } finally{
+        loader.style.display="none"; setTimeout(()=> statusArea.classList.add("hidden"), 800);
+      }
+    }
+
+    // Listeners principais
+    $("#btnGenerate").addEventListener("click", generate);
+    $("#regenTitle").addEventListener("click", ()=> regenTitle(false));
+    $("#regenTitlePrompt").addEventListener("click", ()=> regenTitle(true));
+    $("#regenDesc").addEventListener("click", ()=> regenDesc(false));
+    $("#regenDescPrompt").addEventListener("click", ()=> regenDesc(true));
+    titlePrev.addEventListener("click", ()=> navHistory("title",-1));
+    titleNext.addEventListener("click", ()=> navHistory("title",+1));
+    descPrev.addEventListener("click", ()=> navHistory("description",-1));
+    descNext.addEventListener("click", ()=> navHistory("description",+1));
+
+    restoreState();
+  </script>
+</body>
+</html>
