@@ -28,11 +28,13 @@
     .toolbar .grow { flex:1 1 auto; }
     .floating-right { margin-left:auto; display:flex; gap:.5rem; }
     .label-row { display:flex; align-items:center; justify-content:space-between; }
-    .floating-tts { position:fixed; bottom:1.5rem; right:1.5rem; background:white; border:1px solid #e5e7eb; border-radius:1rem; box-shadow:0 10px 25px rgba(0,0,0,.15); padding:1rem; z-index:40; display:none; max-width:90vw; }
-    .floating-tts.show { display:block; animation: slideUp 0.3s ease-out; }
-    @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    .floating-tts { position:fixed; top:1rem; left:50%; transform:translateX(-50%); background:white; border:1px solid #e5e7eb; border-radius:1rem; box-shadow:0 4px 12px rgba(0,0,0,.1); padding:1rem; z-index:40; display:none; max-width:90vw; }
+    .floating-tts.show { display:block; animation: slideDown 0.3s ease-out; }
+    @keyframes slideDown { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
     .floating-tts .controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .floating-tts .label { font-size:.75rem; font-weight:600; color:#6b7280; margin-right:.5rem; }
+    .tts-active { background:#4f46e5 !important; color:white !important; }
+    .tts-active svg { stroke:white !important; }
   </style>
 </head>
 <body class="min-h-screen">
