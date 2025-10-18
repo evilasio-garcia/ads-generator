@@ -73,6 +73,22 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
+### October 18, 2025 - UI Enhancements and Visual Feedback
+- **Icon Updates:**
+  - Changed all regenerate buttons to use sparkles (✨) icon instead of circular arrow
+  - Swapped copy description icons: filled for "with FAQ", outline for "without FAQ"
+  - Updated FAQ approval icon: check-circle when enabled, x-circle when disabled
+  
+- **Card Copy Tracking:**
+  - Added visual feedback for card copy buttons (outline → filled when clicked)
+  - Cards show yellow border when 1 item copied, green border when both copied
+  - Copy state resets when navigating between versions or regenerating
+  
+- **TTS Improvements:**
+  - Floating TTS controls remain at top when scrolling
+  - Active Play/Pause buttons show blue background with white icon
+  - Fixed pause/resume to maintain position instead of restarting
+
 ### October 18, 2025 - Replit Environment Setup
 - Installed Python 3.11 and all required dependencies
 - Updated app.py to bind to 0.0.0.0:5000 for Replit compatibility

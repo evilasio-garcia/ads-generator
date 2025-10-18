@@ -415,7 +415,12 @@ Restrições:
               <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx<line.versions.length-1)?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
               <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
               <button class="btn" data-action="prompt" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
-              <button class="btn" data-action="approve" title="Aprovar/Recusar"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14" stroke-width="1.5"/></svg></button>
+              <button class="btn" data-action="approve" title="${line.approved ? 'Desabilitar FAQ' : 'Habilitar FAQ'}">
+                ${line.approved 
+                  ? '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path d="M8 12l3 3 5-6" stroke-width="1.5"/></svg>'
+                  : '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke-width="1.5"/></svg>'
+                }
+              </button>
             </div>
             <div class="floating-right">
               <button class="btn" data-action="copy" title="Copiar item"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
@@ -455,7 +460,7 @@ Restrições:
 
     // -------- Cards --------
     function renderCards(items){
-      history.cardLines = (items||[]).map(x=>({ versions:[{title:x.title||"", text:x.text||""}], vIdx:0 }));
+      history.cardLines = (items||[]).map(x=>({ versions:[{title:x.title||"", text:x.text||""}], vIdx:0, copiedTitle: false, copiedText: false }));
       buildCurrentCards(); renderCardsFromState();
     }
     function buildCurrentCards(){ history.cards = history.cardLines.map(l => l.versions[l.vIdx]); }
@@ -464,7 +469,14 @@ Restrições:
       history.cardLines.forEach((line, idx)=>{
         const cur = line.versions[line.vIdx];
         const el = document.createElement("div");
-        el.className = "relative border border-gray-200 rounded-md p-3 text-sm bg-white";
+        
+        // Determinar cor da borda baseado no estado de cópia
+        let borderClass = "border-gray-200";
+        const copiedCount = (line.copiedTitle ? 1 : 0) + (line.copiedText ? 1 : 0);
+        if (copiedCount === 1) borderClass = "border-yellow-400";
+        else if (copiedCount === 2) borderClass = "border-green-400";
+        
+        el.className = `relative border ${borderClass} rounded-md p-3 text-sm bg-white`;
         el.innerHTML = `
           <div class="label-row mb-1">
             <div class="toolbar">
@@ -478,11 +490,21 @@ Restrições:
           </div>
           <div class="font-medium text-gray-800 flex items-center justify-between">
             <span><b>Título:</b> <span class="ctitle"></span></span>
-            <button class="btn" data-action="copyTitle" title="Copiar título"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+            <button class="btn" data-action="copyTitle" title="Copiar título">
+              ${line.copiedTitle 
+                ? '<svg class="icon-fill" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M4 4h11v11H4z"/></svg>'
+                : '<svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>'
+              }
+            </button>
           </div>
           <div class="text-gray-700 flex items-center justify-between mt-1">
             <span><b>Texto:</b> <span class="ctext"></span></span>
-            <button class="btn" data-action="copyText" title="Copiar texto"><svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg></button>
+            <button class="btn" data-action="copyText" title="Copiar texto">
+              ${line.copiedText
+                ? '<svg class="icon-fill" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M4 4h11v11H4z"/></svg>'
+                : '<svg class="icon" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>'
+              }
+            </button>
           </div>
         `;
         const tEl = el.querySelector(".ctitle"), xEl = el.querySelector(".ctext");
@@ -494,14 +516,38 @@ Restrições:
         }
 
         const prevBtn = el.querySelector('[data-action="prev"]');
-        if(prevBtn) prevBtn.addEventListener("click", ()=>{ if(line.vIdx>0){ line.vIdx--; buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist(); } });
+        if(prevBtn) prevBtn.addEventListener("click", ()=>{ 
+          if(line.vIdx>0){ 
+            line.vIdx--; 
+            line.copiedTitle = false;
+            line.copiedText = false;
+            buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist(); 
+          } 
+        });
         const nextBtn = el.querySelector('[data-action="next"]');
-        if(nextBtn) nextBtn.addEventListener("click", ()=>{ if(line.vIdx<line.versions.length-1){ line.vIdx++; buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist(); } });
+        if(nextBtn) nextBtn.addEventListener("click", ()=>{ 
+          if(line.vIdx<line.versions.length-1){ 
+            line.vIdx++; 
+            line.copiedTitle = false;
+            line.copiedText = false;
+            buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist(); 
+          } 
+        });
         el.querySelector('[data-action="regen"]').addEventListener("click", async ()=>{ setProcessing(true); await regenCard(idx); setProcessing(false); });
         el.querySelector('[data-action="prompt"]').addEventListener("click", async ()=>{ const txt = await openPrompt("Instruções para regerar este card:"); if(txt!==null){ setProcessing(true); await regenCard(idx, txt); setProcessing(false); } });
 
-        el.querySelector('[data-action="copyTitle"]').addEventListener("click", ()=> navigator.clipboard.writeText(cur.title||""));
-        el.querySelector('[data-action="copyText"]').addEventListener("click", ()=> navigator.clipboard.writeText(cur.text||""));
+        el.querySelector('[data-action="copyTitle"]').addEventListener("click", ()=> {
+          navigator.clipboard.writeText(cur.title||"");
+          line.copiedTitle = true;
+          renderCardsFromState();
+          persistState();
+        });
+        el.querySelector('[data-action="copyText"]').addEventListener("click", ()=> {
+          navigator.clipboard.writeText(cur.text||"");
+          line.copiedText = true;
+          renderCardsFromState();
+          persistState();
+        });
 
         cardsList.appendChild(el);
       });
@@ -681,6 +727,9 @@ Restrições:
           line.versions = line.versions.slice(0, line.vIdx+1);
           line.versions.push({title:item.title||cur.title, text:item.text||cur.text});
           line.vIdx = line.versions.length-1;
+          // Reset copy state when regenerating
+          line.copiedTitle = false;
+          line.copiedText = false;
           buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
         }
       }
