@@ -531,14 +531,52 @@ Restrições:
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(part.text);
       utter.lang = "pt-BR"; utter.rate = rate;
-      utter.onend = ()=> { if(autoplay && curIdx < playlist.length-1){ curIdx++; speakCurrent(); } };
+      utter.onend = ()=> { 
+        if(autoplay && curIdx < playlist.length-1){ 
+          curIdx++; 
+          speakCurrent(); 
+        } else {
+          $("#ttsPlay").classList.remove("tts-active");
+          ttsPlayFloat.classList.remove("tts-active");
+        }
+      };
+      $("#ttsPlay").classList.add("tts-active");
+      ttsPlayFloat.classList.add("tts-active");
+      $("#ttsPause").classList.remove("tts-active");
+      ttsPauseFloat.classList.remove("tts-active");
       window.speechSynthesis.speak(utter);
     }
-    $("#ttsPlay").addEventListener("click", ()=> { if(curIdx<0 && playlist.length){curIdx=0;} autoplay = true; ttsAuto.textContent="Autoplay ON"; speakCurrent(); });
+    $("#ttsPlay").addEventListener("click", ()=> { 
+      if(curIdx<0 && playlist.length){curIdx=0;} 
+      autoplay = true; 
+      ttsAuto.textContent="Autoplay ON"; 
+      $("#ttsPlay").classList.add("tts-active");
+      ttsPlayFloat.classList.add("tts-active");
+      $("#ttsPause").classList.remove("tts-active");
+      ttsPauseFloat.classList.remove("tts-active");
+      speakCurrent(); 
+    });
     $("#ttsPrev").addEventListener("click", ()=> { if(curIdx>0){ curIdx--; speakCurrent(); } });
     $("#ttsNext").addEventListener("click", ()=> { if(curIdx<playlist.length-1){ curIdx++; speakCurrent(); } });
-    $("#ttsPause").addEventListener("click", ()=> { autoplay=false; ttsAuto.textContent="Autoplay OFF"; window.speechSynthesis.pause(); });
-    $("#ttsStop").addEventListener("click", ()=> { autoplay=false; ttsAuto.textContent="Autoplay OFF"; window.speechSynthesis.cancel(); ttsNow.textContent=""; });
+    $("#ttsPause").addEventListener("click", ()=> { 
+      autoplay=false; 
+      ttsAuto.textContent="Autoplay OFF"; 
+      $("#ttsPause").classList.add("tts-active");
+      ttsPauseFloat.classList.add("tts-active");
+      $("#ttsPlay").classList.remove("tts-active");
+      ttsPlayFloat.classList.remove("tts-active");
+      window.speechSynthesis.pause(); 
+    });
+    $("#ttsStop").addEventListener("click", ()=> { 
+      autoplay=false; 
+      ttsAuto.textContent="Autoplay OFF"; 
+      $("#ttsPlay").classList.remove("tts-active");
+      ttsPlayFloat.classList.remove("tts-active");
+      $("#ttsPause").classList.remove("tts-active");
+      ttsPauseFloat.classList.remove("tts-active");
+      window.speechSynthesis.cancel(); 
+      ttsNow.textContent=""; 
+    });
     ttsRateBtn.addEventListener("click", ()=> {
       let next = 1;
       if(rate===1) next=1.5; else if(rate===1.5) next=2; else next=1;
