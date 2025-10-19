@@ -660,11 +660,94 @@ Restrições:
             
             // Auto-scroll do campo para mostrar a seleção
             if(part.element.tagName === "TEXTAREA"){
-              const beforeCursor = part.element.value.substring(0, wordStart);
-              const lines = beforeCursor.split('\n').length;
-              const lineHeight = parseInt(getComputedStyle(part.element).lineHeight) || 20;
-              const scrollTarget = (lines - 1) * lineHeight - part.element.clientHeight / 2;
+              // Criar elemento temporário para medir altura
+              const clone = document.createElement('div');
+              clone.style.cssText = getComputedStyle(part.element).cssText;
+              clone.style.position = 'absolute';
+              clone.style.visibility = 'hidden';
+              clone.style.height = 'auto';
+              clone.style.width = part.element.clientWidth + 'px';
+              clone.textContent = part.element.value.substring(0, wordStart);
+              document.body.appendChild(clone);
+              const heightToCursor = clone.offsetHeight;
+              document.body.removeChild(clone);
+              
+              // Scroll para centralizar palavra sendo lida
+              const scrollTarget = heightToCursor - (part.element.clientHeight / 2);
               part.element.scrollTop = Math.max(0, scrollTarget);
+            }
+          } else if(part.type === "faq" || part.type === "card"){
+            // Para FAQ e Cards, destacar a palavra no elemento de texto
+            const containerList = part.type === "faq" ? faqList : cardsList;
+            const items = containerList.querySelectorAll('.relative');
+            if(items[part.index]){
+              let targetSpan = null;
+              let localStart = wordStart;
+              let localEnd = wordEnd;
+              
+              if(part.type === "faq"){
+                const qSpan = items[part.index].querySelector('.q');
+                const aSpan = items[part.index].querySelector('.a');
+                const qPrefix = "Pergunta: ";
+                const qText = qSpan ? qSpan.textContent : "";
+                const aSeparator = ". Resposta: ";
+                const aText = aSpan ? aSpan.textContent : "";
+                
+                const qEnd = qPrefix.length + qText.length;
+                const aStart = qEnd + aSeparator.length;
+                
+                if(wordStart < qEnd){
+                  // Palavra está na pergunta
+                  targetSpan = qSpan;
+                  localStart = wordStart - qPrefix.length;
+                  localEnd = wordEnd - qPrefix.length;
+                } else if(wordStart >= aStart){
+                  // Palavra está na resposta
+                  targetSpan = aSpan;
+                  localStart = wordStart - aStart;
+                  localEnd = wordEnd - aStart;
+                }
+              } else if(part.type === "card"){
+                const titleSpan = items[part.index].querySelector('.ctitle');
+                const textSpan = items[part.index].querySelector('.ctext');
+                const titleText = titleSpan ? titleSpan.textContent : "";
+                const separator = ". ";
+                const titleEnd = titleText.length;
+                const textStart = titleEnd + separator.length;
+                
+                if(wordStart < titleEnd){
+                  // Palavra está no título
+                  targetSpan = titleSpan;
+                  localStart = wordStart;
+                  localEnd = wordEnd;
+                } else if(wordStart >= textStart){
+                  // Palavra está no texto
+                  targetSpan = textSpan;
+                  localStart = wordStart - textStart;
+                  localEnd = wordEnd - textStart;
+                }
+              }
+              
+              if(targetSpan && localStart >= 0){
+                const text = targetSpan.textContent;
+                if(localStart < text.length){
+                  // Salvar conteúdo original apenas uma vez
+                  if(currentHighlightElement !== targetSpan){
+                    if(currentHighlightElement){
+                      currentHighlightElement.innerHTML = originalContent;
+                    }
+                    originalContent = targetSpan.innerHTML;
+                    currentHighlightElement = targetSpan;
+                  }
+                  
+                  // Construir HTML com highlight
+                  const before = text.substring(0, Math.max(0, localStart));
+                  const highlighted = text.substring(Math.max(0, localStart), Math.min(text.length, localEnd));
+                  const after = text.substring(Math.min(text.length, localEnd));
+                  
+                  targetSpan.innerHTML = before + '<span class="tts-highlight">' + highlighted + '</span>' + after;
+                }
+              }
             }
           }
         }
