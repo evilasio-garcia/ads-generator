@@ -243,9 +243,14 @@ def build_field_prompt(base_prompt: str, field: str, previous: Optional[Dict[str
     elif field == "card":
         suffix += "Gere APENAS JSON com 'cards' contendo 1 objeto {title,text}. Texto curto (<= ~14 palavras)."
     if previous:
-        suffix += f"\nConsidere a versão anterior e produza variação diferente: {json.dumps(previous, ensure_ascii=False)}"
+        if user_hint:
+            # Se há prompt do usuário, deve MELHORAR e COMPLETAR com as novas informações
+            suffix += f"\nConteúdo atual a ser melhorado e completado: {json.dumps(previous, ensure_ascii=False)}"
+        else:
+            # Se não há prompt, gerar variação diferente
+            suffix += f"\nConsidere a versão anterior e produza variação diferente: {json.dumps(previous, ensure_ascii=False)}"
     if user_hint:
-        suffix += f"\nInstruções do usuário: {user_hint}"
+        suffix += f"\nInstruções do usuário (use ESTAS informações para melhorar e completar o conteúdo atual): {user_hint}"
     return base_prompt + suffix
 
 
