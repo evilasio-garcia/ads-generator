@@ -73,6 +73,18 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
+### October 19, 2025 - Text-to-Speech Word Highlighting
+- **Real-time Word Highlighting:**
+  - Words are highlighted in real-time as they're being read by TTS
+  - Uses native text selection for textarea/input fields (blue highlight)
+  - Auto-scroll within text fields to keep current word visible
+  - Auto-scroll page to keep current section visible
+  - Highlight clears automatically when Stop is pressed
+
+- **Improved Stop Button:**
+  - Stop button now resets playback to the beginning (Título)
+  - Clears all highlights and selections
+
 ### October 19, 2025 - Interface Reset on New Generation
 - **Automatic History Reset:**
   - When clicking "Gerar conteúdo", the system now resets all history and interface

@@ -35,6 +35,8 @@
     .floating-tts .label { font-size:.75rem; font-weight:600; color:#6b7280; margin-right:.5rem; }
     .tts-active { background:#4f46e5 !important; color:white !important; }
     .tts-active svg { stroke:white !important; }
+    .tts-highlight { background:#dbeafe; color:#1e40af; font-weight:600; border-radius:.25rem; padding:0 .125rem; transition:all .1s; }
+    .mono { font-family:monospace; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -587,24 +589,89 @@ Restrições:
 
     function rebuildPlaylist(){
       playlist = [];
-      if(outTitle.value.trim()) playlist.push({label:"Título", text: outTitle.value.trim()});
-      if(outDesc.value.trim()) playlist.push({label:"Descrição", text: outDesc.value.trim()});
+      if(outTitle.value.trim()) playlist.push({label:"Título", text: outTitle.value.trim(), element: outTitle, type: "field"});
+      if(outDesc.value.trim()) playlist.push({label:"Descrição", text: outDesc.value.trim(), element: outDesc, type: "field"});
       history.faq.filter(f=>f.approved).forEach((f,i)=>{
-        const cur = f.versions[f.vIdx]; playlist.push({label:`FAQ ${i+1}`, text:`Pergunta: ${cur.q}. Resposta: ${cur.a}.`});
+        const cur = f.versions[f.vIdx]; 
+        playlist.push({label:`FAQ ${i+1}`, text:`Pergunta: ${cur.q}. Resposta: ${cur.a}.`, type: "faq", index: i});
       });
-      (history.cards||[]).forEach((c,i)=> playlist.push({label:`Card ${i+1}`, text:`${c.title}. ${c.text}`}));
+      (history.cards||[]).forEach((c,i)=> playlist.push({label:`Card ${i+1}`, text:`${c.title}. ${c.text}`, type: "card", index: i}));
       if(curIdx >= playlist.length) curIdx = playlist.length - 1;
       if(curIdx === -1 && playlist.length) curIdx = 0;
     }
+    let currentHighlightElement = null;
+    let originalContent = "";
+    
+    function clearHighlight(){
+      if(currentHighlightElement){
+        if(currentHighlightElement.tagName === "TEXTAREA" || currentHighlightElement.tagName === "INPUT"){
+          // Remover seleção dos campos de texto
+          currentHighlightElement.setSelectionRange(0, 0);
+          currentHighlightElement.blur();
+        } else {
+          currentHighlightElement.innerHTML = originalContent;
+        }
+        currentHighlightElement = null;
+        originalContent = "";
+      }
+    }
+    
     function speakCurrent(){
       if(curIdx < 0 || curIdx >= playlist.length) return;
+      clearHighlight();
+      
       const part = playlist[curIdx];
       ttsNow.textContent = `Lendo: ${part.label} (${rate}x)`;
       window.speechSynthesis.cancel();
       isPaused = false;
+      
       const utter = new SpeechSynthesisUtterance(part.text);
       utter.lang = "pt-BR"; utter.rate = rate;
+      
+      // Dividir texto em palavras para highlight
+      const words = part.text.split(/(\s+)/); // Mantém os espaços
+      let currentWordIndex = 0;
+      
+      // Scroll para o elemento atual
+      if(part.element){
+        part.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        currentHighlightElement = part.element;
+      } else if(part.type === "faq"){
+        const faqElements = faqList.querySelectorAll('.relative');
+        if(faqElements[part.index]){
+          faqElements[part.index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else if(part.type === "card"){
+        const cardElements = cardsList.querySelectorAll('.relative');
+        if(cardElements[part.index]){
+          cardElements[part.index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      
+      utter.onboundary = (event) => {
+        if(event.name === 'word'){
+          const wordStart = event.charIndex;
+          const wordEnd = event.charIndex + event.charLength;
+          
+          // Aplicar highlight se for um campo de texto (usando seleção nativa)
+          if(part.element && (part.element.tagName === "TEXTAREA" || part.element.tagName === "INPUT")){
+            part.element.focus();
+            part.element.setSelectionRange(wordStart, wordEnd);
+            
+            // Auto-scroll do campo para mostrar a seleção
+            if(part.element.tagName === "TEXTAREA"){
+              const beforeCursor = part.element.value.substring(0, wordStart);
+              const lines = beforeCursor.split('\n').length;
+              const lineHeight = parseInt(getComputedStyle(part.element).lineHeight) || 20;
+              const scrollTarget = (lines - 1) * lineHeight - part.element.clientHeight / 2;
+              part.element.scrollTop = Math.max(0, scrollTarget);
+            }
+          }
+        }
+      };
+      
       utter.onend = ()=> { 
+        clearHighlight();
         if(autoplay && curIdx < playlist.length-1){ 
           curIdx++; 
           speakCurrent(); 
@@ -613,6 +680,7 @@ Restrições:
           ttsPlayFloat.classList.remove("tts-active");
         }
       };
+      
       $("#ttsPlay").classList.add("tts-active");
       ttsPlayFloat.classList.add("tts-active");
       $("#ttsPause").classList.remove("tts-active");
@@ -656,6 +724,7 @@ Restrições:
       ttsPauseFloat.classList.remove("tts-active");
       isPaused = false;
       window.speechSynthesis.cancel(); 
+      clearHighlight();
       ttsNow.textContent=""; 
       // Voltar ao início (título)
       curIdx = 0;
