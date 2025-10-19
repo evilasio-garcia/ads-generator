@@ -657,6 +657,8 @@ Restrições:
       isPaused = false;
       window.speechSynthesis.cancel(); 
       ttsNow.textContent=""; 
+      // Voltar ao início (título)
+      curIdx = 0;
     });
     ttsRateBtn.addEventListener("click", ()=> {
       let next = 1;
