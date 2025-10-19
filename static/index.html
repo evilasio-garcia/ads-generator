@@ -660,21 +660,26 @@ Restrições:
             
             // Auto-scroll do campo para mostrar a seleção
             if(part.element.tagName === "TEXTAREA"){
-              // Criar elemento temporário para medir altura
-              const clone = document.createElement('div');
-              clone.style.cssText = getComputedStyle(part.element).cssText;
-              clone.style.position = 'absolute';
-              clone.style.visibility = 'hidden';
-              clone.style.height = 'auto';
-              clone.style.width = part.element.clientWidth + 'px';
-              clone.textContent = part.element.value.substring(0, wordStart);
-              document.body.appendChild(clone);
-              const heightToCursor = clone.offsetHeight;
-              document.body.removeChild(clone);
+              // Usar scrollIntoView do cursor para garantir visibilidade
+              // Primeiro, foca no elemento
+              const beforeText = part.element.value.substring(0, wordStart);
+              const lines = beforeText.split('\n');
+              const lineNumber = lines.length;
               
-              // Scroll para centralizar palavra sendo lida
-              const scrollTarget = heightToCursor - (part.element.clientHeight / 2);
-              part.element.scrollTop = Math.max(0, scrollTarget);
+              // Estimar altura por linha
+              const computedStyle = getComputedStyle(part.element);
+              const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
+              const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+              
+              // Calcular posição do cursor
+              const cursorY = paddingTop + (lineNumber - 1) * lineHeight;
+              
+              // Ajustar scroll para centralizar a linha atual
+              const visibleHeight = part.element.clientHeight;
+              const idealScrollTop = cursorY - (visibleHeight / 2) + (lineHeight / 2);
+              
+              // Aplicar scroll suavemente
+              part.element.scrollTop = Math.max(0, idealScrollTop);
             }
           } else if(part.type === "faq" || part.type === "card"){
             // Para FAQ e Cards, destacar a palavra no elemento de texto
