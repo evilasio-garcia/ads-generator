@@ -488,7 +488,7 @@ Restrições:
     // -------- Cards --------
     function renderCards(items){
       history.cardLines = (items||[]).map(x=>({ versions:[{title:x.title||"", text:x.text||""}], vIdx:0, copiedTitle: false, copiedText: false }));
-      buildCurrentCards(); renderCardsFromState();
+      buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
     }
     function buildCurrentCards(){ history.cards = history.cardLines.map(l => l.versions[l.vIdx]); }
     function renderCardsFromState(){
