@@ -247,8 +247,9 @@ def build_field_prompt(base_prompt: str, field: str, previous: Optional[Dict[str
             # Se há prompt do usuário, deve MELHORAR e COMPLETAR com as novas informações
             suffix += f"\nConteúdo atual a ser melhorado e completado: {json.dumps(previous, ensure_ascii=False)}"
         else:
-            # Se não há prompt, gerar variação diferente
-            suffix += f"\nConsidere a versão anterior e produza variação diferente: {json.dumps(previous, ensure_ascii=False)}"
+            # Se não há prompt, gerar variação SIGNIFICATIVAMENTE diferente
+            suffix += f"\nVERSÃO ANTERIOR (NÃO repetir): {json.dumps(previous, ensure_ascii=False)}"
+            suffix += "\nGere conteúdo OBRIGATORIAMENTE DIFERENTE da versão anterior. Use palavras, estrutura e ângulo completamente novos. NUNCA repita o mesmo texto."
     if user_hint:
         suffix += f"\nInstruções do usuário (use ESTAS informações para melhorar e completar o conteúdo atual): {user_hint}"
     return base_prompt + suffix

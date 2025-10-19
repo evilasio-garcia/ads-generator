@@ -73,13 +73,23 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
-### October 19, 2025 - Fixed Regenerate with Prompt
-- **Bug Fix - Prompt Combination:**
+### October 19, 2025 - Regeneration Improvements
+- **Fixed Regenerate with Prompt:**
   - Fixed regenerate with prompt functionality for FAQ and Cards
   - Previously: System would ignore current content and just create variation
   - Now: System properly **combines** current content with new prompt information
   - Example: Adding "Peso: 41g, C:10 x L:4 x A:25cm" now enriches the existing FAQ answer instead of replacing it
   - Backend now distinguishes between: regenerate (variation) vs regenerate with prompt (improve & complete)
+
+- **Improved Automatic Regeneration:**
+  - Strengthened backend instructions to force significantly different content on regeneration
+  - Added explicit "DO NOT repeat" instructions to the AI model
+  - Now generates truly different variations instead of similar/identical content
+
+- **Version History Always Created:**
+  - FAQ and Card regenerations now ALWAYS create new version entries
+  - Even if AI returns identical content, it's tracked for transparency
+  - Navigation buttons (◀ ▶) and version counter now properly appear after regeneration
 
 ### October 19, 2025 - Text-to-Speech Word Highlighting
 - **Real-time Word Highlighting:**

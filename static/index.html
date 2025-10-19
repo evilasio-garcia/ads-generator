@@ -882,12 +882,11 @@ Restrições:
       if(item){
         const line = history.faq[index];
         const curt = line.versions[line.vIdx];
-        if(item.q!==curt.q || item.a!==curt.a){
-          line.versions = line.versions.slice(0, line.vIdx+1);
-          line.versions.push({q:item.q||curt.q, a:item.a||curt.a});
-          line.vIdx = line.versions.length-1;
-          renderFAQFromState();
-        }
+        // SEMPRE adicionar nova versão ao histórico (mesmo se for igual, para transparência)
+        line.versions = line.versions.slice(0, line.vIdx+1);
+        line.versions.push({q:item.q||curt.q, a:item.a||curt.a});
+        line.vIdx = line.versions.length-1;
+        renderFAQFromState();
       }
     }
     async function regenCard(index, promptText=""){
@@ -907,15 +906,14 @@ Restrições:
       if(item){
         const line = history.cardLines[index];
         const cur = line.versions[line.vIdx];
-        if(item.title!==cur.title || item.text!==cur.text){
-          line.versions = line.versions.slice(0, line.vIdx+1);
-          line.versions.push({title:item.title||cur.title, text:item.text||cur.text});
-          line.vIdx = line.versions.length-1;
-          // Reset copy state when regenerating
-          line.copiedTitle = false;
-          line.copiedText = false;
-          buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
-        }
+        // SEMPRE adicionar nova versão ao histórico (mesmo se for igual, para transparência)
+        line.versions = line.versions.slice(0, line.vIdx+1);
+        line.versions.push({title:item.title||cur.title, text:item.text||cur.text});
+        line.vIdx = line.versions.length-1;
+        // Reset copy state when regenerating
+        line.copiedTitle = false;
+        line.copiedText = false;
+        buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
       }
     }
 
