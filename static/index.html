@@ -363,6 +363,31 @@ Restrições:
         renderFAQFromState(); renderCardsFromState(); updateVersionControls(); rebuildPlaylist();
       }catch(e){}
     }
+    function resetHistory(){
+      // Limpar histórico
+      history.title = [];
+      history.titleIdx = -1;
+      history.description = [];
+      history.descIdx = -1;
+      history.faq = [];
+      history.cards = [];
+      history.cardLines = [];
+      
+      // Limpar interface
+      outTitle.value = "";
+      outDesc.value = "";
+      faqList.innerHTML = "";
+      cardsList.innerHTML = "";
+      
+      // Limpar controles de versão
+      updateVersionControls();
+      
+      // Limpar playlist TTS
+      rebuildPlaylist();
+      
+      // Persistir estado limpo
+      persistState();
+    }
     function pushHistory(key, value){
       if(key==="title"){
         history.title = history.title.slice(0, history.titleIdx+1);
@@ -761,6 +786,9 @@ Restrições:
 
     // Geração principal
     async function generate(){
+      // Resetar todo o histórico e interface quando gerar novo conteúdo
+      resetHistory();
+      
       statusArea.classList.remove("hidden"); loader.style.display="inline-block"; statusText.textContent="Gerando…";
       demoWarn.classList.add("hidden");
       let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}

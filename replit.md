@@ -73,6 +73,12 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
+### October 19, 2025 - Interface Reset on New Generation
+- **Automatic History Reset:**
+  - When clicking "Gerar conteúdo", the system now resets all history and interface
+  - This ensures data coherence when switching products
+  - Clears: titles, descriptions, FAQs, cards, and all version history
+
 ### October 18, 2025 - UI Enhancements and Visual Feedback
 - **Icon Updates:**
   - Changed all regenerate buttons to use sparkles (✨) icon instead of circular arrow
