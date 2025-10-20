@@ -91,6 +91,17 @@ Note: These can also be configured through the UI settings modal.
   - Even if AI returns identical content, it's tracked for transparency
   - Navigation buttons (◀ ▶) and version counter now properly appear after regeneration
 
+### October 20, 2025 - TTS Playlist Fixes
+- **Fixed FAQ Enable/Disable During Playback:**
+  - Fixed bug where disabling a FAQ during playback would cause the system to skip items
+  - Playlist now intelligently maintains the current reading position when FAQs are enabled/disabled
+  - System finds the same logical item in the rebuilt playlist instead of relying on numeric index
+
+- **Improved Description Scroll:**
+  - Fixed auto-scroll issues in long descriptions with multiple paragraphs
+  - Now uses mirror element technique to measure real text height including word-wrap
+  - Accurately handles line breaks, word wrapping, and paragraph spacing
+
 ### October 19, 2025 - Text-to-Speech Word Highlighting
 - **Real-time Word Highlighting:**
   - Words are highlighted in real-time as they're being read by TTS

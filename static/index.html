@@ -588,6 +588,9 @@ Restrições:
     ttsRateFloat.textContent = rate+"x";
 
     function rebuildPlaylist(){
+      // Salvar o item atual antes de reconstruir
+      const currentItem = (curIdx >= 0 && curIdx < playlist.length) ? playlist[curIdx] : null;
+      
       playlist = [];
       if(outTitle.value.trim()) playlist.push({label:"Título", text: outTitle.value.trim(), element: outTitle, type: "field"});
       if(outDesc.value.trim()) playlist.push({label:"Descrição", text: outDesc.value.trim(), element: outDesc, type: "field"});
@@ -596,6 +599,22 @@ Restrições:
         playlist.push({label:`FAQ ${i+1}`, text:`Pergunta: ${cur.q}. Resposta: ${cur.a}.`, type: "faq", index: i});
       });
       (history.cards||[]).forEach((c,i)=> playlist.push({label:`Card ${i+1}`, text:`${c.title}. ${c.text}`, type: "card", index: i}));
+      
+      // Tentar manter o mesmo item lógico após reconstruir
+      if(currentItem){
+        const newIdx = playlist.findIndex(item => 
+          item.label === currentItem.label && 
+          item.type === currentItem.type &&
+          item.text === currentItem.text
+        );
+        if(newIdx >= 0){
+          curIdx = newIdx; // Encontrou o mesmo item
+        } else {
+          // Item não existe mais, ajustar para o mais próximo
+          curIdx = Math.min(curIdx, playlist.length - 1);
+        }
+      }
+      
       if(curIdx >= playlist.length) curIdx = playlist.length - 1;
       if(curIdx === -1 && playlist.length) curIdx = 0;
     }
@@ -660,25 +679,38 @@ Restrições:
             
             // Auto-scroll do campo para mostrar a seleção
             if(part.element.tagName === "TEXTAREA"){
-              // Usar scrollIntoView do cursor para garantir visibilidade
-              // Primeiro, foca no elemento
-              const beforeText = part.element.value.substring(0, wordStart);
-              const lines = beforeText.split('\n');
-              const lineNumber = lines.length;
+              // Usar técnica de medição real da posição do cursor
+              const textareaStyle = getComputedStyle(part.element);
+              const lineHeight = parseFloat(textareaStyle.lineHeight) || 20;
               
-              // Estimar altura por linha
-              const computedStyle = getComputedStyle(part.element);
-              const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
-              const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+              // Criar elemento temporário para medir posição real do texto
+              const mirror = document.createElement('div');
+              mirror.style.cssText = `
+                position: absolute;
+                visibility: hidden;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                width: ${part.element.clientWidth - parseFloat(textareaStyle.paddingLeft) - parseFloat(textareaStyle.paddingRight)}px;
+                font: ${textareaStyle.font};
+                padding: ${textareaStyle.padding};
+                border: ${textareaStyle.border};
+                line-height: ${textareaStyle.lineHeight};
+              `;
               
-              // Calcular posição do cursor
-              const cursorY = paddingTop + (lineNumber - 1) * lineHeight;
+              // Adicionar texto até o cursor
+              mirror.textContent = part.element.value.substring(0, wordStart);
+              document.body.appendChild(mirror);
               
-              // Ajustar scroll para centralizar a linha atual
+              // Medir altura real
+              const cursorHeight = mirror.offsetHeight;
+              document.body.removeChild(mirror);
+              
+              // Calcular scroll ideal para centralizar
               const visibleHeight = part.element.clientHeight;
-              const idealScrollTop = cursorY - (visibleHeight / 2) + (lineHeight / 2);
+              const idealScrollTop = cursorHeight - (visibleHeight / 2) + (lineHeight / 2);
               
-              // Aplicar scroll suavemente
+              // Aplicar scroll
               part.element.scrollTop = Math.max(0, idealScrollTop);
             }
           } else if(part.type === "faq" || part.type === "card"){
