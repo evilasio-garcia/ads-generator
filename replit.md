@@ -93,9 +93,12 @@ Note: These can also be configured through the UI settings modal.
 
 ### October 20, 2025 - TTS Playlist Fixes
 - **Fixed FAQ Enable/Disable During Playback:**
-  - Fixed bug where disabling a FAQ during playback would cause the system to skip items
-  - Playlist now intelligently maintains the current reading position when FAQs are enabled/disabled
-  - System finds the same logical item in the rebuilt playlist instead of relying on numeric index
+  - Fixed critical bug where disabling a FAQ during playback would cause the system to skip items
+  - Problem: FAQ labels change when items are disabled (FAQ 2 becomes FAQ 1 if FAQ 1 is disabled)
+  - Solution: Each FAQ/Card now tracks its `originalIndex` in the history array
+  - Playlist intelligently maintains the current reading position by comparing originalIndex instead of labels
+  - Highlighting now correctly targets the right FAQ/Card element using originalIndex
+  - Works correctly even when multiple FAQs are enabled/disabled during playback
 
 - **Improved Description Scroll:**
   - Fixed auto-scroll issues in long descriptions with multiple paragraphs

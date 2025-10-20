@@ -594,19 +594,53 @@ Restrições:
       playlist = [];
       if(outTitle.value.trim()) playlist.push({label:"Título", text: outTitle.value.trim(), element: outTitle, type: "field"});
       if(outDesc.value.trim()) playlist.push({label:"Descrição", text: outDesc.value.trim(), element: outDesc, type: "field"});
-      history.faq.filter(f=>f.approved).forEach((f,i)=>{
-        const cur = f.versions[f.vIdx]; 
-        playlist.push({label:`FAQ ${i+1}`, text:`Pergunta: ${cur.q}. Resposta: ${cur.a}.`, type: "faq", index: i});
-      });
-      (history.cards||[]).forEach((c,i)=> playlist.push({label:`Card ${i+1}`, text:`${c.title}. ${c.text}`, type: "card", index: i}));
       
-      // Tentar manter o mesmo item lógico após reconstruir
+      // Para FAQ, guardar o índice original no array history.faq (não o índice no array filtrado)
+      history.faq.forEach((f, originalIdx) => {
+        if(f.approved){
+          const cur = f.versions[f.vIdx];
+          const approvedIdx = history.faq.slice(0, originalIdx).filter(x => x.approved).length;
+          playlist.push({
+            label:`FAQ ${approvedIdx+1}`, 
+            text:`Pergunta: ${cur.q}. Resposta: ${cur.a}.`, 
+            type: "faq", 
+            index: approvedIdx,
+            originalIndex: originalIdx  // Índice real no array history.faq
+          });
+        }
+      });
+      
+      // Para Cards, guardar o índice original também
+      (history.cards||[]).forEach((c,i)=> playlist.push({
+        label:`Card ${i+1}`, 
+        text:`${c.title}. ${c.text}`, 
+        type: "card", 
+        index: i,
+        originalIndex: i
+      }));
+      
+      // Tentar manter o mesmo item lógico após reconstruir usando originalIndex
       if(currentItem){
-        const newIdx = playlist.findIndex(item => 
-          item.label === currentItem.label && 
-          item.type === currentItem.type &&
-          item.text === currentItem.text
-        );
+        const newIdx = playlist.findIndex(item => {
+          if(item.type !== currentItem.type) return false;
+          
+          // Para FAQ e Card, usar originalIndex para identificação precisa
+          if(item.type === "faq" || item.type === "card"){
+            // Tentar por originalIndex primeiro
+            if(currentItem.originalIndex !== undefined && item.originalIndex === currentItem.originalIndex){
+              return true;
+            }
+            // Fallback para compatibilidade: comparar por texto se originalIndex não existe
+            if(currentItem.originalIndex === undefined){
+              return item.text === currentItem.text;
+            }
+            return false;
+          }
+          
+          // Para outros tipos (título, descrição), usar label e texto
+          return item.label === currentItem.label && item.text === currentItem.text;
+        });
+        
         if(newIdx >= 0){
           curIdx = newIdx; // Encontrou o mesmo item
         } else {
@@ -657,13 +691,15 @@ Restrições:
         currentHighlightElement = part.element;
       } else if(part.type === "faq"){
         const faqElements = faqList.querySelectorAll('.relative');
-        if(faqElements[part.index]){
-          faqElements[part.index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const faqIndex = part.originalIndex !== undefined ? part.originalIndex : part.index;
+        if(faqElements[faqIndex]){
+          faqElements[faqIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       } else if(part.type === "card"){
         const cardElements = cardsList.querySelectorAll('.relative');
-        if(cardElements[part.index]){
-          cardElements[part.index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const cardIndex = part.originalIndex !== undefined ? part.originalIndex : part.index;
+        if(cardElements[cardIndex]){
+          cardElements[cardIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
       
@@ -717,14 +753,16 @@ Restrições:
             // Para FAQ e Cards, destacar a palavra no elemento de texto
             const containerList = part.type === "faq" ? faqList : cardsList;
             const items = containerList.querySelectorAll('.relative');
-            if(items[part.index]){
+            // Usar originalIndex para encontrar o elemento correto (items contém todos, não só aprovados)
+            const itemIndex = part.originalIndex !== undefined ? part.originalIndex : part.index;
+            if(items[itemIndex]){
               let targetSpan = null;
               let localStart = wordStart;
               let localEnd = wordEnd;
               
               if(part.type === "faq"){
-                const qSpan = items[part.index].querySelector('.q');
-                const aSpan = items[part.index].querySelector('.a');
+                const qSpan = items[itemIndex].querySelector('.q');
+                const aSpan = items[itemIndex].querySelector('.a');
                 const qPrefix = "Pergunta: ";
                 const qText = qSpan ? qSpan.textContent : "";
                 const aSeparator = ". Resposta: ";
@@ -745,8 +783,8 @@ Restrições:
                   localEnd = wordEnd - aStart;
                 }
               } else if(part.type === "card"){
-                const titleSpan = items[part.index].querySelector('.ctitle');
-                const textSpan = items[part.index].querySelector('.ctext');
+                const titleSpan = items[itemIndex].querySelector('.ctitle');
+                const textSpan = items[itemIndex].querySelector('.ctext');
                 const titleText = titleSpan ? titleSpan.textContent : "";
                 const separator = ". ";
                 const titleEnd = titleText.length;
