@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import base64
 import json
 import os
 import random
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -189,24 +190,70 @@ def have_gemini(opts: Options) -> bool:
     return bool(opts.gemini_api_key.strip())
 
 
-def call_openai(prompt: str, opts: Options) -> str:
+def call_openai(prompt: str, opts: Options, files_data: Optional[List[Dict[str, Any]]] = None) -> str:
     import requests
     base = opts.openai_base_url.strip() or "https://api.openai.com/v1"
     url = f"{base}/chat/completions"
     headers = {"Authorization": f"Bearer {opts.openai_api_key}", "Content-Type": "application/json"}
-    payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}], "temperature": 0.7}
-    r = requests.post(url, headers=headers, json=payload, timeout=60)
+    
+    # Construir conteúdo com arquivos se houver
+    if files_data and len(files_data) > 0:
+        content_parts = []
+        # Adicionar prompt de texto
+        content_parts.append({"type": "text", "text": prompt})
+        
+        # Adicionar imagens (OpenAI suporta imagens via vision)
+        for file_info in files_data:
+            if file_info['mime_type'].startswith('image/'):
+                content_parts.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{file_info['mime_type']};base64,{file_info['base64_data']}"
+                    }
+                })
+            elif file_info['mime_type'] == 'text/plain':
+                # Para arquivos de texto, adicionar ao prompt
+                text_content = file_info.get('text_content', '')
+                content_parts.append({
+                    "type": "text",
+                    "text": f"\n\n[Conteúdo do arquivo {file_info['filename']}]:\n{text_content}"
+                })
+        
+        payload = {"model": "gpt-4o", "messages": [{"role": "user", "content": content_parts}], "temperature": 0.7, "max_tokens": 4096}
+    else:
+        payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}], "temperature": 0.7}
+    
+    r = requests.post(url, headers=headers, json=payload, timeout=90)
     r.raise_for_status()
     data = r.json()
     return data["choices"][0]["message"]["content"]
 
 
-def call_gemini(prompt: str, opts: Options) -> str:
+def call_gemini(prompt: str, opts: Options, files_data: Optional[List[Dict[str, Any]]] = None) -> str:
     import requests
     base = opts.gemini_base_url.strip() or "https://generativelanguage.googleapis.com"
     url = f"{base}/v1/models/gemini-1.5-flash:generateContent?key={opts.gemini_api_key}"
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    r = requests.post(url, json=payload, timeout=60)
+    
+    # Construir partes do conteúdo
+    parts = [{"text": prompt}]
+    
+    if files_data and len(files_data) > 0:
+        for file_info in files_data:
+            if file_info['mime_type'].startswith('image/'):
+                parts.append({
+                    "inlineData": {
+                        "mimeType": file_info['mime_type'],
+                        "data": file_info['base64_data']
+                    }
+                })
+            elif file_info['mime_type'] == 'text/plain':
+                text_content = file_info.get('text_content', '')
+                parts.append({
+                    "text": f"\n\n[Conteúdo do arquivo {file_info['filename']}]:\n{text_content}"
+                })
+    
+    payload = {"contents": [{"parts": parts}]}
+    r = requests.post(url, json=payload, timeout=90)
     r.raise_for_status()
     data = r.json()
     try:
@@ -255,32 +302,164 @@ def build_field_prompt(base_prompt: str, field: str, previous: Optional[Dict[str
     return base_prompt + suffix
 
 
-def call_model_json(prompt: str, opts: Options) -> Dict[str, Any]:
+def call_model_json(prompt: str, opts: Options, files_data: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     text = ""
     if have_openai(opts):
-        text = call_openai(prompt, opts)
+        text = call_openai(prompt, opts, files_data)
     elif have_gemini(opts):
-        text = call_gemini(prompt, opts)
+        text = call_gemini(prompt, opts, files_data)
     else:
         return {}
     return parse_json_loose(text)
 
 
+async def process_uploaded_files(files: List[UploadFile]) -> tuple[List[Dict[str, Any]], List[str]]:
+    """
+    Processa arquivos uploaded e retorna lista com dados base64 e informações.
+    Retorna (files_data, warnings) onde warnings são mensagens sobre arquivos ignorados.
+    """
+    files_data = []
+    warnings = []
+    
+    # Limites de segurança
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
+    MAX_FILES = 10  # Máximo de arquivos
+    MAX_TOTAL_SIZE = 20 * 1024 * 1024  # 20MB total
+    
+    # Tipos de arquivo aceitos
+    ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'text/plain']
+    
+    # Validar número de arquivos
+    if len(files) > MAX_FILES:
+        warnings.append(f"❌ Muitos arquivos enviados (máx. {MAX_FILES}). Apenas os primeiros serão processados.")
+        files = files[:MAX_FILES]
+    
+    total_size = 0
+    for file in files:
+        content = await file.read()
+        mime_type = file.content_type or "application/octet-stream"
+        file_size = len(content)
+        
+        # Validar tamanho individual
+        if file_size > MAX_FILE_SIZE:
+            warnings.append(f"❌ {file.filename}: arquivo muito grande (máx. 5MB)")
+            continue
+        
+        # Validar tamanho total
+        if total_size + file_size > MAX_TOTAL_SIZE:
+            warnings.append(f"❌ {file.filename}: limite total de tamanho atingido (máx. 20MB total)")
+            break
+        
+        # Validar tipo
+        if mime_type not in ALLOWED_TYPES:
+            warnings.append(f"⚠️ {file.filename}: tipo não suportado ({mime_type})")
+            continue
+        
+        file_info = {
+            "filename": file.filename,
+            "mime_type": mime_type,
+            "base64_data": base64.b64encode(content).decode('utf-8'),
+        }
+        
+        # Se for texto, decodificar para incluir no prompt
+        if mime_type == 'text/plain':
+            try:
+                file_info["text_content"] = content.decode('utf-8')
+                # Limitar texto a 10k caracteres
+                if len(file_info["text_content"]) > 10000:
+                    file_info["text_content"] = file_info["text_content"][:10000] + "\n[...truncado...]"
+            except:
+                warnings.append(f"⚠️ {file.filename}: erro ao decodificar texto")
+                continue
+        
+        files_data.append(file_info)
+        total_size += file_size
+    
+    return files_data, warnings
+
+
+def build_full_prompt_with_files(product: str, marketplace: str, opts: Options, has_files: bool = False) -> str:
+    """Constrói prompt com instruções específicas sobre uso de arquivos"""
+    tpl = opts.prompt_template or DEFAULT_PROMPT_TEMPLATE
+    specs = "{}"
+    
+    base_prompt = render_prompt_template(tpl, product, marketplace, specs)
+    
+    if has_files:
+        # Adicionar instruções críticas sobre uso de arquivos
+        base_prompt += "\n\n⚠️ INSTRUÇÕES CRÍTICAS SOBRE ARQUIVOS ENVIADOS:\n"
+        base_prompt += "- Os arquivos anexados contêm informações REAIS e PRECISAS sobre o produto.\n"
+        base_prompt += "- Para CARACTERÍSTICAS DO PRODUTO (dimensões, peso, materiais, especificações técnicas, cores, tamanhos, etc.):\n"
+        base_prompt += "  → Use SOMENTE as informações EXPLICITAMENTE presentes nos arquivos enviados.\n"
+        base_prompt += "  → NÃO invente, NÃO suponha, NÃO crie especificações que não estejam nos arquivos.\n"
+        base_prompt += "  → Se uma especificação não estiver nos arquivos, NÃO a mencione.\n"
+        base_prompt += "- Para COPY, MARKETING e TÉCNICAS DE VENDA:\n"
+        base_prompt += "  → Use CRIATIVIDADE TOTAL para criar textos persuasivos e atraentes.\n"
+        base_prompt += "  → Seja livre para usar técnicas de copywriting, gatilhos mentais e persuasão.\n"
+        base_prompt += "  → Mas sempre baseado nas características REAIS extraídas dos arquivos.\n"
+    
+    return base_prompt
+
+
 @app.post("/api/generate")
-async def generate(payload: GenerateIn):
+async def generate(
+    request: Request,
+    json_data: Optional[str] = Form(None),
+    files: List[UploadFile] = File(default=[])
+):
+    # Detectar se é FormData ou JSON
+    content_type = request.headers.get("content-type", "")
+    
+    if "multipart/form-data" in content_type:
+        # FormData com possíveis arquivos
+        if not json_data:
+            return JSONResponse(content={"error": "Missing json_data in FormData"}, status_code=400)
+        payload_dict = json.loads(json_data)
+        payload = GenerateIn(**payload_dict)
+    else:
+        # JSON puro (backward compatibility)
+        payload_dict = await request.json()
+        payload = GenerateIn(**payload_dict)
+        files = []  # Sem arquivos em JSON
+    
     if not (have_openai(payload.options) or have_gemini(payload.options)):
         return JSONResponse(content=mock_generate(payload.product_name, payload.marketplace))
 
-    base_prompt = build_full_prompt(payload.product_name, payload.marketplace, payload.options)
-    data = call_model_json(base_prompt, payload.options)
+    # Processar arquivos se houver
+    files_data = None
+    file_warnings = []
+    has_files = len(files) > 0
+    if has_files:
+        files_data, file_warnings = await process_uploaded_files(files)
+        # Se todos os arquivos foram rejeitados, tratar como sem arquivos
+        if not files_data:
+            has_files = False
+    
+    # Construir prompt com instruções específicas sobre arquivos
+    base_prompt = build_full_prompt_with_files(payload.product_name, payload.marketplace, payload.options, has_files)
+    data = call_model_json(base_prompt, payload.options, files_data)
 
     title = str(data.get("title", "")).strip()
     description = ensure_plain_text_desc(str(data.get("description", "")))
     faq = data.get("faq") or []
     cards = data.get("cards") or []
 
-    return JSONResponse(content={"title": title, "description": description, "faq": faq, "cards": cards,
-                                 "sources_used": {"mock": False}})
+    response_data = {
+        "title": title,
+        "description": description,
+        "faq": faq,
+        "cards": cards,
+        "sources_used": {"mock": False}
+    }
+    
+    # Adicionar avisos sobre arquivos se houver
+    if file_warnings:
+        response_data["file_warnings"] = file_warnings
+    
+    if has_files and files_data:
+        response_data["files_processed"] = len(files_data)
+
+    return JSONResponse(content=response_data)
 
 
 @app.post("/api/regen")

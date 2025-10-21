@@ -73,6 +73,40 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
+### October 21, 2025 - File Upload for Product Data
+- **Upload Multiple Files:**
+  - Added file upload component after LLM selection
+  - Supports images (PNG, JPEG, GIF, WEBP) and text files (.txt)
+  - Maximum file size: 5MB per file
+  - Files are kept in memory during the session (not persisted)
+  - Table display with checkboxes to enable/disable files
+  - Remove button for each file
+
+- **File Validation:**
+  - Server-side validation of file types and sizes
+  - Rejects unsupported file types with clear error messages
+  - Rejects files larger than 5MB
+  - Text files limited to 10k characters to avoid token limits
+  - Returns detailed warnings about rejected files
+
+- **LLM Integration with Files:**
+  - Backend modified to accept FormData with files
+  - Files are encoded to base64 and sent to LLM
+  - OpenAI uses GPT-4o (vision model) when files are present
+  - Gemini uses inline_data for images
+  - Text files appended to prompt with clear labeling
+
+- **Strict Instructions for LLM:**
+  - Product characteristics MUST come ONLY from uploaded files
+  - No invention or assumptions about specs, dimensions, materials, etc.
+  - Creative freedom allowed for copy, marketing, and sales techniques
+  - But always based on real characteristics from files
+
+- **Backward Compatibility:**
+  - Endpoint supports both FormData (with files) and JSON (without files)
+  - Existing functionality unchanged when no files are uploaded
+  - python-multipart dependency already present in requirements.txt
+
 ### October 19, 2025 - Regeneration Improvements
 - **Fixed Regenerate with Prompt:**
   - Fixed regenerate with prompt functionality for FAQ and Cards

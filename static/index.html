@@ -81,13 +81,13 @@
       <!-- Upload de arquivos -->
       <div class="mt-4">
         <label class="text-sm text-gray-700 font-medium">Arquivos de referência (opcional)</label>
-        <p class="text-xs text-gray-500 mt-1">Imagens, PDFs e documentos para gerar anúncios baseados em dados reais do produto</p>
+        <p class="text-xs text-gray-500 mt-1">Imagens e arquivos de texto para gerar anúncios baseados em dados reais do produto (máx. 5MB por arquivo)</p>
         <div class="mt-2">
           <input 
             type="file" 
             id="fileInput" 
             multiple 
-            accept="image/*,.pdf,.doc,.docx,.txt"
+            accept="image/*,.txt"
             class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
           />
         </div>
@@ -1188,9 +1188,19 @@ Restrições:
         pushHistory("title", data.title || "");
         pushHistory("description", data.description || "");
         renderFAQ(data.faq || []); renderCards(data.cards || []);
-        if(data?.sources_used?.mock){
+        
+        // Mostrar avisos sobre arquivos se houver
+        if(data?.file_warnings && data.file_warnings.length > 0){
+          demoWarn.classList.remove("hidden");
+          demoText.innerHTML = `<strong>Avisos sobre arquivos:</strong><br>${data.file_warnings.join('<br>')}`;
+        } else if(data?.sources_used?.mock){
           demoWarn.classList.remove("hidden");
           demoText.textContent = data?.sources_used?.message || "Modo demonstração: cadastre uma chave.";
+        }
+        
+        // Mostrar quantos arquivos foram processados
+        if(data?.files_processed){
+          console.log(`✅ ${data.files_processed} arquivo(s) processado(s) com sucesso`);
         }
       } catch(err){
         alert("Erro ao gerar: " + (err?.message || String(err)));
