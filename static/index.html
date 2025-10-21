@@ -381,49 +381,82 @@
       filesTable.classList.remove('hidden');
       filesTableBody.innerHTML = '';
       
-      // Primeiro, determinar posições (baseado apenas em arquivos válidos, não em enabled)
-      let validPositionCount = 0;
+      // Primeira passada: inicializar enabled para novos arquivos
+      uploadedFiles.forEach(item => {
+        if (item.enabled === undefined || item.enabled === null) {
+          item.enabled = true; // Por padrão, habilitar novos arquivos válidos
+        }
+        if (!item.valid) {
+          item.enabled = false; // Inválidos sempre desabilitados
+          item.manuallySet = false;
+        }
+      });
+      
+      // Segunda passada: gerenciar slots automaticamente
+      // Garantir que sempre tenhamos até 10 arquivos válidos com checkbox enabled
+      let validIndex = 0;
+      let markedCount = 0;
+      
+      uploadedFiles.forEach(item => {
+        if (!item.valid) return;
+        
+        validIndex++;
+        
+        // Os primeiros 10 válidos têm checkbox habilitado
+        const shouldHaveSlot = validIndex <= MAX_FILES_PROCESSED;
+        
+        if (shouldHaveSlot) {
+          // Arquivo tem slot disponível
+          // Se não foi manualmente alterado, marcar por padrão
+          if (!item.manuallySet) {
+            item.enabled = true;
+          }
+          // Se está marcado, contar
+          if (item.enabled) {
+            markedCount++;
+          }
+        } else {
+          // Arquivo fora do top 10: sem slot
+          // Sempre desabilitar e desmarcar
+          item.enabled = false;
+          item.manuallySet = false;
+        }
+      });
+      
+      // Terceira passada: se temos menos de 10 marcados, marcar próximos automaticamente
+      if (markedCount < MAX_FILES_PROCESSED) {
+        validIndex = 0;
+        for (let item of uploadedFiles) {
+          if (!item.valid) continue;
+          validIndex++;
+          
+          if (validIndex <= MAX_FILES_PROCESSED && !item.enabled && markedCount < MAX_FILES_PROCESSED) {
+            item.enabled = true; // Auto-marcar
+            item.manuallySet = false; // Não foi manual
+            markedCount++;
+          }
+        }
+      }
+      
+      // Quarta passada: criar estados para renderização
+      let processedCount = 0;
       const fileStates = uploadedFiles.map((item, index) => {
-        const isInTop10Position = item.valid && validPositionCount < MAX_FILES_PROCESSED;
-        if (item.valid) validPositionCount++;
+        const willBeProcessed = item.valid && item.enabled && processedCount < MAX_FILES_PROCESSED;
+        if (willBeProcessed) {
+          processedCount++;
+        }
         
         return {
           item,
           index,
-          isInTop10Position,
-          positionNumber: isInTop10Position ? validPositionCount : null
+          isInTop10Slots: item.valid && item.enabled, // Tem slot se está enabled
+          willBeProcessed,
+          processingNumber: willBeProcessed ? processedCount : null
         };
       });
       
-      // Segundo, auto-gerenciar checkbox para arquivos fora do top 10
-      fileStates.forEach(({ item, isInTop10Position }) => {
-        if (!isInTop10Position && item.valid) {
-          // Arquivo fora do top 10: desabilitar e desmarcar
-          item.enabled = false;
-        } else if (isInTop10Position && item.valid) {
-          // Arquivo no top 10: habilitar checkbox
-          // Se enabled ainda é undefined ou null, marcar como true
-          if (item.enabled === undefined || item.enabled === null) {
-            item.enabled = true;
-          }
-          // Caso contrário, respeitar a escolha do usuário
-        }
-      });
-      
-      // Terceiro, calcular quais serão realmente processados (top 10 válidos E habilitados)
-      let processedCount = 0;
-      fileStates.forEach(state => {
-        if (state.item.valid && state.item.enabled && processedCount < MAX_FILES_PROCESSED) {
-          state.willBeProcessed = true;
-          processedCount++;
-          state.processingNumber = processedCount;
-        } else {
-          state.willBeProcessed = false;
-        }
-      });
-      
       // Agora renderizar com base nessa informação
-      fileStates.forEach(({ item, index, isInTop10Position, positionNumber, willBeProcessed, processingNumber }) => {
+      fileStates.forEach(({ item, index, isInTop10Slots, willBeProcessed, processingNumber }) => {
         
         const row = document.createElement('tr');
         row.className = `bg-white hover:bg-gray-50 ${willBeProcessed ? 'border-l-4 border-green-500' : item.valid ? 'border-l-4 border-gray-300' : 'border-l-4 border-red-300'}`;
@@ -443,8 +476,8 @@
                         <div class="text-xs text-red-600 mt-1">${item.error}</div>`;
         } else if (willBeProcessed) {
           statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado (${processingNumber}/10)</span>`;
-        } else if (isInTop10Position && !item.enabled) {
-          // Arquivo está no top 10 mas foi desmarcado pelo usuário
+        } else if (item.valid && item.enabled && !willBeProcessed) {
+          // Arquivo válido e habilitado mas não será processado (fora dos 10 primeiros processados)
           statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Desmarcado</span>
                         <div class="text-xs text-yellow-600 mt-1">Marque o checkbox para usar</div>`;
         } else {
@@ -453,7 +486,8 @@
         }
         
         // Determinar se checkbox deve ser desabilitado
-        const checkboxDisabled = !item.valid || !isInTop10Position;
+        // Checkbox habilitado apenas para arquivos válidos que tenham um slot (primeiros 10 válidos)
+        const checkboxDisabled = !item.valid || !isInTop10Slots;
         
         // Determinar cor de fundo da primeira coluna
         let dragColumnBg = 'bg-gray-100'; // padrão
@@ -465,7 +499,8 @@
         } else if (willBeProcessed) {
           dragColumnBg = 'bg-green-100';
           dragIconColor = 'text-green-600';
-        } else if (isInTop10Position && !item.enabled) {
+        } else if (item.valid && item.enabled && !willBeProcessed) {
+          // Arquivo habilitado mas não processado (desmarcado ou fora dos 10 primeiros)
           dragColumnBg = 'bg-yellow-100';
           dragIconColor = 'text-yellow-600';
         } else {
@@ -547,6 +582,7 @@
           const file = uploadedFiles.find(f => f.id === fileId);
           if(file) {
             file.enabled = e.target.checked;
+            file.manuallySet = true; // Marcar que foi alterado manualmente
             renderFilesTable(); // Re-renderizar para atualizar indicadores visuais
           }
         });
