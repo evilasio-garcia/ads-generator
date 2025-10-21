@@ -392,41 +392,81 @@
         }
       });
       
-      // Segunda passada: determinar quais arquivos estão nos slots (primeiros 10 válidos)
-      // e respeitar as escolhas manuais do usuário
+      // Segunda passada: contar quantos arquivos válidos estão marcados
+      let markedCount = 0;
+      uploadedFiles.forEach(item => {
+        if (item.valid && item.enabled) {
+          markedCount++;
+        }
+      });
+      
+      // Terceira passada: gerenciar slots dinamicamente
+      // Se temos menos de 10 marcados, abrir slots para próximos arquivos
+      // Se temos 10 marcados, fechar slots dos arquivos 11+
       let validIndex = 0;
+      let slotsAvailable = MAX_FILES_PROCESSED - markedCount; // Quantos slots ainda temos disponíveis
       
       uploadedFiles.forEach(item => {
         if (!item.valid) return;
         
         validIndex++;
         
-        // Os primeiros 10 válidos têm checkbox habilitado (disponível para marcar/desmarcar)
-        const hasSlot = validIndex <= MAX_FILES_PROCESSED;
+        // Determinar se este arquivo deve ter um slot (checkbox habilitado)
+        let shouldHaveSlot = false;
         
-        if (!hasSlot) {
-          // Arquivo fora do top 10: sem slot
-          // Sempre desabilitar checkbox e desmarcar
+        if (item.enabled) {
+          // Arquivo está marcado: sempre tem slot (enquanto for um dos primeiros 10 válidos)
+          shouldHaveSlot = true;
+        } else if (slotsAvailable > 0) {
+          // Arquivo não marcado mas há slots disponíveis: dar slot
+          shouldHaveSlot = true;
+          slotsAvailable--;
+        }
+        
+        // Se não deve ter slot, desabilitar e desmarcar
+        if (!shouldHaveSlot) {
           item.enabled = false;
           item.manuallySet = false;
         }
-        // Se tem slot, manter o estado atual (respeitar escolha do usuário)
       });
       
-      // Terceira passada: criar estados para renderização
-      let validIdx = 0;
+      // Quarta passada: recalcular slots para renderização
+      // Precisamos saber quais arquivos têm slots disponíveis
+      let totalMarked = 0;
+      uploadedFiles.forEach(item => {
+        if (item.valid && item.enabled) {
+          totalMarked++;
+        }
+      });
+      
+      let slotsForUnmarked = MAX_FILES_PROCESSED - totalMarked; // Slots restantes para arquivos não marcados
+      let unmarkedSlotsGiven = 0;
+      
+      uploadedFiles.forEach(item => {
+        if (!item.valid) {
+          item.hasSlot = false;
+          return;
+        }
+        
+        if (item.enabled) {
+          item.hasSlot = true; // Marcados sempre têm slot
+        } else {
+          // Não marcado: tem slot se ainda há vagas para não-marcados
+          if (unmarkedSlotsGiven < slotsForUnmarked) {
+            item.hasSlot = true;
+            unmarkedSlotsGiven++;
+          } else {
+            item.hasSlot = false;
+          }
+        }
+      });
+      
+      // Quinta passada: criar estados para renderização
       let processedCount = 0;
       
       const fileStates = uploadedFiles.map((item, index) => {
-        let hasSlot = false;
-        
-        if (item.valid) {
-          validIdx++;
-          hasSlot = validIdx <= MAX_FILES_PROCESSED;
-        }
-        
-        // Será processado se: válido + marcado + tem slot
-        const willBeProcessed = item.valid && item.enabled && hasSlot;
+        // Será processado se: válido + marcado
+        const willBeProcessed = item.valid && item.enabled;
         if (willBeProcessed) {
           processedCount++;
         }
@@ -434,7 +474,7 @@
         return {
           item,
           index,
-          isInTop10Slots: hasSlot, // Tem slot se está nos primeiros 10 válidos
+          isInTop10Slots: item.hasSlot,
           willBeProcessed,
           processingNumber: willBeProcessed ? processedCount : null
         };
@@ -462,12 +502,12 @@
         } else if (willBeProcessed) {
           statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado (${processingNumber}/10)</span>`;
         } else if (item.valid && isInTop10Slots && !item.enabled) {
-          // Arquivo tem slot mas foi desmarcado pelo usuário
-          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">⚠️ Desmarcado</span>
-                        <div class="text-xs text-yellow-600 mt-1">Marque o checkbox para usar</div>`;
+          // Arquivo tem slot disponível mas não foi marcado pelo usuário
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">○ Aguardando seleção</span>
+                        <div class="text-xs text-blue-600 mt-1">Marque o checkbox para usar</div>`;
         } else {
           statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Não será usado</span>
-                        <div class="text-xs text-gray-500 mt-1">Mude a ordem caso deseje usá-lo</div>`;
+                        <div class="text-xs text-gray-500 mt-1">Limite de 10 arquivos atingido</div>`;
         }
         
         // Determinar se checkbox deve ser desabilitado
@@ -485,9 +525,9 @@
           dragColumnBg = 'bg-green-100';
           dragIconColor = 'text-green-600';
         } else if (item.valid && isInTop10Slots && !item.enabled) {
-          // Arquivo tem slot mas desmarcado
-          dragColumnBg = 'bg-yellow-100';
-          dragIconColor = 'text-yellow-600';
+          // Arquivo tem slot disponível mas aguardando seleção
+          dragColumnBg = 'bg-blue-100';
+          dragIconColor = 'text-blue-600';
         } else {
           dragColumnBg = 'bg-gray-100';
           dragIconColor = 'text-gray-500';

@@ -73,7 +73,7 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
-### October 21, 2025 - Enhanced File Upload System with Validation & Drag-Drop
+### October 21, 2025 - Enhanced File Upload System with Dynamic Slot Management
 
 **Client-Side Validation:**
 - Immediate validation when files are selected (before server upload)
@@ -81,36 +81,43 @@ Note: These can also be configured through the UI settings modal.
 - Validation checks: file type, file size (5MB max), total size (20MB max)
 - Files revalidated automatically when LLM selection changes
 
+**Dynamic Slot Management System:**
+- Maximum 10 files can be processed at once
+- System intelligently manages "slots" based on user selections
+- When < 10 files are marked: remaining slots become available for next files
+- When = 10 files are marked: all other checkboxes are disabled
+- Users can freely mark/unmark files within available slots
+
 **Visual Status Indicators:**
-- ✅ Green border + "Será usado (1/10)" badge: Files that will be processed (numbered)
-- ⚠️ Yellow border + "Desmarcado" badge: Files in top 10 but unchecked by user
-- ⚪ Gray border + "Não será usado" badge: Valid files beyond position 10
-- ❌ Red border + "Inválido" badge: Invalid files with error message
+- 🟢 Green border + "✓ Será usado (X/10)" badge: Files that will be processed (numbered)
+- 🔵 Blue border + "○ Aguardando seleção" badge: Files with available slot but unchecked
+- ⚪ Gray border + "Não será usado" badge: Valid files without slot (limit reached)
+- 🔴 Red border + "❌ Inválido" badge: Invalid files with error message
+
+**Slot Behavior Examples:**
+- Upload 15 files → First 10 get slots (all checkboxes enabled)
+- Uncheck file #3 → File #11 gets a slot (checkbox enabled, unchecked, awaiting selection)
+- Check file #11 → Back to 10 marked files, file #12 loses slot
+- Uncheck files #3 and #7 → Files #11 and #12 get slots (both awaiting selection)
 
 **General Warnings Section:**
-- Real-time counter showing enabled vs total valid files
-- Warning when more than 10 files uploaded (only first 10 processed)
+- Real-time counter showing marked vs total valid files
+- Warning when more than 10 files uploaded
 - Alert when total size exceeds 20MB limit
 - Summary: "X de Y arquivo(s) válido(s) será(ão) usado(s)"
 
-**Automatic Checkbox Management:**
-- Files beyond top 10: Checkbox disabled and unchecked automatically
-- Files within top 10: Checkbox enabled and can be toggled by user
-- When file is dragged to top 10: Checkbox enabled and checked
-- When file is dragged out of top 10: Checkbox disabled and unchecked
-- When top 10 file is unchecked: File #11 automatically promoted to processing
-
 **Drag & Drop Reordering:**
 - Files can be dragged and reordered in the table
-- Drag handle icon (☰) in first column
+- Drag handle icon (☰) in first column with color-coded status
 - Visual feedback during drag (opacity change, border highlight)
-- Reordering updates "top 10" status indicators immediately
+- Reordering recalculates slot assignments immediately
 - Allows prioritizing files without re-uploading
 
 **User Experience:**
 - No server request needed for validation (instant feedback)
 - Invalid files clearly marked with reason (too large, wrong type)
 - Only "Remove" button available for invalid files
+- Clear visual distinction between: will be used, awaiting selection, and no slot available
 - Easy to reorganize file priority for better results
 
 ### October 21, 2025 - File Upload for Product Data
