@@ -94,12 +94,16 @@
         
         <!-- Tabela de arquivos carregados -->
         <div id="filesTable" class="mt-3 hidden">
+          <!-- Avisos Gerais -->
+          <div id="fileWarnings" class="mb-3 hidden"></div>
+          
           <div class="rounded-md border border-gray-200 overflow-hidden">
             <table class="w-full text-sm">
               <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th class="px-3 py-2 text-left font-medium text-gray-700 w-8">#</th>
                   <th class="px-3 py-2 text-left font-medium text-gray-700">Arquivo</th>
-                  <th class="px-3 py-2 text-left font-medium text-gray-700">Tipo</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-700">Status</th>
                   <th class="px-3 py-2 text-center font-medium text-gray-700 w-20">Usar</th>
                   <th class="px-3 py-2 text-center font-medium text-gray-700 w-16"></th>
                 </tr>
@@ -297,48 +301,132 @@
     const fileInput = $("#fileInput");
     const filesTable = $("#filesTable");
     const filesTableBody = $("#filesTableBody");
-    let uploadedFiles = []; // Array para armazenar: {file: File, enabled: boolean, id: string}
+    const fileWarnings = $("#fileWarnings");
+    let uploadedFiles = []; // Array para armazenar: {file: File, enabled: boolean, id: string, valid: boolean, error: string}
+
+    // Limites de validação
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_FILES_PROCESSED = 10; // Apenas 10 primeiros serão processados
+    const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20MB total
 
     // Tipos de arquivo aceitos por LLM
     const LLM_FILE_TYPES = {
-      openai: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf', 'text/plain'],
-      gemini: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf', 'text/plain']
+      openai: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'text/plain'],
+      gemini: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'text/plain']
     };
 
     function updateFileAccept(){
       const selectedLLM = llm.value;
-      const types = LLM_FILE_TYPES[selectedLLM] || [];
-      // Converter tipos MIME para extensões
-      fileInput.accept = 'image/*,.pdf,.txt';
+      fileInput.accept = 'image/*,.txt';
+    }
+
+    // Validar um arquivo individualmente
+    function validateFile(file) {
+      const selectedLLM = llm.value;
+      const allowedTypes = LLM_FILE_TYPES[selectedLLM] || [];
+      const fileType = file.type || '';
+      
+      // Validar tipo
+      if (!allowedTypes.includes(fileType)) {
+        return { valid: false, error: `Tipo não suportado (${fileType})` };
+      }
+      
+      // Validar tamanho
+      if (file.size > MAX_FILE_SIZE) {
+        const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        return { valid: false, error: `Arquivo muito grande (${sizeMB}MB, máx. 5MB)` };
+      }
+      
+      return { valid: true, error: null };
+    }
+
+    // Atualizar avisos gerais
+    function updateFileWarnings() {
+      const warnings = [];
+      const totalFiles = uploadedFiles.length;
+      const validFiles = uploadedFiles.filter(f => f.valid).length;
+      const enabledFiles = uploadedFiles.filter(f => f.valid && f.enabled).length;
+      
+      if (totalFiles > MAX_FILES_PROCESSED) {
+        warnings.push(`⚠️ ${totalFiles} arquivos enviados. Apenas os <strong>10 primeiros válidos</strong> serão processados.`);
+      }
+      
+      const totalSize = uploadedFiles.reduce((sum, f) => sum + (f.valid ? f.file.size : 0), 0);
+      if (totalSize > MAX_TOTAL_SIZE) {
+        warnings.push(`❌ Tamanho total excede 20MB. Alguns arquivos podem ser ignorados.`);
+      }
+      
+      if (validFiles > 0) {
+        warnings.push(`✓ <strong>${enabledFiles} de ${validFiles}</strong> arquivo(s) válido(s) será(ão) usado(s) na geração.`);
+      }
+      
+      if (warnings.length > 0) {
+        fileWarnings.innerHTML = warnings.map(w => 
+          `<div class="rounded-md border ${w.startsWith('❌') ? 'border-red-200 bg-red-50 text-red-800' : w.startsWith('⚠️') ? 'border-yellow-200 bg-yellow-50 text-yellow-800' : 'border-blue-200 bg-blue-50 text-blue-800'} p-2 text-xs">${w}</div>`
+        ).join('');
+        fileWarnings.classList.remove('hidden');
+      } else {
+        fileWarnings.classList.add('hidden');
+      }
     }
 
     function renderFilesTable(){
       if(uploadedFiles.length === 0){
         filesTable.classList.add('hidden');
         filesTableBody.innerHTML = '';
+        fileWarnings.classList.add('hidden');
         return;
       }
       
       filesTable.classList.remove('hidden');
       filesTableBody.innerHTML = '';
       
+      // Contar válidos até a posição atual
+      let validCount = 0;
+      
       uploadedFiles.forEach((item, index) => {
+        const willBeProcessed = item.valid && validCount < MAX_FILES_PROCESSED;
+        if (item.valid) validCount++;
+        
         const row = document.createElement('tr');
-        row.className = 'bg-white hover:bg-gray-50';
+        row.className = `bg-white hover:bg-gray-50 ${willBeProcessed ? 'border-l-4 border-green-500' : item.valid ? 'border-l-4 border-gray-300' : 'border-l-4 border-red-300'}`;
+        row.draggable = true;
+        row.dataset.fileId = item.id;
         
         const fileType = item.file.type || 'desconhecido';
+        const fileSize = (item.file.size / 1024).toFixed(1);
         const fileTypeLabel = fileType.startsWith('image/') ? '🖼️ Imagem' : 
-                             fileType === 'application/pdf' ? '📄 PDF' : 
                              fileType === 'text/plain' ? '📝 Texto' : 
                              '📎 Arquivo';
         
+        // Status badge
+        let statusBadge = '';
+        if (!item.valid) {
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">❌ Inválido</span>
+                        <div class="text-xs text-red-600 mt-1">${item.error}</div>`;
+        } else if (willBeProcessed) {
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado</span>`;
+        } else {
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Não será usado</span>`;
+        }
+        
         row.innerHTML = `
-          <td class="px-3 py-2 text-gray-900">${item.file.name}</td>
-          <td class="px-3 py-2 text-gray-600">${fileTypeLabel}</td>
+          <td class="px-3 py-2 text-gray-500 text-center cursor-move">
+            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+            </svg>
+          </td>
+          <td class="px-3 py-2">
+            <div class="text-gray-900 font-medium">${item.file.name}</div>
+            <div class="text-xs text-gray-500">${fileTypeLabel} · ${fileSize} KB</div>
+          </td>
+          <td class="px-3 py-2">
+            ${statusBadge}
+          </td>
           <td class="px-3 py-2 text-center">
-            <input type="checkbox" ${item.enabled ? 'checked' : ''} 
+            <input type="checkbox" ${item.enabled ? 'checked' : ''} ${!item.valid ? 'disabled' : ''}
               data-file-id="${item.id}" 
-              class="file-checkbox w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
+              class="file-checkbox w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 ${!item.valid ? 'opacity-50 cursor-not-allowed' : ''}">
           </td>
           <td class="px-3 py-2 text-center">
             <button class="text-red-600 hover:text-red-800 text-sm" data-file-remove="${item.id}" title="Remover">
@@ -350,6 +438,43 @@
         `;
         
         filesTableBody.appendChild(row);
+        
+        // Drag & Drop events
+        row.addEventListener('dragstart', (e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/html', item.id);
+          row.classList.add('opacity-50');
+        });
+        
+        row.addEventListener('dragend', (e) => {
+          row.classList.remove('opacity-50');
+        });
+        
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          row.classList.add('border-t-2', 'border-indigo-500');
+        });
+        
+        row.addEventListener('dragleave', (e) => {
+          row.classList.remove('border-t-2', 'border-indigo-500');
+        });
+        
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('border-t-2', 'border-indigo-500');
+          
+          const draggedId = e.dataTransfer.getData('text/html');
+          const draggedIndex = uploadedFiles.findIndex(f => f.id === draggedId);
+          const targetIndex = uploadedFiles.findIndex(f => f.id === item.id);
+          
+          if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
+            // Remover e reinserir
+            const [draggedItem] = uploadedFiles.splice(draggedIndex, 1);
+            uploadedFiles.splice(targetIndex, 0, draggedItem);
+            renderFilesTable();
+          }
+        });
       });
       
       // Adicionar event listeners
@@ -357,7 +482,10 @@
         checkbox.addEventListener('change', (e) => {
           const fileId = e.target.dataset.fileId;
           const file = uploadedFiles.find(f => f.id === fileId);
-          if(file) file.enabled = e.target.checked;
+          if(file) {
+            file.enabled = e.target.checked;
+            updateFileWarnings();
+          }
         });
       });
       
@@ -368,16 +496,22 @@
           renderFilesTable();
         });
       });
+      
+      updateFileWarnings();
     }
 
     fileInput.addEventListener('change', (e) => {
       const files = Array.from(e.target.files || []);
       files.forEach(file => {
         const id = `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const validation = validateFile(file);
+        
         uploadedFiles.push({
           file: file,
-          enabled: true,
-          id: id
+          enabled: validation.valid, // Apenas habilitado se válido
+          id: id,
+          valid: validation.valid,
+          error: validation.error
         });
       });
       renderFilesTable();
@@ -385,7 +519,21 @@
       e.target.value = '';
     });
 
-    llm.addEventListener('change', updateFileAccept);
+    // Revalidar arquivos ao trocar de LLM
+    llm.addEventListener('change', () => {
+      updateFileAccept();
+      // Revalidar todos os arquivos
+      uploadedFiles.forEach(item => {
+        const validation = validateFile(item.file);
+        item.valid = validation.valid;
+        item.error = validation.error;
+        if (!validation.valid) {
+          item.enabled = false; // Desabilitar se tornou inválido
+        }
+      });
+      renderFilesTable();
+    });
+    
     updateFileAccept(); // Inicializar
 
     // Controles TTS Flutuantes
