@@ -84,8 +84,10 @@ Note: These can also be configured through the UI settings modal.
 
 - **File Validation:**
   - Server-side validation of file types and sizes
+  - Maximum 10 files per upload
+  - Maximum 5MB per file
+  - Maximum 20MB total aggregate size
   - Rejects unsupported file types with clear error messages
-  - Rejects files larger than 5MB
   - Text files limited to 10k characters to avoid token limits
   - Returns detailed warnings about rejected files
 
