@@ -73,52 +73,96 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
-### October 21, 2025 - Enhanced File Upload System with Dynamic Slot Management
+### October 21, 2025 - Complete File Upload System with Slot Management (FINAL)
 
-**Client-Side Validation:**
-- Immediate validation when files are selected (before server upload)
-- Real-time status display for each file (valid/invalid/will be processed)
-- Validation checks: file type, file size (5MB max), total size (20MB max)
-- Files revalidated automatically when LLM selection changes
+**System Overview:**
+- Maximum 10 files processed per generation (hard limit)
+- Dynamic slot allocation based on user selections
+- Real-time visual feedback with color-coded status indicators
+- Drag-and-drop reordering to change file priority
 
-**Dynamic Slot Management System:**
-- Maximum 10 files can be processed at once
-- System intelligently manages "slots" based on user selections
-- When < 10 files are marked: remaining slots become available for next files
-- When = 10 files are marked: all other checkboxes are disabled
-- Users can freely mark/unmark files within available slots
+**Core Algorithm:**
+1. Build list of files to process: valid + checked, max 10 in order
+2. Calculate available slots: 10 - processed files
+3. Distribute slots to next valid unchecked files
+4. Render with correct numbering (1/10 through 10/10 only)
 
 **Visual Status Indicators:**
-- 🟢 Green border + "✓ Será usado (X/10)" badge: Files that will be processed (numbered)
-- 🔵 Blue border + "○ Aguardando seleção" badge: Files with available slot but unchecked
-- ⚪ Gray border + "Não será usado" badge: Valid files without slot (limit reached)
-- 🔴 Red border + "❌ Inválido" badge: Invalid files with error message
+- 🟢 **Green** "✓ Será usado (X/10)": File will be processed (numbered 1-10)
+  - Checkbox: enabled + checked
+  - First column: green background
+  
+- 🔵 **Blue** "○ Aguardando seleção": Slot available, awaiting user selection
+  - Checkbox: enabled + unchecked
+  - First column: blue background
+  - Message: "Marque o checkbox para usar"
+  
+- ⚪ **Gray** "Não será usado": No slot available (limit reached)
+  - Checkbox: disabled + unchecked
+  - First column: gray background
+  - Message: "Limite de 10 arquivos atingido"
+  
+- 🔴 **Red** "❌ Inválido": File validation failed
+  - Checkbox: disabled + unchecked
+  - First column: red background
+  - Error message displayed (e.g., "Arquivo muito grande", "Tipo não suportado")
 
-**Slot Behavior Examples:**
-- Upload 15 files → First 10 get slots (all checkboxes enabled)
-- Uncheck file #3 → File #11 gets a slot (checkbox enabled, unchecked, awaiting selection)
-- Check file #11 → Back to 10 marked files, file #12 loses slot
-- Uncheck files #3 and #7 → Files #11 and #12 get slots (both awaiting selection)
+**Slot Management Behavior:**
 
-**General Warnings Section:**
-- Real-time counter showing marked vs total valid files
-- Warning when more than 10 files uploaded
-- Alert when total size exceeds 20MB limit
-- Summary: "X de Y arquivo(s) válido(s) será(ão) usado(s)"
+*Scenario 1: Upload 15 valid files*
+- Files 1-10: Green, checkbox checked, "Será usado (1/10)" through "(10/10)"
+- Files 11-15: Gray, checkbox disabled, "Não será usado"
+
+*Scenario 2: Uncheck file #3*
+- File #3: Blue, checkbox unchecked (but enabled), "Aguardando seleção"
+- File #11: Automatically gains slot → Blue, checkbox enabled, "Aguardando seleção"
+- Files 1-2, 4-10: Remain green, renumbered (1/10) through (9/10)
+- Files 12-15: Still gray (no slots)
+
+*Scenario 3: Check file #11*
+- File #11: Green, "Será usado (10/10)"
+- File #12: Loses slot → Gray, checkbox disabled, "Não será usado"
+- File #3: Remains blue (still has slot available)
+
+*Scenario 4: Uncheck 3 files (#2, #5, #8)*
+- Files #2, #5, #8: Blue, "Aguardando seleção"
+- Files #11, #12, #13: Automatically gain slots → Blue
+- Files 14-15: Still gray
+- 7 files will be processed, numbered (1/10) through (7/10)
+
+*Scenario 5: Drag file #15 to position #1*
+- System recalculates entire slot allocation
+- File priority changes based on new order
+- Slot distribution updates automatically
+
+**Client-Side Validation:**
+- File type: Images (PNG, JPG, JPEG, GIF, WEBP) and text files (.txt)
+- File size: Maximum 5MB per file
+- Total size: Maximum 20MB aggregate
+- Immediate validation before server upload
+- Revalidation when LLM changes (different models support different file types)
 
 **Drag & Drop Reordering:**
-- Files can be dragged and reordered in the table
-- Drag handle icon (☰) in first column with color-coded status
-- Visual feedback during drag (opacity change, border highlight)
-- Reordering recalculates slot assignments immediately
-- Allows prioritizing files without re-uploading
+- Drag handle icon (☰) in first column
+- Color-coded to match file status (green/blue/gray/red)
+- Visual feedback during drag (opacity, border highlight)
+- Instant recalculation of slots after reorder
 
-**User Experience:**
-- No server request needed for validation (instant feedback)
-- Invalid files clearly marked with reason (too large, wrong type)
-- Only "Remove" button available for invalid files
-- Clear visual distinction between: will be used, awaiting selection, and no slot available
-- Easy to reorganize file priority for better results
+**General Warnings Section:**
+- Real-time counter: "X de Y arquivo(s) válido(s) será(ão) usado(s)"
+- Warning when >10 files uploaded
+- Alert when total size exceeds 20MB
+- Individual file error messages for invalid files
+
+**Key Implementation Details:**
+- Deterministic slot allocation: recalculated on every render
+- No mutation of user intent (enabled state preserved unless forced by limits)
+- Processing number strictly limited to 1-10 range
+- Slot availability calculated as: 10 - (checked valid files)
+- Next available slots filled by unchecked valid files in order
+
+**Testing:**
+See TESTE_FILE_UPLOAD.md for comprehensive test scenarios and expected behaviors
 
 ### October 21, 2025 - File Upload for Product Data
 - **Upload Multiple Files:**

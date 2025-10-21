@@ -381,102 +381,64 @@
       filesTable.classList.remove('hidden');
       filesTableBody.innerHTML = '';
       
-      // Primeira passada: inicializar enabled para novos arquivos
+      // PASSO 1: Inicializar enabled para novos arquivos
       uploadedFiles.forEach(item => {
         if (item.enabled === undefined || item.enabled === null) {
-          item.enabled = true; // Por padrão, marcar novos arquivos válidos
+          item.enabled = true;
         }
         if (!item.valid) {
-          item.enabled = false; // Inválidos sempre desmarcados
-          item.manuallySet = false;
-        }
-      });
-      
-      // Segunda passada: contar quantos arquivos válidos estão marcados
-      let markedCount = 0;
-      uploadedFiles.forEach(item => {
-        if (item.valid && item.enabled) {
-          markedCount++;
-        }
-      });
-      
-      // Terceira passada: gerenciar slots dinamicamente
-      // Se temos menos de 10 marcados, abrir slots para próximos arquivos
-      // Se temos 10 marcados, fechar slots dos arquivos 11+
-      let validIndex = 0;
-      let slotsAvailable = MAX_FILES_PROCESSED - markedCount; // Quantos slots ainda temos disponíveis
-      
-      uploadedFiles.forEach(item => {
-        if (!item.valid) return;
-        
-        validIndex++;
-        
-        // Determinar se este arquivo deve ter um slot (checkbox habilitado)
-        let shouldHaveSlot = false;
-        
-        if (item.enabled) {
-          // Arquivo está marcado: sempre tem slot (enquanto for um dos primeiros 10 válidos)
-          shouldHaveSlot = true;
-        } else if (slotsAvailable > 0) {
-          // Arquivo não marcado mas há slots disponíveis: dar slot
-          shouldHaveSlot = true;
-          slotsAvailable--;
-        }
-        
-        // Se não deve ter slot, desabilitar e desmarcar
-        if (!shouldHaveSlot) {
           item.enabled = false;
-          item.manuallySet = false;
         }
       });
       
-      // Quarta passada: recalcular slots para renderização
-      // Precisamos saber quais arquivos têm slots disponíveis
-      let totalMarked = 0;
-      uploadedFiles.forEach(item => {
-        if (item.valid && item.enabled) {
-          totalMarked++;
+      // PASSO 2: Construir lista de arquivos que SERÃO PROCESSADOS (máximo 10)
+      // Apenas arquivos válidos E marcados, na ordem, limitado a 10
+      const processedFiles = [];
+      for (const item of uploadedFiles) {
+        if (item.valid && item.enabled && processedFiles.length < MAX_FILES_PROCESSED) {
+          processedFiles.push(item);
         }
-      });
+      }
       
-      let slotsForUnmarked = MAX_FILES_PROCESSED - totalMarked; // Slots restantes para arquivos não marcados
-      let unmarkedSlotsGiven = 0;
+      // PASSO 3: Calcular quantos slots disponíveis temos para arquivos "aguardando"
+      const slotsUsed = processedFiles.length;
+      const slotsAvailable = MAX_FILES_PROCESSED - slotsUsed;
       
+      // PASSO 4: Distribuir slots para arquivos válidos não-marcados
+      let slotsGiven = 0;
       uploadedFiles.forEach(item => {
         if (!item.valid) {
           item.hasSlot = false;
           return;
         }
         
-        if (item.enabled) {
-          item.hasSlot = true; // Marcados sempre têm slot
+        // Se está na lista de processados, tem slot
+        if (processedFiles.includes(item)) {
+          item.hasSlot = true;
         } else {
-          // Não marcado: tem slot se ainda há vagas para não-marcados
-          if (unmarkedSlotsGiven < slotsForUnmarked) {
+          // Não marcado: tem slot se ainda há vagas
+          if (slotsGiven < slotsAvailable) {
             item.hasSlot = true;
-            unmarkedSlotsGiven++;
+            slotsGiven++;
           } else {
             item.hasSlot = false;
           }
         }
       });
       
-      // Quinta passada: criar estados para renderização
-      let processedCount = 0;
-      
+      // PASSO 5: Criar estados para renderização
       const fileStates = uploadedFiles.map((item, index) => {
-        // Será processado se: válido + marcado
-        const willBeProcessed = item.valid && item.enabled;
-        if (willBeProcessed) {
-          processedCount++;
-        }
+        // Encontrar posição na lista de processados (1-10)
+        const processedIndex = processedFiles.indexOf(item);
+        const willBeProcessed = processedIndex !== -1;
+        const processingNumber = willBeProcessed ? processedIndex + 1 : null;
         
         return {
           item,
           index,
           isInTop10Slots: item.hasSlot,
           willBeProcessed,
-          processingNumber: willBeProcessed ? processedCount : null
+          processingNumber
         };
       });
       
