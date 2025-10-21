@@ -69,17 +69,51 @@
             <option value="shein">Shein</option>
           </select>
         </div>
-        <div>
+        <div class="sm:col-span-2">
           <label class="text-sm text-gray-700 font-medium">LLM</label>
           <select id="llm" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="openai">OpenAI</option>
             <option value="gemini">Google Gemini</option>
           </select>
         </div>
-        <div class="flex items-end">
-          <!-- Azul padrão em todos os botões principais -->
-          <button id="btnGenerate" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full"><span class="mr-2">⚡</span>Gerar conteúdo</button>
+      </div>
+
+      <!-- Upload de arquivos -->
+      <div class="mt-4">
+        <label class="text-sm text-gray-700 font-medium">Arquivos de referência (opcional)</label>
+        <p class="text-xs text-gray-500 mt-1">Imagens, PDFs e documentos para gerar anúncios baseados em dados reais do produto</p>
+        <div class="mt-2">
+          <input 
+            type="file" 
+            id="fileInput" 
+            multiple 
+            accept="image/*,.pdf,.doc,.docx,.txt"
+            class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+          />
         </div>
+        
+        <!-- Tabela de arquivos carregados -->
+        <div id="filesTable" class="mt-3 hidden">
+          <div class="rounded-md border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-gray-700">Arquivo</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-700">Tipo</th>
+                  <th class="px-3 py-2 text-center font-medium text-gray-700 w-20">Usar</th>
+                  <th class="px-3 py-2 text-center font-medium text-gray-700 w-16"></th>
+                </tr>
+              </thead>
+              <tbody id="filesTableBody" class="divide-y divide-gray-200">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botão Gerar -->
+      <div class="mt-4">
+        <button id="btnGenerate" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full"><span class="mr-2">⚡</span>Gerar conteúdo</button>
       </div>
 
       <div id="statusArea" class="mt-4 hidden">
@@ -258,6 +292,101 @@
 
     const titlePrev=$("#titlePrev"), titleNext=$("#titleNext"), titleCount=$("#titleCount");
     const descPrev=$("#descPrev"), descNext=$("#descNext"), descCount=$("#descCount");
+
+    // File Upload Management
+    const fileInput = $("#fileInput");
+    const filesTable = $("#filesTable");
+    const filesTableBody = $("#filesTableBody");
+    let uploadedFiles = []; // Array para armazenar: {file: File, enabled: boolean, id: string}
+
+    // Tipos de arquivo aceitos por LLM
+    const LLM_FILE_TYPES = {
+      openai: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf', 'text/plain'],
+      gemini: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf', 'text/plain']
+    };
+
+    function updateFileAccept(){
+      const selectedLLM = llm.value;
+      const types = LLM_FILE_TYPES[selectedLLM] || [];
+      // Converter tipos MIME para extensões
+      fileInput.accept = 'image/*,.pdf,.txt';
+    }
+
+    function renderFilesTable(){
+      if(uploadedFiles.length === 0){
+        filesTable.classList.add('hidden');
+        filesTableBody.innerHTML = '';
+        return;
+      }
+      
+      filesTable.classList.remove('hidden');
+      filesTableBody.innerHTML = '';
+      
+      uploadedFiles.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.className = 'bg-white hover:bg-gray-50';
+        
+        const fileType = item.file.type || 'desconhecido';
+        const fileTypeLabel = fileType.startsWith('image/') ? '🖼️ Imagem' : 
+                             fileType === 'application/pdf' ? '📄 PDF' : 
+                             fileType === 'text/plain' ? '📝 Texto' : 
+                             '📎 Arquivo';
+        
+        row.innerHTML = `
+          <td class="px-3 py-2 text-gray-900">${item.file.name}</td>
+          <td class="px-3 py-2 text-gray-600">${fileTypeLabel}</td>
+          <td class="px-3 py-2 text-center">
+            <input type="checkbox" ${item.enabled ? 'checked' : ''} 
+              data-file-id="${item.id}" 
+              class="file-checkbox w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button class="text-red-600 hover:text-red-800 text-sm" data-file-remove="${item.id}" title="Remover">
+              <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </td>
+        `;
+        
+        filesTableBody.appendChild(row);
+      });
+      
+      // Adicionar event listeners
+      document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+          const fileId = e.target.dataset.fileId;
+          const file = uploadedFiles.find(f => f.id === fileId);
+          if(file) file.enabled = e.target.checked;
+        });
+      });
+      
+      document.querySelectorAll('[data-file-remove]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const fileId = e.currentTarget.dataset.fileRemove;
+          uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+          renderFilesTable();
+        });
+      });
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files || []);
+      files.forEach(file => {
+        const id = `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        uploadedFiles.push({
+          file: file,
+          enabled: true,
+          id: id
+        });
+      });
+      renderFilesTable();
+      // Limpar input para permitir selecionar os mesmos arquivos novamente
+      e.target.value = '';
+    });
+
+    llm.addEventListener('change', updateFileAccept);
+    updateFileAccept(); // Inicializar
 
     // Controles TTS Flutuantes
     const ttsSection = $("#ttsSection");
@@ -1019,6 +1148,7 @@ Restrições:
       statusArea.classList.remove("hidden"); loader.style.display="inline-block"; statusText.textContent="Gerando…";
       demoWarn.classList.add("hidden");
       let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+      
       const req = {
         product_name: productName.value.trim(),
         marketplace: marketplace.value,
@@ -1032,9 +1162,29 @@ Restrições:
           prompt_template: saved.prompt_template || DEFAULT_PROMPT_TEMPLATE
         }
       };
+      
+      // Preparar arquivos habilitados
+      const enabledFiles = uploadedFiles.filter(f => f.enabled);
+      
       try{
-        const r = await fetch("/api/generate", {method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(req)});
-        const data = await r.json();
+        let r, data;
+        
+        if(enabledFiles.length > 0){
+          // Enviar com FormData se houver arquivos
+          const formData = new FormData();
+          formData.append('json_data', JSON.stringify(req));
+          
+          enabledFiles.forEach((item, index) => {
+            formData.append('files', item.file);
+          });
+          
+          r = await fetch("/api/generate", {method:"POST", body: formData});
+        } else {
+          // Enviar como JSON se não houver arquivos
+          r = await fetch("/api/generate", {method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(req)});
+        }
+        
+        data = await r.json();
         pushHistory("title", data.title || "");
         pushHistory("description", data.description || "");
         renderFAQ(data.faq || []); renderCards(data.cards || []);
