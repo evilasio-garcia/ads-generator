@@ -384,64 +384,49 @@
       // Primeira passada: inicializar enabled para novos arquivos
       uploadedFiles.forEach(item => {
         if (item.enabled === undefined || item.enabled === null) {
-          item.enabled = true; // Por padrão, habilitar novos arquivos válidos
+          item.enabled = true; // Por padrão, marcar novos arquivos válidos
         }
         if (!item.valid) {
-          item.enabled = false; // Inválidos sempre desabilitados
+          item.enabled = false; // Inválidos sempre desmarcados
           item.manuallySet = false;
         }
       });
       
-      // Segunda passada: gerenciar slots automaticamente
-      // Garantir que sempre tenhamos até 10 arquivos válidos com checkbox enabled
+      // Segunda passada: determinar quais arquivos estão nos slots (primeiros 10 válidos)
+      // e respeitar as escolhas manuais do usuário
       let validIndex = 0;
-      let markedCount = 0;
       
       uploadedFiles.forEach(item => {
         if (!item.valid) return;
         
         validIndex++;
         
-        // Os primeiros 10 válidos têm checkbox habilitado
-        const shouldHaveSlot = validIndex <= MAX_FILES_PROCESSED;
+        // Os primeiros 10 válidos têm checkbox habilitado (disponível para marcar/desmarcar)
+        const hasSlot = validIndex <= MAX_FILES_PROCESSED;
         
-        if (shouldHaveSlot) {
-          // Arquivo tem slot disponível
-          // Se não foi manualmente alterado, marcar por padrão
-          if (!item.manuallySet) {
-            item.enabled = true;
-          }
-          // Se está marcado, contar
-          if (item.enabled) {
-            markedCount++;
-          }
-        } else {
+        if (!hasSlot) {
           // Arquivo fora do top 10: sem slot
-          // Sempre desabilitar e desmarcar
+          // Sempre desabilitar checkbox e desmarcar
           item.enabled = false;
           item.manuallySet = false;
         }
+        // Se tem slot, manter o estado atual (respeitar escolha do usuário)
       });
       
-      // Terceira passada: se temos menos de 10 marcados, marcar próximos automaticamente
-      if (markedCount < MAX_FILES_PROCESSED) {
-        validIndex = 0;
-        for (let item of uploadedFiles) {
-          if (!item.valid) continue;
-          validIndex++;
-          
-          if (validIndex <= MAX_FILES_PROCESSED && !item.enabled && markedCount < MAX_FILES_PROCESSED) {
-            item.enabled = true; // Auto-marcar
-            item.manuallySet = false; // Não foi manual
-            markedCount++;
-          }
-        }
-      }
-      
-      // Quarta passada: criar estados para renderização
+      // Terceira passada: criar estados para renderização
+      let validIdx = 0;
       let processedCount = 0;
+      
       const fileStates = uploadedFiles.map((item, index) => {
-        const willBeProcessed = item.valid && item.enabled && processedCount < MAX_FILES_PROCESSED;
+        let hasSlot = false;
+        
+        if (item.valid) {
+          validIdx++;
+          hasSlot = validIdx <= MAX_FILES_PROCESSED;
+        }
+        
+        // Será processado se: válido + marcado + tem slot
+        const willBeProcessed = item.valid && item.enabled && hasSlot;
         if (willBeProcessed) {
           processedCount++;
         }
@@ -449,7 +434,7 @@
         return {
           item,
           index,
-          isInTop10Slots: item.valid && item.enabled, // Tem slot se está enabled
+          isInTop10Slots: hasSlot, // Tem slot se está nos primeiros 10 válidos
           willBeProcessed,
           processingNumber: willBeProcessed ? processedCount : null
         };
@@ -476,9 +461,9 @@
                         <div class="text-xs text-red-600 mt-1">${item.error}</div>`;
         } else if (willBeProcessed) {
           statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado (${processingNumber}/10)</span>`;
-        } else if (item.valid && item.enabled && !willBeProcessed) {
-          // Arquivo válido e habilitado mas não será processado (fora dos 10 primeiros processados)
-          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Desmarcado</span>
+        } else if (item.valid && isInTop10Slots && !item.enabled) {
+          // Arquivo tem slot mas foi desmarcado pelo usuário
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">⚠️ Desmarcado</span>
                         <div class="text-xs text-yellow-600 mt-1">Marque o checkbox para usar</div>`;
         } else {
           statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Não será usado</span>
@@ -499,8 +484,8 @@
         } else if (willBeProcessed) {
           dragColumnBg = 'bg-green-100';
           dragIconColor = 'text-green-600';
-        } else if (item.valid && item.enabled && !willBeProcessed) {
-          // Arquivo habilitado mas não processado (desmarcado ou fora dos 10 primeiros)
+        } else if (item.valid && isInTop10Slots && !item.enabled) {
+          // Arquivo tem slot mas desmarcado
           dragColumnBg = 'bg-yellow-100';
           dragIconColor = 'text-yellow-600';
         } else {
