@@ -82,16 +82,23 @@ Note: These can also be configured through the UI settings modal.
 - Files revalidated automatically when LLM selection changes
 
 **Visual Status Indicators:**
-- ✅ Green border + "Será usado" badge: Valid files in top 10 positions
-- ⚠️ Gray border + "Não será usado" badge: Valid files beyond position 10
+- ✅ Green border + "Será usado (1/10)" badge: Files that will be processed (numbered)
+- ⚠️ Yellow border + "Desmarcado" badge: Files in top 10 but unchecked by user
+- ⚪ Gray border + "Não será usado" badge: Valid files beyond position 10
 - ❌ Red border + "Inválido" badge: Invalid files with error message
-- Checkbox automatically disabled for invalid files
 
 **General Warnings Section:**
 - Real-time counter showing enabled vs total valid files
 - Warning when more than 10 files uploaded (only first 10 processed)
 - Alert when total size exceeds 20MB limit
 - Summary: "X de Y arquivo(s) válido(s) será(ão) usado(s)"
+
+**Automatic Checkbox Management:**
+- Files beyond top 10: Checkbox disabled and unchecked automatically
+- Files within top 10: Checkbox enabled and can be toggled by user
+- When file is dragged to top 10: Checkbox enabled and checked
+- When file is dragged out of top 10: Checkbox disabled and unchecked
+- When top 10 file is unchecked: File #11 automatically promoted to processing
 
 **Drag & Drop Reordering:**
 - Files can be dragged and reordered in the table

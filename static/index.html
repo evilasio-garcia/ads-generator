@@ -381,12 +381,49 @@
       filesTable.classList.remove('hidden');
       filesTableBody.innerHTML = '';
       
-      // Contar válidos E habilitados até a posição atual
-      let enabledValidCount = 0;
+      // Primeiro, determinar posições (baseado apenas em arquivos válidos, não em enabled)
+      let validPositionCount = 0;
+      const fileStates = uploadedFiles.map((item, index) => {
+        const isInTop10Position = item.valid && validPositionCount < MAX_FILES_PROCESSED;
+        if (item.valid) validPositionCount++;
+        
+        return {
+          item,
+          index,
+          isInTop10Position,
+          positionNumber: isInTop10Position ? validPositionCount : null
+        };
+      });
       
-      uploadedFiles.forEach((item, index) => {
-        const willBeProcessed = item.valid && item.enabled && enabledValidCount < MAX_FILES_PROCESSED;
-        if (item.valid && item.enabled) enabledValidCount++;
+      // Segundo, auto-gerenciar checkbox para arquivos fora do top 10
+      fileStates.forEach(({ item, isInTop10Position }) => {
+        if (!isInTop10Position && item.valid) {
+          // Arquivo fora do top 10: desabilitar e desmarcar
+          item.enabled = false;
+        } else if (isInTop10Position && item.valid) {
+          // Arquivo no top 10: habilitar checkbox
+          // Se enabled ainda é undefined ou null, marcar como true
+          if (item.enabled === undefined || item.enabled === null) {
+            item.enabled = true;
+          }
+          // Caso contrário, respeitar a escolha do usuário
+        }
+      });
+      
+      // Terceiro, calcular quais serão realmente processados (top 10 válidos E habilitados)
+      let processedCount = 0;
+      fileStates.forEach(state => {
+        if (state.item.valid && state.item.enabled && processedCount < MAX_FILES_PROCESSED) {
+          state.willBeProcessed = true;
+          processedCount++;
+          state.processingNumber = processedCount;
+        } else {
+          state.willBeProcessed = false;
+        }
+      });
+      
+      // Agora renderizar com base nessa informação
+      fileStates.forEach(({ item, index, isInTop10Position, positionNumber, willBeProcessed, processingNumber }) => {
         
         const row = document.createElement('tr');
         row.className = `bg-white hover:bg-gray-50 ${willBeProcessed ? 'border-l-4 border-green-500' : item.valid ? 'border-l-4 border-gray-300' : 'border-l-4 border-red-300'}`;
@@ -405,10 +442,18 @@
           statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">❌ Inválido</span>
                         <div class="text-xs text-red-600 mt-1">${item.error}</div>`;
         } else if (willBeProcessed) {
-          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado</span>`;
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado (${processingNumber}/10)</span>`;
+        } else if (isInTop10Position && !item.enabled) {
+          // Arquivo está no top 10 mas foi desmarcado pelo usuário
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Desmarcado</span>
+                        <div class="text-xs text-yellow-600 mt-1">Marque o checkbox para usar</div>`;
         } else {
-          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Não será usado</span>`;
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Não será usado</span>
+                        <div class="text-xs text-gray-500 mt-1">Mude a ordem caso deseje usá-lo</div>`;
         }
+        
+        // Determinar se checkbox deve ser desabilitado
+        const checkboxDisabled = !item.valid || !isInTop10Position;
         
         row.innerHTML = `
           <td class="px-3 py-2 text-gray-500 text-center cursor-move">
@@ -424,9 +469,9 @@
             ${statusBadge}
           </td>
           <td class="px-3 py-2 text-center">
-            <input type="checkbox" ${item.enabled ? 'checked' : ''} ${!item.valid ? 'disabled' : ''}
+            <input type="checkbox" ${item.enabled ? 'checked' : ''} ${checkboxDisabled ? 'disabled' : ''}
               data-file-id="${item.id}" 
-              class="file-checkbox w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 ${!item.valid ? 'opacity-50 cursor-not-allowed' : ''}">
+              class="file-checkbox w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 ${checkboxDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
           </td>
           <td class="px-3 py-2 text-center">
             <button class="text-red-600 hover:text-red-800 text-sm" data-file-remove="${item.id}" title="Remover">
