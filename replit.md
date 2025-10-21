@@ -83,8 +83,10 @@ Note: These can also be configured through the UI settings modal.
 
 **Core Algorithm:**
 1. Build list of files to process: valid + checked, max 10 in order
-2. Calculate available slots: 10 - processed files
-3. Distribute slots to next valid unchecked files
+2. Check if limit reached: processed files >= 10
+3. Distribute slots:
+   - If limit NOT reached: ALL valid unchecked files get slots (awaiting selection)
+   - If limit reached: valid unchecked files have no slots (disabled)
 4. Render with correct numbering (1/10 through 10/10 only)
 
 **Visual Status Indicators:**
@@ -112,23 +114,25 @@ Note: These can also be configured through the UI settings modal.
 *Scenario 1: Upload 15 valid files*
 - Files 1-10: Green, checkbox checked, "Será usado (1/10)" through "(10/10)"
 - Files 11-15: Gray, checkbox disabled, "Não será usado"
+- Reason: Limit of 10 files reached
 
 *Scenario 2: Uncheck file #3*
 - File #3: Blue, checkbox unchecked (but enabled), "Aguardando seleção"
-- File #11: Automatically gains slot → Blue, checkbox enabled, "Aguardando seleção"
+- **ALL** files 11-15: Blue, checkbox enabled, "Aguardando seleção"
 - Files 1-2, 4-10: Remain green, renumbered (1/10) through (9/10)
-- Files 12-15: Still gray (no slots)
+- Reason: Only 9 files checked, so all other valid files get slots
 
 *Scenario 3: Check file #11*
 - File #11: Green, "Será usado (10/10)"
-- File #12: Loses slot → Gray, checkbox disabled, "Não será usado"
-- File #3: Remains blue (still has slot available)
+- File #3: Loses slot → Gray, checkbox disabled, "Não será usado"
+- **ALL** files 12-15: Lose slots → Gray, checkbox disabled
+- Reason: Limit of 10 files reached again
 
 *Scenario 4: Uncheck 3 files (#2, #5, #8)*
 - Files #2, #5, #8: Blue, "Aguardando seleção"
-- Files #11, #12, #13: Automatically gain slots → Blue
-- Files 14-15: Still gray
-- 7 files will be processed, numbered (1/10) through (7/10)
+- **ALL** files 11-15: Blue, "Aguardando seleção"
+- 8 total files awaiting selection, 7 files will be processed
+- Files processed numbered (1/10) through (7/10)
 
 *Scenario 5: Drag file #15 to position #1*
 - System recalculates entire slot allocation
@@ -158,8 +162,10 @@ Note: These can also be configured through the UI settings modal.
 - Deterministic slot allocation: recalculated on every render
 - No mutation of user intent (enabled state preserved unless forced by limits)
 - Processing number strictly limited to 1-10 range
-- Slot availability calculated as: 10 - (checked valid files)
-- Next available slots filled by unchecked valid files in order
+- Slot distribution logic:
+  - If < 10 files checked: ALL remaining valid files get slots (awaiting selection)
+  - If = 10 files checked: ALL remaining valid files lose slots (disabled)
+- Simple binary state: slots open for all OR closed for all
 
 **Testing:**
 See TESTE_FILE_UPLOAD.md for comprehensive test scenarios and expected behaviors

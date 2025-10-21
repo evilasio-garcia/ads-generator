@@ -24,16 +24,13 @@
 - Checkbox desmarcado mas HABILITADO
 - Mensagem: "Marque o checkbox para usar"
 
-- Arquivo #11: Badge azul "○ Aguardando seleção" (ganhou slot automaticamente)
+- **TODOS** os arquivos 11-15: Badge azul "○ Aguardando seleção"
 - Primeira coluna azul
 - Checkbox desmarcado mas HABILITADO
+- Mensagem: "Marque o checkbox para usar"
 
-- Arquivos 1-2, 4-9: Continuam verdes "✓ Será usado (X/10)"
+- Arquivos 1-2, 4-10: Continuam verdes "✓ Será usado (X/10)"
 - Numeração atualiza: agora mostra (1/10), (2/10), (3/10)... (9/10) pulando o #3
-
-- Arquivo #10: Ainda verde "✓ Será usado (9/10)"
-
-- Arquivos 12-15: Ainda cinza (sem slot)
 
 ### Cenário 3: Marcar arquivo #11
 **Ação:** Marcar o checkbox do arquivo #11 que está azul
@@ -43,32 +40,34 @@
 - Primeira coluna verde
 - Checkbox marcado
 
-- Arquivo #12: Perde slot automaticamente
+- **TODOS** os arquivos 12-15: Perdem slot automaticamente
 - Badge cinza "Não será usado"
 - Primeira coluna cinza
 - Checkbox desmarcado e DESABILITADO
 
-- Arquivo #3: Continua azul "○ Aguardando seleção" (ainda tem slot disponível)
+- Arquivo #3: Perde slot também (agora 10 arquivos marcados)
+- Badge cinza "Não será usado"
+- Primeira coluna cinza
+- Checkbox desmarcado e DESABILITADO
 
 ### Cenário 4: Desmarcar 3 arquivos do top 10
 **Ação:** Desmarcar arquivos #2, #5, e #8
 
 **Resultado Esperado:**
 - Arquivos #2, #5, #8: Azul "○ Aguardando seleção"
-- Arquivos #11, #12, #13: Ganham slots automaticamente (azul, aguardando)
-- Arquivos 14-15: Ainda sem slot (cinza)
+- **TODOS** arquivos 11-15: Ganham slots automaticamente (azul, aguardando)
 - Total processado: 7 arquivos (os 7 que ficaram marcados)
 - Numeração: (1/10), (2/10)... (7/10) apenas nos marcados
+- Agora há 8 arquivos com slot disponível esperando seleção (#2, #5, #8, #11-15)
 
-### Cenário 5: Marcar arquivo #11, #12, e #13
-**Ação:** Marcar os 3 arquivos que ganharam slots
+### Cenário 5: Marcar arquivos #11, #12, e #13
+**Ação:** Marcar 3 dos arquivos que estão aguardando seleção
 
 **Resultado Esperado:**
 - Arquivos #11, #12, #13: Verde "✓ Será usado"
 - Total processado: 10 arquivos
-- Arquivos 14-15: Permanecem sem slot (cinza, desabilitados)
-- Arquivos #2, #5, #8: PERDEM slots automaticamente
-  - Ficam cinza "Não será usado"
+- **TODOS** arquivos não-marcados: PERDEM slots automaticamente
+  - Arquivos #2, #5, #8, #14, #15: Cinza "Não será usado"
   - Checkboxes desabilitados
 
 ### Cenário 6: Arrastar arquivo #15 para posição #1

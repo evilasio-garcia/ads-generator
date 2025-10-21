@@ -400,29 +400,25 @@
         }
       }
       
-      // PASSO 3: Calcular quantos slots disponíveis temos para arquivos "aguardando"
+      // PASSO 3: Calcular quantos slots estão sendo usados
       const slotsUsed = processedFiles.length;
-      const slotsAvailable = MAX_FILES_PROCESSED - slotsUsed;
+      const limitReached = slotsUsed >= MAX_FILES_PROCESSED;
       
-      // PASSO 4: Distribuir slots para arquivos válidos não-marcados
-      let slotsGiven = 0;
+      // PASSO 4: Distribuir slots para arquivos válidos
       uploadedFiles.forEach(item => {
         if (!item.valid) {
           item.hasSlot = false;
           return;
         }
         
-        // Se está na lista de processados, tem slot
+        // Se está na lista de processados, sempre tem slot
         if (processedFiles.includes(item)) {
           item.hasSlot = true;
         } else {
-          // Não marcado: tem slot se ainda há vagas
-          if (slotsGiven < slotsAvailable) {
-            item.hasSlot = true;
-            slotsGiven++;
-          } else {
-            item.hasSlot = false;
-          }
+          // Arquivo válido não-marcado:
+          // - Se limite NÃO foi atingido: tem slot (aguardando seleção)
+          // - Se limite foi atingido: sem slot (não será usado)
+          item.hasSlot = !limitReached;
         }
       });
       
