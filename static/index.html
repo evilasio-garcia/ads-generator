@@ -455,9 +455,27 @@
         // Determinar se checkbox deve ser desabilitado
         const checkboxDisabled = !item.valid || !isInTop10Position;
         
+        // Determinar cor de fundo da primeira coluna
+        let dragColumnBg = 'bg-gray-100'; // padrão
+        let dragIconColor = 'text-gray-500';
+        
+        if (!item.valid) {
+          dragColumnBg = 'bg-red-100';
+          dragIconColor = 'text-red-600';
+        } else if (willBeProcessed) {
+          dragColumnBg = 'bg-green-100';
+          dragIconColor = 'text-green-600';
+        } else if (isInTop10Position && !item.enabled) {
+          dragColumnBg = 'bg-yellow-100';
+          dragIconColor = 'text-yellow-600';
+        } else {
+          dragColumnBg = 'bg-gray-100';
+          dragIconColor = 'text-gray-500';
+        }
+        
         row.innerHTML = `
-          <td class="px-3 py-2 text-gray-500 text-center cursor-move">
-            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <td class="px-3 py-2 ${dragColumnBg} text-center cursor-move">
+            <svg class="w-4 h-4 inline ${dragIconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
             </svg>
           </td>
