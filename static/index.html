@@ -400,11 +400,23 @@
         }
       }
       
-      // PASSO 3: Calcular quantos slots estão sendo usados
+      // PASSO 3: Se temos mais de 10 arquivos válidos marcados, desmarcar os que não entraram
+      let validMarkedCount = 0;
+      uploadedFiles.forEach(item => {
+        if (item.valid && item.enabled) {
+          validMarkedCount++;
+          // Se este arquivo está marcado mas não entrou nos processedFiles, desmarcar
+          if (!processedFiles.includes(item)) {
+            item.enabled = false;
+          }
+        }
+      });
+      
+      // PASSO 4: Calcular quantos slots estão sendo usados
       const slotsUsed = processedFiles.length;
       const limitReached = slotsUsed >= MAX_FILES_PROCESSED;
       
-      // PASSO 4: Distribuir slots para arquivos válidos
+      // PASSO 5: Distribuir slots para arquivos válidos
       uploadedFiles.forEach(item => {
         if (!item.valid) {
           item.hasSlot = false;
@@ -422,7 +434,7 @@
         }
       });
       
-      // PASSO 5: Criar estados para renderização
+      // PASSO 6: Criar estados para renderização
       const fileStates = uploadedFiles.map((item, index) => {
         // Encontrar posição na lista de processados (1-10)
         const processedIndex = processedFiles.indexOf(item);
