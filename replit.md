@@ -73,6 +73,39 @@ Note: These can also be configured through the UI settings modal.
 
 ## Recent Changes
 
+### October 21, 2025 - Enhanced File Upload System with Validation & Drag-Drop
+
+**Client-Side Validation:**
+- Immediate validation when files are selected (before server upload)
+- Real-time status display for each file (valid/invalid/will be processed)
+- Validation checks: file type, file size (5MB max), total size (20MB max)
+- Files revalidated automatically when LLM selection changes
+
+**Visual Status Indicators:**
+- ✅ Green border + "Será usado" badge: Valid files in top 10 positions
+- ⚠️ Gray border + "Não será usado" badge: Valid files beyond position 10
+- ❌ Red border + "Inválido" badge: Invalid files with error message
+- Checkbox automatically disabled for invalid files
+
+**General Warnings Section:**
+- Real-time counter showing enabled vs total valid files
+- Warning when more than 10 files uploaded (only first 10 processed)
+- Alert when total size exceeds 20MB limit
+- Summary: "X de Y arquivo(s) válido(s) será(ão) usado(s)"
+
+**Drag & Drop Reordering:**
+- Files can be dragged and reordered in the table
+- Drag handle icon (☰) in first column
+- Visual feedback during drag (opacity change, border highlight)
+- Reordering updates "top 10" status indicators immediately
+- Allows prioritizing files without re-uploading
+
+**User Experience:**
+- No server request needed for validation (instant feedback)
+- Invalid files clearly marked with reason (too large, wrong type)
+- Only "Remove" button available for invalid files
+- Easy to reorganize file priority for better results
+
 ### October 21, 2025 - File Upload for Product Data
 - **Upload Multiple Files:**
   - Added file upload component after LLM selection

@@ -381,12 +381,12 @@
       filesTable.classList.remove('hidden');
       filesTableBody.innerHTML = '';
       
-      // Contar válidos até a posição atual
-      let validCount = 0;
+      // Contar válidos E habilitados até a posição atual
+      let enabledValidCount = 0;
       
       uploadedFiles.forEach((item, index) => {
-        const willBeProcessed = item.valid && validCount < MAX_FILES_PROCESSED;
-        if (item.valid) validCount++;
+        const willBeProcessed = item.valid && item.enabled && enabledValidCount < MAX_FILES_PROCESSED;
+        if (item.valid && item.enabled) enabledValidCount++;
         
         const row = document.createElement('tr');
         row.className = `bg-white hover:bg-gray-50 ${willBeProcessed ? 'border-l-4 border-green-500' : item.valid ? 'border-l-4 border-gray-300' : 'border-l-4 border-red-300'}`;
@@ -484,7 +484,7 @@
           const file = uploadedFiles.find(f => f.id === fileId);
           if(file) {
             file.enabled = e.target.checked;
-            updateFileWarnings();
+            renderFilesTable(); // Re-renderizar para atualizar indicadores visuais
           }
         });
       });
