@@ -606,12 +606,26 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="px-3 py-2">
-            <input type="number" class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
-                   value="${row.qty}" data-idx="${idx}" data-field="qty" ${isTinyMode ? 'disabled' : ''}>
+            <div class="flex items-center gap-1">
+              <input type="number" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
+                     value="${row.qty}" data-idx="${idx}" data-field="qty" ${isTinyMode ? 'disabled' : ''}>
+              <button class="copy-wholesale-btn btn-icon text-xs" data-copy-wholesale="${idx}" data-copy-wholesale-field="qty" title="Copiar quantidade">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/>
+                </svg>
+              </button>
+            </div>
           </td>
           <td class="px-3 py-2">
-            <input type="number" step="0.01" class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
-                   value="${row.price}" data-idx="${idx}" data-field="price" ${isTinyMode ? 'disabled' : ''}>
+            <div class="flex items-center gap-1">
+              <input type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
+                     value="${row.price}" data-idx="${idx}" data-field="price" ${isTinyMode ? 'disabled' : ''}>
+              <button class="copy-wholesale-btn btn-icon text-xs" data-copy-wholesale="${idx}" data-copy-wholesale-field="price" title="Copiar preço">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/>
+                </svg>
+              </button>
+            </div>
           </td>
           <td class="px-3 py-2 text-center">
             <button class="btn text-xs" data-remove-row="${idx}" ${isTinyMode ? 'disabled' : ''} title="Remover">
@@ -638,6 +652,29 @@
           const idx = parseInt(e.currentTarget.dataset.removeRow);
           wholesaleRows.splice(idx, 1);
           renderWholesaleTable();
+        });
+      });
+      
+      // Event listeners para botões de copiar na tabela
+      wholesalePriceBody.querySelectorAll('.copy-wholesale-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const idx = parseInt(btn.dataset.copyWholesale);
+          const field = btn.dataset.copyWholesaleField;
+          
+          // Ler diretamente do input para pegar o valor atual (mesmo se não tiver dado blur)
+          const input = wholesalePriceBody.querySelector(`input[data-idx="${idx}"][data-field="${field}"]`);
+          const value = input ? input.value : '';
+          
+          if (value !== '') {
+            navigator.clipboard.writeText(String(value)).then(() => {
+              const originalHTML = btn.innerHTML;
+              btn.innerHTML = '<svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" fill="none"/></svg>';
+              setTimeout(() => {
+                btn.innerHTML = originalHTML;
+              }, 1500);
+            });
+          }
         });
       });
     }
