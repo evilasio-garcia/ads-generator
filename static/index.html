@@ -56,6 +56,19 @@
 
       <div class="mt-4 grid sm:grid-cols-2 gap-4">
         <div>
+          <label class="text-sm text-gray-700 font-medium">Origem de dados</label>
+          <select id="tinyInstance" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" disabled>
+            <option value="">Nenhuma instância Tiny cadastrada</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-gray-700 font-medium">SKU (Tiny)</label>
+          <input id="tinySKU" type="text" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Digite o SKU do Tiny" disabled>
+        </div>
+      </div>
+
+      <div class="mt-4 grid sm:grid-cols-2 gap-4">
+        <div>
           <label class="text-sm text-gray-700 font-medium">Produto</label>
           <input id="productName" type="text" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ex.: Tapete higiênico 80x60 lavanda">
         </div>
@@ -208,6 +221,139 @@
         <h3 class="font-medium text-gray-700">Cards</h3>
         <div id="cardsList" class="mt-2 grid gap-3"></div>
       </div>
+
+      <!-- Informações cadastrais -->
+      <div class="mt-6" id="tinyInfoSection">
+        <h3 class="font-medium text-gray-700">Informações cadastrais</h3>
+        <div class="grid sm:grid-cols-2 gap-4 mt-3">
+          <div>
+            <label class="text-sm text-gray-600 font-medium">GTIN/EAN</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyGTIN" type="text" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="7891234567890">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyGTIN" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">SKU</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinySKUDisplay" type="text" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="PROD-12345">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinySKUDisplay" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Altura (cm)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyHeight" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="25.0">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyHeight" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Largura (cm)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyWidth" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="15.0">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyWidth" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Comprimento (cm)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyLength" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="30.0">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyLength" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Peso (g)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyWeight" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="250.0">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyWeight" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Informações de preço -->
+      <div class="mt-6" id="tinyPriceSection">
+        <h3 class="font-medium text-gray-700">Informações de preço</h3>
+        <div class="grid sm:grid-cols-2 gap-4 mt-3">
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Custo base (R$)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyCostPrice" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="50.00">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyCostPrice" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Preço anúncio (R$)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyListPrice" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="99.90">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyListPrice" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyAggressivePrice" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePrice" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">Preço promocional (R$)</label>
+            <div class="flex gap-1 mt-1">
+              <input id="tinyPromoPrice" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90">
+              <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPrice" title="Copiar conteúdo">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 4h11v11H4z" stroke-width="1.5"/></svg>
+                <span class="ml-1">Copiar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-4">
+          <label class="text-sm text-gray-600 font-medium">Faixas de preço por atacado</label>
+          <div class="mt-2 rounded-md border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm" id="wholesalePriceTable">
+              <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-gray-700">Quantidade (#)</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-700">Preço unitário (R$)</th>
+                  <th class="px-3 py-2 text-center font-medium text-gray-700 w-20"></th>
+                </tr>
+              </thead>
+              <tbody id="wholesalePriceBody" class="divide-y divide-gray-200">
+                <!-- Linhas serão adicionadas dinamicamente -->
+              </tbody>
+            </table>
+          </div>
+          <button id="addWholesaleRow" class="btn text-xs mt-2">+ Adicionar faixa</button>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -274,6 +420,16 @@
           placeholder='Use {product}, {marketplace} e {specs}. As demais chaves {{ }} do JSON podem ficar sem escape.'></textarea>
       </div>
 
+      <div class="mt-4 border-t border-gray-200 pt-4">
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-sm text-gray-700 font-medium">Tokens Tiny ERP</label>
+          <button id="cfgAddTiny" class="btn text-xs" title="Adicionar instância">+ Adicionar</button>
+        </div>
+        <div id="cfgTinyTokensList" class="grid gap-2">
+          <p class="text-xs text-gray-500 italic">Nenhum token configurado</p>
+        </div>
+      </div>
+
       <div class="mt-4 flex justify-end gap-2">
         <button id="cfgCancel" class="btn">Cancelar</button>
         <button id="cfgSave" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
@@ -319,6 +475,200 @@
       const selectedLLM = llm.value;
       fileInput.accept = 'image/*,.txt';
     }
+
+    // Tiny ERP Integration
+    const tinyInstance = $("#tinyInstance");
+    const tinySKU = $("#tinySKU");
+    const tinyInfoSection = $("#tinyInfoSection");
+    const tinyPriceSection = $("#tinyPriceSection");
+    
+    // Campos de informações cadastrais
+    const tinyGTIN = $("#tinyGTIN");
+    const tinySKUDisplay = $("#tinySKUDisplay");
+    const tinyHeight = $("#tinyHeight");
+    const tinyWidth = $("#tinyWidth");
+    const tinyLength = $("#tinyLength");
+    const tinyWeight = $("#tinyWeight");
+    
+    // Campos de preço
+    const tinyCostPrice = $("#tinyCostPrice");
+    const tinyListPrice = $("#tinyListPrice");
+    const tinyAggressivePrice = $("#tinyAggressivePrice");
+    const tinyPromoPrice = $("#tinyPromoPrice");
+    const wholesalePriceBody = $("#wholesalePriceBody");
+    const addWholesaleRow = $("#addWholesaleRow");
+    
+    // Estado da integração
+    let integrationMode = "manual"; // "manual" ou "tiny"
+    let wholesaleRows = [];
+    
+    // Placeholders simulados para modo Tiny
+    const TINY_MOCK_DATA = {
+      gtin: "7891234567890",
+      sku: "PROD-12345-A",
+      height: "25.0",
+      width: "15.0",
+      length: "30.0",
+      weight: "250.0",
+      costPrice: "50.00",
+      listPrice: "99.90",
+      aggressivePrice: "79.90",
+      promoPrice: "89.90",
+      wholesale: [
+        { qty: 10, price: 94.90 },
+        { qty: 50, price: 89.90 },
+        { qty: 100, price: 84.90 }
+      ]
+    };
+    
+    // Atualizar estado da integração
+    function updateIntegrationMode() {
+      const hasTinyTokens = getTinyTokens().length > 0;
+      const selectedInstance = tinyInstance.value;
+      const skuValue = tinySKU.value.trim();
+      
+      // Atualizar habilitação dos campos de origem
+      tinyInstance.disabled = !hasTinyTokens;
+      tinySKU.disabled = !hasTinyTokens || !selectedInstance;
+      
+      // Determinar modo de integração
+      if (hasTinyTokens && selectedInstance && skuValue) {
+        integrationMode = "tiny";
+      } else {
+        integrationMode = "manual";
+      }
+      
+      // Aplicar estado nos campos
+      applyTinyState();
+    }
+    
+    // Aplicar estado aos campos (habilitar/desabilitar e preencher com mock)
+    function applyTinyState() {
+      const isTinyMode = integrationMode === "tiny";
+      
+      if (isTinyMode) {
+        // Modo Tiny: preencher com dados simulados e desabilitar
+        tinyGTIN.value = TINY_MOCK_DATA.gtin;
+        tinySKUDisplay.value = TINY_MOCK_DATA.sku;
+        tinyHeight.value = TINY_MOCK_DATA.height;
+        tinyWidth.value = TINY_MOCK_DATA.width;
+        tinyLength.value = TINY_MOCK_DATA.length;
+        tinyWeight.value = TINY_MOCK_DATA.weight;
+        tinyCostPrice.value = TINY_MOCK_DATA.costPrice;
+        tinyListPrice.value = TINY_MOCK_DATA.listPrice;
+        tinyAggressivePrice.value = TINY_MOCK_DATA.aggressivePrice;
+        tinyPromoPrice.value = TINY_MOCK_DATA.promoPrice;
+        
+        // Desabilitar campos
+        [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight,
+         tinyCostPrice, tinyListPrice, tinyAggressivePrice, tinyPromoPrice].forEach(el => {
+          el.disabled = true;
+          el.classList.add('bg-gray-50');
+        });
+        
+        // Preencher tabela de atacado com dados mock
+        wholesaleRows = TINY_MOCK_DATA.wholesale.map(r => ({...r}));
+        renderWholesaleTable();
+        addWholesaleRow.disabled = true;
+        
+      } else {
+        // Modo Manual: LIMPAR valores e habilitar
+        tinyGTIN.value = "";
+        tinySKUDisplay.value = "";
+        tinyHeight.value = "";
+        tinyWidth.value = "";
+        tinyLength.value = "";
+        tinyWeight.value = "";
+        tinyCostPrice.value = "";
+        tinyListPrice.value = "";
+        tinyAggressivePrice.value = "";
+        tinyPromoPrice.value = "";
+        
+        [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight,
+         tinyCostPrice, tinyListPrice, tinyAggressivePrice, tinyPromoPrice].forEach(el => {
+          el.disabled = false;
+          el.classList.remove('bg-gray-50');
+        });
+        
+        // Limpar tabela de atacado
+        wholesaleRows = [];
+        renderWholesaleTable();
+        addWholesaleRow.disabled = false;
+      }
+    }
+    
+    // Renderizar tabela de preços de atacado
+    function renderWholesaleTable() {
+      wholesalePriceBody.innerHTML = '';
+      const isTinyMode = integrationMode === "tiny";
+      
+      wholesaleRows.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-2">
+            <input type="number" class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
+                   value="${row.qty}" data-idx="${idx}" data-field="qty" ${isTinyMode ? 'disabled' : ''}>
+          </td>
+          <td class="px-3 py-2">
+            <input type="number" step="0.01" class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
+                   value="${row.price}" data-idx="${idx}" data-field="price" ${isTinyMode ? 'disabled' : ''}>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button class="btn text-xs" data-remove-row="${idx}" ${isTinyMode ? 'disabled' : ''} title="Remover">
+              <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="1.5"/></svg>
+            </button>
+          </td>
+        `;
+        wholesalePriceBody.appendChild(tr);
+      });
+      
+      // Event listeners para campos da tabela
+      wholesalePriceBody.querySelectorAll('input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          const field = e.target.dataset.field;
+          const value = parseFloat(e.target.value) || 0;
+          wholesaleRows[idx][field] = value;
+        });
+      });
+      
+      // Event listeners para botões de remover
+      wholesalePriceBody.querySelectorAll('[data-remove-row]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.currentTarget.dataset.removeRow);
+          wholesaleRows.splice(idx, 1);
+          renderWholesaleTable();
+        });
+      });
+    }
+    
+    // Adicionar nova linha à tabela de atacado
+    addWholesaleRow.addEventListener('click', () => {
+      wholesaleRows.push({ qty: 0, price: 0 });
+      renderWholesaleTable();
+    });
+    
+    // Event listeners para campos Tiny
+    tinyInstance.addEventListener('change', updateIntegrationMode);
+    tinySKU.addEventListener('input', updateIntegrationMode);
+    
+    // Botões de copiar conteúdo
+    document.addEventListener('click', (e) => {
+      const copyBtn = e.target.closest('.copy-field-btn');
+      if (copyBtn) {
+        const fieldId = copyBtn.dataset.copyField;
+        const field = $(`#${fieldId}`);
+        if (field && field.value) {
+          navigator.clipboard.writeText(field.value).then(() => {
+            const originalHTML = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" fill="none"/></svg><span class="ml-1">Copiado!</span>';
+            setTimeout(() => {
+              copyBtn.innerHTML = originalHTML;
+            }, 1500);
+          });
+        }
+      }
+    });
 
     // Validar um arquivo individualmente
     function validateFile(file) {
@@ -674,6 +1024,84 @@
     const cfgGemini=$("#cfgGemini"), cfgGeminiBase=$("#cfgGeminiBase");
     const cfgRules=$("#cfgRules"), cfgPromptTpl=$("#cfgPromptTpl");
     const cfgSave=$("#cfgSave"), cfgCancel=$("#cfgCancel"), cfgClose=$("#cfgClose");
+    const cfgAddTiny=$("#cfgAddTiny"), cfgTinyTokensList=$("#cfgTinyTokensList");
+    
+    // Funções para gerenciar tokens Tiny
+    function getTinyTokens() {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
+      return saved.tiny_tokens || [];
+    }
+    
+    function saveTinyTokens(tokens) {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
+      saved.tiny_tokens = tokens;
+      localStorage.setItem(LS_KEY, JSON.stringify(saved));
+    }
+    
+    function renderTinyTokensList() {
+      const tokens = getTinyTokens();
+      if (tokens.length === 0) {
+        cfgTinyTokensList.innerHTML = '<p class="text-xs text-gray-500 italic">Nenhum token configurado</p>';
+        return;
+      }
+      
+      cfgTinyTokensList.innerHTML = tokens.map((token, idx) => `
+        <div class="flex gap-2 items-center p-2 bg-gray-50 rounded border border-gray-200">
+          <input type="text" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm" 
+                 value="${token.label}" data-idx="${idx}" data-field="label" placeholder="Nome da instância">
+          <input type="password" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm" 
+                 value="${token.token}" data-idx="${idx}" data-field="token" placeholder="Token API">
+          <button class="btn text-xs" data-remove-tiny="${idx}" title="Remover">
+            <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+      `).join('');
+      
+      // Event listeners
+      cfgTinyTokensList.querySelectorAll('input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          const field = e.target.dataset.field;
+          const tokens = getTinyTokens();
+          tokens[idx][field] = e.target.value;
+          saveTinyTokens(tokens);
+        });
+      });
+      
+      cfgTinyTokensList.querySelectorAll('[data-remove-tiny]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.currentTarget.dataset.removeTiny);
+          const tokens = getTinyTokens();
+          tokens.splice(idx, 1);
+          saveTinyTokens(tokens);
+          renderTinyTokensList();
+          updateTinyInstanceSelect();
+        });
+      });
+    }
+    
+    cfgAddTiny.addEventListener('click', () => {
+      const tokens = getTinyTokens();
+      tokens.push({ label: '', token: '' });
+      saveTinyTokens(tokens);
+      renderTinyTokensList();
+    });
+    
+    function updateTinyInstanceSelect() {
+      const tokens = getTinyTokens();
+      tinyInstance.innerHTML = '';
+      
+      if (tokens.length === 0) {
+        tinyInstance.innerHTML = '<option value="">Nenhuma instância Tiny cadastrada</option>';
+        tinyInstance.disabled = true;
+      } else {
+        tinyInstance.innerHTML = '<option value="">Selecione uma instância</option>' +
+          tokens.map((t, idx) => `<option value="${idx}">${t.label || 'Instância ' + (idx+1)}</option>`).join('');
+        tinyInstance.disabled = false;
+      }
+      
+      updateIntegrationMode();
+    }
 
     const DEFAULT_PROMPT_TEMPLATE =
 `Produto: "{product}"
@@ -701,6 +1129,7 @@ Restrições:
       cfgGeminiBase.value = saved.gemini_base || "";
       cfgRules.value = saved.rules ? JSON.stringify(saved.rules, null, 2) : "";
       cfgPromptTpl.value = saved.prompt_template || DEFAULT_PROMPT_TEMPLATE;
+      renderTinyTokensList();
       cfgModal.classList.add("open");
     });
     function closeCfg(){ cfgModal.classList.remove("open"); }
@@ -717,9 +1146,11 @@ Restrições:
         gemini: cfgGemini.value.trim(),
         gemini_base: cfgGeminiBase.value.trim(),
         rules,
-        prompt_template: cfgPromptTpl.value
+        prompt_template: cfgPromptTpl.value,
+        tiny_tokens: getTinyTokens()
       };
       localStorage.setItem(LS_KEY, JSON.stringify(payload));
+      updateTinyInstanceSelect();
       closeCfg();
     });
 
@@ -1463,6 +1894,8 @@ Restrições:
     descNext.addEventListener("click", ()=> navHistory("description",+1));
 
     restoreState();
+    updateTinyInstanceSelect();
+    renderWholesaleTable();
   </script>
 </body>
 </html>
