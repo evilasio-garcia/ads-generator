@@ -341,8 +341,8 @@
             <table class="w-full text-sm" id="wholesalePriceTable">
               <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th class="px-3 py-2 text-left font-medium text-gray-700">Quantidade (#)</th>
                   <th class="px-3 py-2 text-left font-medium text-gray-700">Preço unitário (R$)</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-700">Quantidade (#)</th>
                   <th class="px-3 py-2 text-center font-medium text-gray-700 w-20"></th>
                 </tr>
               </thead>
@@ -646,9 +646,9 @@
         tr.innerHTML = `
           <td class="px-3 py-2">
             <div class="flex items-center gap-1">
-              <input type="number" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
-                     value="${row.qty}" data-idx="${idx}" data-field="qty" ${isTinyMode ? 'disabled' : ''}>
-              <button class="copy-wholesale-btn btn-icon text-xs" data-copy-wholesale="${idx}" data-copy-wholesale-field="qty" title="Copiar quantidade">
+              <input type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
+                     value="${row.price}" data-idx="${idx}" data-field="price" ${isTinyMode ? 'disabled' : ''}>
+              <button class="copy-wholesale-btn btn-icon text-xs" data-copy-wholesale="${idx}" data-copy-wholesale-field="price" title="Copiar preço">
                 <svg class="icon w-4 h-4" viewBox="0 0 24 24">
                   <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/>
                 </svg>
@@ -657,9 +657,9 @@
           </td>
           <td class="px-3 py-2">
             <div class="flex items-center gap-1">
-              <input type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
-                     value="${row.price}" data-idx="${idx}" data-field="price" ${isTinyMode ? 'disabled' : ''}>
-              <button class="copy-wholesale-btn btn-icon text-xs" data-copy-wholesale="${idx}" data-copy-wholesale-field="price" title="Copiar preço">
+              <input type="number" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
+                     value="${row.qty}" data-idx="${idx}" data-field="qty" ${isTinyMode ? 'disabled' : ''}>
+              <button class="copy-wholesale-btn btn-icon text-xs" data-copy-wholesale="${idx}" data-copy-wholesale-field="qty" title="Copiar quantidade">
                 <svg class="icon w-4 h-4" viewBox="0 0 24 24">
                   <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/>
                 </svg>
