@@ -502,6 +502,39 @@
     let integrationMode = "manual"; // "manual" ou "tiny"
     let wholesaleRows = [];
     
+    // Função auxiliar para feedback visual de cópia
+    function showCopyFeedback(button, options = {}) {
+      const { duration = 1500, showText = false } = options;
+      
+      // Preservar o estado original verdadeiro (primeira vez que o feedback é aplicado)
+      if (!button.dataset.originalHtml) {
+        button.dataset.originalHtml = button.innerHTML;
+        button.dataset.originalClasses = button.className;
+      }
+      
+      // Cancelar timeout anterior se existir
+      if (button.dataset.timeoutId) {
+        clearTimeout(parseInt(button.dataset.timeoutId));
+      }
+      
+      // Ícone de checkmark com texto opcional
+      const checkIcon = '<svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" fill="none"/></svg>';
+      button.innerHTML = showText ? checkIcon + '<span class="ml-1">Copiado!</span>' : checkIcon;
+      button.classList.add('bg-green-100', 'text-green-700', 'border-green-300');
+      
+      // Agendar restauração do estado original
+      const timeoutId = setTimeout(() => {
+        button.innerHTML = button.dataset.originalHtml;
+        button.className = button.dataset.originalClasses;
+        // Limpar os dados armazenados
+        delete button.dataset.originalHtml;
+        delete button.dataset.originalClasses;
+        delete button.dataset.timeoutId;
+      }, duration);
+      
+      button.dataset.timeoutId = timeoutId.toString();
+    }
+    
     // Placeholders simulados para modo Tiny
     const TINY_MOCK_DATA = {
       gtin: "7891234567890",
@@ -674,11 +707,7 @@
           
           if (value !== '') {
             navigator.clipboard.writeText(String(value)).then(() => {
-              const originalHTML = btn.innerHTML;
-              btn.innerHTML = '<svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" fill="none"/></svg>';
-              setTimeout(() => {
-                btn.innerHTML = originalHTML;
-              }, 1500);
+              showCopyFeedback(btn);
             });
           }
         });
@@ -703,11 +732,7 @@
         const field = $(`#${fieldId}`);
         if (field && field.value) {
           navigator.clipboard.writeText(field.value).then(() => {
-            const originalHTML = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" fill="none"/></svg><span class="ml-1">Copiado!</span>';
-            setTimeout(() => {
-              copyBtn.innerHTML = originalHTML;
-            }, 1500);
+            showCopyFeedback(copyBtn, { showText: true });
           });
         }
       }
@@ -1314,8 +1339,9 @@ Restrições:
         const nextBtn = el.querySelector('[data-action="next"]');
         if(nextBtn) nextBtn.addEventListener("click", ()=>{ if(line.vIdx<line.versions.length-1){ line.vIdx++; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
 
-        el.querySelector('[data-action="copy"]').addEventListener("click", ()=> {
+        el.querySelector('[data-action="copy"]').addEventListener("click", (e)=> {
           navigator.clipboard.writeText(`P: ${cur.q}\nR: ${cur.a}`);
+          showCopyFeedback(e.currentTarget);
         });
         el.querySelector('[data-action="approve"]').addEventListener("click", ()=> {
           line.approved = !line.approved;
@@ -1408,15 +1434,17 @@ Restrições:
         el.querySelector('[data-action="regen"]').addEventListener("click", async ()=>{ setProcessing(true); await regenCard(idx); setProcessing(false); });
         el.querySelector('[data-action="prompt"]').addEventListener("click", async ()=>{ const txt = await openPrompt("Instruções para regerar este card:"); if(txt!==null){ setProcessing(true); await regenCard(idx, txt); setProcessing(false); } });
 
-        el.querySelector('[data-action="copyTitle"]').addEventListener("click", ()=> {
+        el.querySelector('[data-action="copyTitle"]').addEventListener("click", (e)=> {
           navigator.clipboard.writeText(cur.title||"");
           line.copiedTitle = true;
+          showCopyFeedback(e.currentTarget);
           renderCardsFromState();
           persistState();
         });
-        el.querySelector('[data-action="copyText"]').addEventListener("click", ()=> {
+        el.querySelector('[data-action="copyText"]').addEventListener("click", (e)=> {
           navigator.clipboard.writeText(cur.text||"");
           line.copiedText = true;
+          showCopyFeedback(e.currentTarget);
           renderCardsFromState();
           persistState();
         });
@@ -1833,27 +1861,36 @@ Restrições:
     }
 
     // Copiar
-    $("#copyAll").addEventListener("click", ()=> {
+    $("#copyAll").addEventListener("click", (e)=> {
       const approvedFAQ = history.faq.filter(f=>f.approved).map(f => {
         const cur = f.versions[f.vIdx]; return `P: ${cur.q}\nR: ${cur.a}`;
       }).join("\n\n");
       const cardsTxt = (history.cards||[]).map(c => `• ${c.title}: ${c.text}`).join("\n");
       const text = ["Título:", outTitle.value, "", "Descrição:", outDesc.value, "", "Cards:", cardsTxt, "", "Perguntas frequentes:", approvedFAQ].join("\n");
       navigator.clipboard.writeText(text);
+      showCopyFeedback(e.currentTarget);
     });
-    $("#copyTitle").addEventListener("click", ()=> navigator.clipboard.writeText(outTitle.value));
-    $("#copyDesc").addEventListener("click", ()=> {
+    $("#copyTitle").addEventListener("click", (e)=> {
+      navigator.clipboard.writeText(outTitle.value);
+      showCopyFeedback(e.currentTarget);
+    });
+    $("#copyDesc").addEventListener("click", (e)=> {
       const approved = history.faq.filter(f=>f.approved).map(f=> f.versions[f.vIdx] );
       const lines = [outDesc.value];
       if(approved.length){ lines.push("", "Perguntas frequentes"); approved.forEach(x=>{ lines.push(`P: ${x.q}`); lines.push(`R: ${x.a}`); lines.push(""); }); }
       navigator.clipboard.writeText(lines.join("\n"));
+      showCopyFeedback(e.currentTarget);
     });
-    $("#copyDescNoFAQ").addEventListener("click", ()=> navigator.clipboard.writeText(outDesc.value || ""));
-    $("#copyFAQApproved").addEventListener("click", ()=> {
+    $("#copyDescNoFAQ").addEventListener("click", (e)=> {
+      navigator.clipboard.writeText(outDesc.value || "");
+      showCopyFeedback(e.currentTarget);
+    });
+    $("#copyFAQApproved").addEventListener("click", (e)=> {
       const faqApproved = history.faq.filter(f=>f.approved).map(f => {
         const cur = f.versions[f.vIdx]; return `P: ${cur.q}\nR: ${cur.a}`;
       }).join("\n\n");
       navigator.clipboard.writeText(faqApproved);
+      showCopyFeedback(e.currentTarget);
     });
 
     // Geração principal
