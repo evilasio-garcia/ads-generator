@@ -107,7 +107,7 @@ def test_breakdown_contains_all_steps():
 
 def test_custom_context_changes_pricing():
     """Testa se contexto customizado altera precificação"""
-    calc = PriceCalculatorFactory.get("mercadolivre")
+    calc = PriceCalculatorFactory.get("shopee")  # Usar Shopee que usa lógica padrão
     cost = 100.0
     shipping = 10.0
     

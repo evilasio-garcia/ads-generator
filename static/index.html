@@ -430,6 +430,36 @@
         </div>
       </div>
 
+      <div class="mt-4 border-t border-gray-200 pt-4">
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-sm text-gray-700 font-medium">Dados de Precificação</label>
+          <button id="cfgAddPricing" class="btn text-xs" title="Adicionar marketplace">+ Adicionar</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-3">Configure os percentuais de comissão, impostos e margens para cada marketplace</p>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs border border-gray-200 rounded-md">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-2 py-2 text-left font-medium text-gray-700">Marketplace</th>
+                <th class="px-2 py-2 text-center font-medium text-gray-700">% Min<br/><span class="font-normal text-gray-500">(Clássico)</span></th>
+                <th class="px-2 py-2 text-center font-medium text-gray-700">% Max<br/><span class="font-normal text-gray-500">(Premium)</span></th>
+                <th class="px-2 py-2 text-center font-medium text-gray-700">% TACOS<br/><span class="font-normal text-gray-500">(Publicidade)</span></th>
+                <th class="px-2 py-2 text-center font-medium text-gray-700">% M.C.<br/><span class="font-normal text-gray-500">(Margem)</span></th>
+                <th class="px-2 py-2 text-center font-medium text-gray-700">% Lucro</th>
+                <th class="px-2 py-2 text-center font-medium text-gray-700">% Impostos</th>
+                <th class="px-2 py-2 text-center font-medium text-gray-700 w-16">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="cfgPricingTableBody">
+              <tr>
+                <td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço cadastrada</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="mt-4 flex justify-end gap-2">
         <button id="cfgCancel" class="btn">Cancelar</button>
         <button id="cfgSave" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
@@ -828,14 +858,25 @@
       try {
         autoPricingInProgress = true;
         
-        // Chamar endpoint de pricing
+        // Obter dados de precificação do marketplace selecionado
+        const pricingData = getPricingDataForMarketplace(channel);
+        
+        // Chamar endpoint de pricing com contexto de precificação
+        const requestBody = {
+          cost_price: costPrice,
+          shipping_cost: 0.0, // TODO: adicionar campo de frete no futuro
+          channel: channel
+        };
+        
+        // Adicionar contexto de precificação se disponível
+        if (pricingData) {
+          requestBody.ctx = pricingData;
+        }
+        
         const response = await fetch('/pricing/quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cost_price: costPrice,
-            channel: channel
-          })
+          body: JSON.stringify(requestBody)
         });
         
         if (!response.ok) {
@@ -1330,6 +1371,126 @@
       updateIntegrationMode();
     }
 
+    // ============================================================================
+    // PRICING CONFIG - Dados de Precificação
+    // ============================================================================
+    const cfgAddPricing = $("#cfgAddPricing");
+    const cfgPricingTableBody = $("#cfgPricingTableBody");
+    
+    // Configuração padrão para cada marketplace
+    const DEFAULT_PRICING_CONFIG = {
+      mercadolivre: { marketplace: 'mercadolivre', comissao_min: 12, comissao_max: 17, tacos: 5, margem_contribuicao: 15, lucro: 10, impostos: 8 },
+      shopee: { marketplace: 'shopee', comissao_min: 10, comissao_max: 15, tacos: 5, margem_contribuicao: 15, lucro: 10, impostos: 8 },
+      amazon: { marketplace: 'amazon', comissao_min: 12, comissao_max: 18, tacos: 5, margem_contribuicao: 15, lucro: 10, impostos: 8 },
+      magalu: { marketplace: 'magalu', comissao_min: 12, comissao_max: 16, tacos: 5, margem_contribuicao: 15, lucro: 10, impostos: 8 },
+      shein: { marketplace: 'shein', comissao_min: 10, comissao_max: 15, tacos: 5, margem_contribuicao: 15, lucro: 10, impostos: 8 }
+    };
+    
+    function getPricingConfig() {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
+      return saved.pricing_config || [];
+    }
+    
+    function savePricingConfig(config) {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
+      saved.pricing_config = config;
+      localStorage.setItem(LS_KEY, JSON.stringify(saved));
+    }
+    
+    function renderPricingTable() {
+      const config = getPricingConfig();
+      
+      if (config.length === 0) {
+        cfgPricingTableBody.innerHTML = '<tr><td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço cadastrada</td></tr>';
+        return;
+      }
+      
+      cfgPricingTableBody.innerHTML = config.map((item, idx) => `
+        <tr class="hover:bg-gray-50">
+          <td class="px-2 py-2">
+            <select class="w-full rounded border border-gray-300 px-2 py-1 text-xs" data-idx="${idx}" data-field="marketplace">
+              <option value="mercadolivre" ${item.marketplace === 'mercadolivre' ? 'selected' : ''}>Mercado Livre</option>
+              <option value="shopee" ${item.marketplace === 'shopee' ? 'selected' : ''}>Shopee</option>
+              <option value="amazon" ${item.marketplace === 'amazon' ? 'selected' : ''}>Amazon</option>
+              <option value="magalu" ${item.marketplace === 'magalu' ? 'selected' : ''}>Magalu</option>
+              <option value="shein" ${item.marketplace === 'shein' ? 'selected' : ''}>Shein</option>
+            </select>
+          </td>
+          <td class="px-2 py-2"><input type="number" min="0" max="100" step="0.1" class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-center" value="${item.comissao_min}" data-idx="${idx}" data-field="comissao_min"></td>
+          <td class="px-2 py-2"><input type="number" min="0" max="100" step="0.1" class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-center" value="${item.comissao_max}" data-idx="${idx}" data-field="comissao_max"></td>
+          <td class="px-2 py-2"><input type="number" min="0" max="100" step="0.1" class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-center" value="${item.tacos}" data-idx="${idx}" data-field="tacos"></td>
+          <td class="px-2 py-2"><input type="number" min="0" max="100" step="0.1" class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-center" value="${item.margem_contribuicao}" data-idx="${idx}" data-field="margem_contribuicao"></td>
+          <td class="px-2 py-2"><input type="number" min="0" max="100" step="0.1" class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-center" value="${item.lucro}" data-idx="${idx}" data-field="lucro"></td>
+          <td class="px-2 py-2"><input type="number" min="0" max="100" step="0.1" class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-center" value="${item.impostos}" data-idx="${idx}" data-field="impostos"></td>
+          <td class="px-2 py-2 text-center">
+            <button class="btn text-xs p-1" data-remove-pricing="${idx}" title="Remover">
+              <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="1.5"/></svg>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+      
+      // Event listeners para inputs
+      cfgPricingTableBody.querySelectorAll('input, select').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          const field = e.target.dataset.field;
+          const config = getPricingConfig();
+          
+          if (field === 'marketplace') {
+            config[idx][field] = e.target.value;
+          } else {
+            config[idx][field] = parseFloat(e.target.value) || 0;
+          }
+          
+          savePricingConfig(config);
+        });
+      });
+      
+      // Event listeners para botões remover
+      cfgPricingTableBody.querySelectorAll('[data-remove-pricing]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.currentTarget.dataset.removePricing);
+          const config = getPricingConfig();
+          config.splice(idx, 1);
+          savePricingConfig(config);
+          renderPricingTable();
+        });
+      });
+    }
+    
+    cfgAddPricing.addEventListener('click', () => {
+      const config = getPricingConfig();
+      const selectedMarketplace = marketplace.value || 'mercadolivre';
+      
+      // Usar configuração padrão para o marketplace selecionado
+      const defaultConfig = DEFAULT_PRICING_CONFIG[selectedMarketplace] || DEFAULT_PRICING_CONFIG['mercadolivre'];
+      config.push({ ...defaultConfig });
+      
+      savePricingConfig(config);
+      renderPricingTable();
+    });
+    
+    // Função para obter dados de precificação do marketplace selecionado
+    function getPricingDataForMarketplace(marketplaceValue) {
+      const config = getPricingConfig();
+      const found = config.find(c => c.marketplace === marketplaceValue);
+      
+      if (!found) {
+        return null; // Sem configuração de precificação
+      }
+      
+      // Converter percentuais para decimais
+      return {
+        comissao_min: found.comissao_min / 100,
+        comissao_max: found.comissao_max / 100,
+        tacos: found.tacos / 100,
+        margem_contribuicao: found.margem_contribuicao / 100,
+        lucro: found.lucro / 100,
+        impostos: found.impostos / 100
+      };
+    }
+
     const DEFAULT_PROMPT_TEMPLATE =
 `Produto: "{product}"
 Marketplace: {marketplace}
@@ -1357,6 +1518,7 @@ Restrições:
       cfgRules.value = saved.rules ? JSON.stringify(saved.rules, null, 2) : "";
       cfgPromptTpl.value = saved.prompt_template || DEFAULT_PROMPT_TEMPLATE;
       renderTinyTokensList();
+      renderPricingTable(); // Renderizar tabela de precificação
       cfgModal.classList.add("open");
     });
     function closeCfg(){ cfgModal.classList.remove("open"); }
@@ -1374,7 +1536,8 @@ Restrições:
         gemini_base: cfgGeminiBase.value.trim(),
         rules,
         prompt_template: cfgPromptTpl.value,
-        tiny_tokens: getTinyTokens()
+        tiny_tokens: getTinyTokens(),
+        pricing_config: getPricingConfig() // Salvar dados de precificação
       };
       localStorage.setItem(LS_KEY, JSON.stringify(payload));
       updateTinyInstanceSelect();

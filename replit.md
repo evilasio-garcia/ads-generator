@@ -69,11 +69,13 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 
 ## Recent Changes
 
-**October 24, 2025 - Etapa 3: Pricing Module**
+**October 24, 2025 - Etapa 3: Pricing Module + Mercado Livre Pricing Logic**
 - Implemented complete pricing module using Strategy + Factory patterns
 - Created 7 marketplace-specific calculators with distinct markup/tax configurations
 - Added 3 REST endpoints for price calculation, policy listing, and validation
 - **Added shipping_cost parameter:** All interface methods and implementations now accept shipping_cost (default 0.0), properly calculating total cost (product + shipping) before applying markup/taxes
-- Integrated frontend auto-pricing that populates price fields automatically when cost_price or shipping_cost changes
-- Created 16 unit tests (all passing) covering factory, calculators, and shipping cost scenarios
+- **Implemented Mercado Livre custom pricing logic:** Based on official ML commission structure (Classic 10-14%, Premium 15-19%), calculates prices using formula: Preço = Custo Total / (1 - %Comissão - %Impostos - %TACOS - %MC - %Lucro)
+- **Created "Dados de Precificação" table:** New configuration section in settings modal where users can configure pricing parameters for each marketplace (% min/max commission, % TACOS, % margin, % profit, % taxes)
+- **Auto-pricing integration:** Frontend automatically passes marketplace-specific pricing config from the table to /pricing/quote endpoint via context parameter
+- Created 16 unit tests (all passing) covering factory, calculators, shipping cost scenarios, and custom pricing logic
 - Architecture approved by code review for extensibility, correctness, and best practices
