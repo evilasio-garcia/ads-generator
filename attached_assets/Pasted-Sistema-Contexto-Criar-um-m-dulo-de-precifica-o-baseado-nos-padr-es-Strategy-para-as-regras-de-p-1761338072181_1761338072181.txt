@@ -1,0 +1,97 @@
+Sistema/Contexto:
+
+Criar um módulo de precificação baseado nos padrões Strategy (para as regras de preço) + Factory (para instanciar a estratégia correta a partir do marketplace ou canal).
+
+Expor endpoints HTTP que aceitam apenas cost_price e marketplace (opcionalmente policy_id ou ctx), e retornam todos os preços derivados e um breakdown.
+
+Não fazer chamadas de rede nesta etapa. Tudo deve ser determinístico e testável.
+
+Tarefas:
+
+Interface (contrato genérico):
+
+Definir a interface IPriceCalculator com os métodos:
+
+getListingPrice(cost_price, ctx?) => number
+
+getWholesaleTiers(cost_price, ctx?) => Array<{ tier: number; price: number }>
+
+getAggressivePrice(cost_price, ctx?) => number
+
+getPromoPrice(cost_price, ctx?) => number
+
+getBreakdown(cost_price, ctx?) => { steps: Array<{ label: string; value: number }>; notes?: string[] }
+
+Todos os retornos devem ser não negativos e aplicar arredondamento configurável (ex.: final ,99) quando especificado em ctx.
+
+Implementações concretas (T0):
+
+Criar uma classe por canal de venda atualmente suportado (usando a lista de marketplaces e canais existentes no código/config atual). Exemplos de nomes: MercadoLivrePriceCalculator, ShopeePriceCalculator, AmazonBRPriceCalculator, SheinPriceCalculator, EcommercePriceCalculator, TelemarketingPriceCalculator, etc.
+
+Cada classe **implementa a interface **IPriceCalculator e guarda a lógica específica daquele canal (taxas, markups mínimos, arredondamentos, limites por categoria, etc.).
+
+Factory (instanciamento automático):
+
+Criar PriceCalculatorFactory.get(channel: string): IPriceCalculator que retorna a instância correta com base no parâmetro channel (ou marketplace).
+
+O mapeamento channel → classe deve usar a enum/constante já existente no sistema (fonte única). Se o valor for desconhecido, retornar erro controlado (422) e mensagem clara.
+
+Endpoints HTTP (REST):
+
+POST /pricing/quote
+
+Body: { cost_price: number, channel: string, policy_id?: string, ctx?: object }
+
+Resposta: { listingPrice, wholesaleTiers, aggressivePrice, promoPrice, breakdown, policy_id?, channel }
+
+(Opcional, mas recomendado) GET /pricing/policies
+
+Lista políticas disponíveis por canal (se existirem). Sem rede; ler de config local.
+
+(Opcional) POST /pricing/validate
+
+Valida entradas (ex.: cost_price >= 0, channel suportado) e retorna 200/422.
+
+Injeção na UI (integração leve):
+
+A UI existente deve chamar POST /pricing/quote após obter o cost_price (do Tiny, quando integrado, ou manual no modo manual) e o canal de venda selecionado.
+
+Os valores retornados preenchem a seção Informações de preço. Em modo Tiny ativo, campos permanecem desabilitados (somente leitura). Em modo manual, permanecem editáveis como hoje.
+
+Extensibilidade/Config:
+
+ctx e/ou policy_id são opcionais para permitir variações de regras (ex.: campanhas, categorias, regiões) sem alterar código. Se não forem enviados, usar defaults por canal.
+
+Não persistir nada nesta etapa; somente cálculo em memória.
+
+Entrega esperada:
+
+Interface IPriceCalculator + implementações concretas por canal existente.
+
+PriceCalculatorFactory funcionando, com erro controlado para canal não suportado.
+
+Endpoints POST /pricing/quote (principal) e, opcionalmente, GET /pricing/policies e POST /pricing/validate.
+
+Testes unitários para as classes e para a Factory.
+
+Critérios de aceite (Etapa 3)
+
+Telemetria (Etapa 3)
+
+pricing.quote.request { channel, has_ctx: boolean, policy_id? }
+
+pricing.quote.success { channel, ms }
+
+pricing.quote.error { channel, code }
+
+Testes sugeridos (Etapa 3)
+
+Canais diferentes (ex.: MercadoLivre vs Shopee vs Ecommerce) com mesmo custo → preços distintos conforme regras de cada classe.
+
+Custo baixo/extremo → aplicar preço mínimo sem quebrar (saida não negativa).
+
+Arredondamento → validar finais ,99 (quando habilitado no ctx/default).
+
+Faixas de atacado → monotonicidade decrescente do preço unitário por tier.
+
+Factory → todos os canais mapeados; desconhecido → 422

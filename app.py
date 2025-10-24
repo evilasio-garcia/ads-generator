@@ -15,6 +15,9 @@ from pydantic import BaseModel, Field
 # Importar serviço Tiny
 import tiny_service
 
+# Importar pricing module
+from pricing import PriceCalculatorFactory
+
 app = FastAPI(title="Ads Generator API", version="2.2.0")
 
 app.add_middleware(
@@ -637,6 +640,154 @@ async def tiny_validate_token(request: TinyValidateTokenIn):
                 "message": f"Erro ao validar: {str(e)}"
             }
         )
+
+
+# ============================================================================
+# PRICING ENDPOINTS
+# ============================================================================
+
+class PriceQuoteRequest(BaseModel):
+    """Request para cotação de preços"""
+    cost_price: float = Field(..., gt=0, description="Custo do produto (deve ser > 0)")
+    channel: str = Field(..., description="Canal de venda (mercadolivre, shopee, amazon, etc)")
+    policy_id: Optional[str] = Field(None, description="ID da política de preços (opcional)")
+    ctx: Optional[Dict[str, Any]] = Field(None, description="Contexto adicional (categoria, região, etc)")
+
+
+class PriceQuoteResponse(BaseModel):
+    """Resposta da cotação de preços"""
+    listing_price: float
+    wholesale_tiers: List[Dict[str, Any]]
+    aggressive_price: float
+    promo_price: float
+    breakdown: Dict[str, Any]
+    channel: str
+    policy_id: Optional[str] = None
+
+
+class PriceValidateRequest(BaseModel):
+    """Request para validação de entrada"""
+    cost_price: float
+    channel: str
+
+
+@app.post("/pricing/quote", response_model=PriceQuoteResponse)
+async def pricing_quote(request: PriceQuoteRequest):
+    """
+    Calcula todos os preços derivados a partir do custo e canal.
+    
+    Args:
+        request: PriceQuoteRequest com cost_price, channel, policy_id?, ctx?
+        
+    Returns:
+        PriceQuoteResponse com todos os preços calculados e breakdown
+        
+    Raises:
+        422: Canal não suportado ou cost_price inválido
+    """
+    try:
+        # Obter calculadora para o canal
+        calculator = PriceCalculatorFactory.get(request.channel)
+        
+        # Calcular todos os preços
+        listing_price = calculator.get_listing_price(request.cost_price, request.ctx)
+        wholesale_tiers = calculator.get_wholesale_tiers(request.cost_price, request.ctx)
+        aggressive_price = calculator.get_aggressive_price(request.cost_price, request.ctx)
+        promo_price = calculator.get_promo_price(request.cost_price, request.ctx)
+        breakdown = calculator.get_breakdown(request.cost_price, request.ctx)
+        
+        # Converter wholesale_tiers para dict
+        tiers_dict = [tier.model_dump() for tier in wholesale_tiers]
+        
+        return PriceQuoteResponse(
+            listing_price=listing_price,
+            wholesale_tiers=tiers_dict,
+            aggressive_price=aggressive_price,
+            promo_price=promo_price,
+            breakdown=breakdown.model_dump(),
+            channel=request.channel,
+            policy_id=request.policy_id
+        )
+        
+    except ValueError as e:
+        # Canal não suportado
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": str(e),
+                "supported_channels": PriceCalculatorFactory.get_supported_channels()
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"message": f"Erro ao calcular preços: {str(e)}"}
+        )
+
+
+@app.get("/pricing/policies")
+async def pricing_policies():
+    """
+    Lista políticas de preço disponíveis por canal.
+    
+    Retorna:
+        Dict com canais suportados e suas configurações padrão
+    """
+    supported_channels = PriceCalculatorFactory.get_supported_channels()
+    
+    policies = {}
+    for channel in supported_channels:
+        try:
+            calculator = PriceCalculatorFactory.get(channel)
+            # Acessa atributos diretamente via hasattr (compatível com todas as implementações)
+            policies[channel] = {
+                "default_markup": getattr(calculator, "DEFAULT_MARKUP", 2.0),
+                "default_tax_rate": getattr(calculator, "DEFAULT_TAX_RATE", 0.15),
+                "min_margin": getattr(calculator, "MIN_MARGIN", 0.20),
+                "aggressive_discount": getattr(calculator, "AGGRESSIVE_DISCOUNT", 0.10),
+                "promo_discount": getattr(calculator, "PROMO_DISCOUNT", 0.15),
+            }
+        except Exception:
+            pass
+    
+    return {
+        "supported_channels": supported_channels,
+        "policies": policies
+    }
+
+
+@app.post("/pricing/validate")
+async def pricing_validate(request: PriceValidateRequest):
+    """
+    Valida entradas de precificação.
+    
+    Args:
+        request: PriceValidateRequest com cost_price e channel
+        
+    Returns:
+        200: Válido
+        422: Inválido (com mensagem de erro)
+    """
+    errors = []
+    
+    # Validar cost_price
+    if request.cost_price <= 0:
+        errors.append("cost_price deve ser maior que zero")
+    
+    # Validar channel
+    if not PriceCalculatorFactory.is_supported(request.channel):
+        errors.append(
+            f"Canal '{request.channel}' não suportado. "
+            f"Canais disponíveis: {', '.join(PriceCalculatorFactory.get_supported_channels())}"
+        )
+    
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"errors": errors}
+        )
+    
+    return {"valid": True, "message": "Entrada válida"}
 
 
 if __name__ == "__main__":
