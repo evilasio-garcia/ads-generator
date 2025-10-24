@@ -301,9 +301,9 @@ def map_tiny_to_product_data(raw_product: Dict[str, Any]) -> Dict[str, Any]:
     gtin = safe_str(raw_product.get('gtin', ''))
     
     # Dimensões (campos podem variar: altura_embalagem, largura_embalagem, etc)
-    height_cm = safe_float(raw_product.get('altura_embalagem', 0))
-    width_cm = safe_float(raw_product.get('largura_embalagem', 0))
-    length_cm = safe_float(raw_product.get('comprimento_embalagem', 0))
+    height_cm = safe_float(raw_product.get('alturaEmbalagem', 0))
+    width_cm = safe_float(raw_product.get('larguraEmbalagem', 0))
+    length_cm = safe_float(raw_product.get('comprimentoEmbalagem', 0))
     weight_kg = safe_float(raw_product.get('peso_bruto', 0))
     
     # Preços

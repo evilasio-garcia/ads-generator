@@ -277,7 +277,7 @@
             </div>
           </div>
           <div>
-            <label class="text-sm text-gray-600 font-medium">Peso (g)</label>
+            <label class="text-sm text-gray-600 font-medium">Peso (kg)</label>
             <div class="flex gap-1 mt-1">
               <input id="tinyWeight" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="250.0">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyWeight" title="Copiar conteúdo">
@@ -664,6 +664,7 @@
       
       if (isTinyMode && tinyProductData) {
         // Modo Tiny: preencher com dados REAIS da API e desabilitar
+        productName.value = tinyProductData.title || "";
         tinyGTIN.value = tinyProductData.gtin || "";
         tinySKUDisplay.value = tinyProductData.sku || "";
         tinyHeight.value = tinyProductData.height_cm || "";
