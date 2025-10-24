@@ -15,21 +15,26 @@ class BasePriceCalculator(IPriceCalculator):
     AGGRESSIVE_DISCOUNT = 0.10  # 10% de desconto no preço agressivo
     PROMO_DISCOUNT = 0.15  # 15% de desconto promocional
     
-    def calculate_base_price(self, cost_price: float, markup: float, tax_rate: float) -> float:
-        """Calcula preço base com markup e impostos"""
-        return cost_price * (1 + markup) / (1 - tax_rate)
+    def calculate_total_cost(self, cost_price: float, shipping_cost: float) -> float:
+        """Calcula custo total (produto + frete)"""
+        return cost_price + shipping_cost
     
-    def get_listing_price(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> float:
+    def calculate_base_price(self, total_cost: float, markup: float, tax_rate: float) -> float:
+        """Calcula preço base com markup e impostos"""
+        return total_cost * (1 + markup) / (1 - tax_rate)
+    
+    def get_listing_price(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> float:
         markup = ctx.get('markup', self.DEFAULT_MARKUP) if ctx else self.DEFAULT_MARKUP
         tax_rate = ctx.get('tax_rate', self.DEFAULT_TAX_RATE) if ctx else self.DEFAULT_TAX_RATE
         
-        base_price = self.calculate_base_price(cost_price, markup, tax_rate)
+        total_cost = self.calculate_total_cost(cost_price, shipping_cost)
+        base_price = self.calculate_base_price(total_cost, markup, tax_rate)
         rounded_price = self.apply_rounding(base_price, ctx)
         
         return self.ensure_non_negative(rounded_price)
     
-    def get_wholesale_tiers(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> List[WholesaleTier]:
-        listing_price = self.get_listing_price(cost_price, ctx)
+    def get_wholesale_tiers(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> List[WholesaleTier]:
+        listing_price = self.get_listing_price(cost_price, shipping_cost, ctx)
         
         # Tiers padrão: 5-10-20 unidades com descontos crescentes
         tiers = [
@@ -40,8 +45,8 @@ class BasePriceCalculator(IPriceCalculator):
         
         return tiers
     
-    def get_aggressive_price(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> float:
-        listing_price = self.get_listing_price(cost_price, ctx)
+    def get_aggressive_price(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> float:
+        listing_price = self.get_listing_price(cost_price, shipping_cost, ctx)
         discount = ctx.get('aggressive_discount', self.AGGRESSIVE_DISCOUNT) if ctx else self.AGGRESSIVE_DISCOUNT
         
         aggressive = listing_price * (1 - discount)
@@ -49,8 +54,8 @@ class BasePriceCalculator(IPriceCalculator):
         
         return self.ensure_non_negative(rounded)
     
-    def get_promo_price(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> float:
-        listing_price = self.get_listing_price(cost_price, ctx)
+    def get_promo_price(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> float:
+        listing_price = self.get_listing_price(cost_price, shipping_cost, ctx)
         discount = ctx.get('promo_discount', self.PROMO_DISCOUNT) if ctx else self.PROMO_DISCOUNT
         
         promo = listing_price * (1 - discount)
@@ -58,20 +63,23 @@ class BasePriceCalculator(IPriceCalculator):
         
         return self.ensure_non_negative(rounded)
     
-    def get_breakdown(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> PriceBreakdown:
+    def get_breakdown(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> PriceBreakdown:
         markup = ctx.get('markup', self.DEFAULT_MARKUP) if ctx else self.DEFAULT_MARKUP
         tax_rate = ctx.get('tax_rate', self.DEFAULT_TAX_RATE) if ctx else self.DEFAULT_TAX_RATE
         
-        base_price = cost_price * (1 + markup)
+        total_cost = self.calculate_total_cost(cost_price, shipping_cost)
+        base_price = total_cost * (1 + markup)
         final_price = base_price / (1 - tax_rate)
         
         steps = [
             {"label": "Custo do produto", "value": cost_price},
+            {"label": "Custo de frete", "value": shipping_cost},
+            {"label": "Custo total (produto + frete)", "value": total_cost},
             {"label": f"Markup ({markup*100:.0f}%)", "value": base_price},
             {"label": f"Impostos ({tax_rate*100:.0f}%)", "value": final_price},
-            {"label": "Preço de lista (arredondado)", "value": self.get_listing_price(cost_price, ctx)},
-            {"label": "Preço agressivo", "value": self.get_aggressive_price(cost_price, ctx)},
-            {"label": "Preço promocional", "value": self.get_promo_price(cost_price, ctx)},
+            {"label": "Preço de lista (arredondado)", "value": self.get_listing_price(cost_price, shipping_cost, ctx)},
+            {"label": "Preço agressivo", "value": self.get_aggressive_price(cost_price, shipping_cost, ctx)},
+            {"label": "Preço promocional", "value": self.get_promo_price(cost_price, shipping_cost, ctx)},
         ]
         
         notes = [

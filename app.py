@@ -649,6 +649,7 @@ async def tiny_validate_token(request: TinyValidateTokenIn):
 class PriceQuoteRequest(BaseModel):
     """Request para cotação de preços"""
     cost_price: float = Field(..., gt=0, description="Custo do produto (deve ser > 0)")
+    shipping_cost: float = Field(0.0, ge=0, description="Custo de frete/envio (padrão 0.0)")
     channel: str = Field(..., description="Canal de venda (mercadolivre, shopee, amazon, etc)")
     policy_id: Optional[str] = Field(None, description="ID da política de preços (opcional)")
     ctx: Optional[Dict[str, Any]] = Field(None, description="Contexto adicional (categoria, região, etc)")
@@ -668,6 +669,7 @@ class PriceQuoteResponse(BaseModel):
 class PriceValidateRequest(BaseModel):
     """Request para validação de entrada"""
     cost_price: float
+    shipping_cost: float = 0.0
     channel: str
 
 
@@ -689,12 +691,12 @@ async def pricing_quote(request: PriceQuoteRequest):
         # Obter calculadora para o canal
         calculator = PriceCalculatorFactory.get(request.channel)
         
-        # Calcular todos os preços
-        listing_price = calculator.get_listing_price(request.cost_price, request.ctx)
-        wholesale_tiers = calculator.get_wholesale_tiers(request.cost_price, request.ctx)
-        aggressive_price = calculator.get_aggressive_price(request.cost_price, request.ctx)
-        promo_price = calculator.get_promo_price(request.cost_price, request.ctx)
-        breakdown = calculator.get_breakdown(request.cost_price, request.ctx)
+        # Calcular todos os preços (incluindo shipping_cost)
+        listing_price = calculator.get_listing_price(request.cost_price, request.shipping_cost, request.ctx)
+        wholesale_tiers = calculator.get_wholesale_tiers(request.cost_price, request.shipping_cost, request.ctx)
+        aggressive_price = calculator.get_aggressive_price(request.cost_price, request.shipping_cost, request.ctx)
+        promo_price = calculator.get_promo_price(request.cost_price, request.shipping_cost, request.ctx)
+        breakdown = calculator.get_breakdown(request.cost_price, request.shipping_cost, request.ctx)
         
         # Converter wholesale_tiers para dict
         tiers_dict = [tier.model_dump() for tier in wholesale_tiers]
@@ -773,6 +775,10 @@ async def pricing_validate(request: PriceValidateRequest):
     # Validar cost_price
     if request.cost_price <= 0:
         errors.append("cost_price deve ser maior que zero")
+    
+    # Validar shipping_cost
+    if request.shipping_cost < 0:
+        errors.append("shipping_cost não pode ser negativo")
     
     # Validar channel
     if not PriceCalculatorFactory.is_supported(request.channel):

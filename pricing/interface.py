@@ -20,20 +20,21 @@ class IPriceCalculator(ABC):
     """
     Interface para calculadoras de preço por canal/marketplace.
     
-    Todos os métodos recebem cost_price (custo) e opcionalmente ctx (contexto)
-    para customizações (categorias, campanhas, políticas específicas).
+    Todos os métodos recebem cost_price (custo do produto), shipping_cost (custo de frete)
+    e opcionalmente ctx (contexto) para customizações (categorias, campanhas, políticas específicas).
     """
     
     def __init__(self, channel: str):
         self.channel = channel
     
     @abstractmethod
-    def get_listing_price(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> float:
+    def get_listing_price(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> float:
         """
         Calcula o preço de tabela/lista do produto.
         
         Args:
             cost_price: Custo do produto
+            shipping_cost: Custo de frete/envio
             ctx: Contexto opcional (categoria, região, política)
             
         Returns:
@@ -42,12 +43,13 @@ class IPriceCalculator(ABC):
         pass
     
     @abstractmethod
-    def get_wholesale_tiers(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> List[WholesaleTier]:
+    def get_wholesale_tiers(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> List[WholesaleTier]:
         """
         Calcula faixas de preço para venda atacado.
         
         Args:
             cost_price: Custo do produto
+            shipping_cost: Custo de frete/envio
             ctx: Contexto opcional
             
         Returns:
@@ -56,12 +58,13 @@ class IPriceCalculator(ABC):
         pass
     
     @abstractmethod
-    def get_aggressive_price(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> float:
+    def get_aggressive_price(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> float:
         """
         Calcula preço agressivo/competitivo para destacar nos marketplaces.
         
         Args:
             cost_price: Custo do produto
+            shipping_cost: Custo de frete/envio
             ctx: Contexto opcional
             
         Returns:
@@ -70,12 +73,13 @@ class IPriceCalculator(ABC):
         pass
     
     @abstractmethod
-    def get_promo_price(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> float:
+    def get_promo_price(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> float:
         """
         Calcula preço promocional (menor que listing, maior que custo).
         
         Args:
             cost_price: Custo do produto
+            shipping_cost: Custo de frete/envio
             ctx: Contexto opcional
             
         Returns:
@@ -84,12 +88,13 @@ class IPriceCalculator(ABC):
         pass
     
     @abstractmethod
-    def get_breakdown(self, cost_price: float, ctx: Optional[Dict[str, Any]] = None) -> PriceBreakdown:
+    def get_breakdown(self, cost_price: float, shipping_cost: float = 0.0, ctx: Optional[Dict[str, Any]] = None) -> PriceBreakdown:
         """
         Retorna breakdown detalhado do cálculo de preços.
         
         Args:
             cost_price: Custo do produto
+            shipping_cost: Custo de frete/envio
             ctx: Contexto opcional
             
         Returns:

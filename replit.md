@@ -52,9 +52,10 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
   - **Architecture:** Interface `IPriceCalculator` defines contract, `BasePriceCalculator` provides shared logic, 7 marketplace-specific implementations
   - **Supported Channels:** MercadoLivre, Shopee, Amazon, Shein, Magalu, Ecommerce, Telemarketing
   - **Factory:** `PriceCalculatorFactory.get(channel)` returns correct calculator, validates channel, handles errors (422 for unsupported)
-  - **Calculations:** Deterministic pricing (listing, aggressive, promo, wholesale tiers) based on cost_price + channel-specific markup/tax/margins
-  - **Frontend Integration:** Auto-pricing function calls `/pricing/quote` when cost_price changes, populates price fields automatically (manual mode only)
-  - **Tests:** 15 unit tests covering factory, calculators, and endpoints (pytest)
+  - **Calculations:** Deterministic pricing (listing, aggressive, promo, wholesale tiers) based on cost_price + shipping_cost + channel-specific markup/tax/margins
+  - **Shipping Cost:** All calculators accept optional shipping_cost parameter (default 0.0), automatically added to product cost before markup/tax calculations
+  - **Frontend Integration:** Auto-pricing function calls `/pricing/quote` when cost_price or shipping_cost changes, populates price fields automatically (manual mode only)
+  - **Tests:** 16 unit tests covering factory, calculators with shipping_cost scenarios (pytest)
 - **State Management:** `integrationMode` variable tracks "manual" or "tiny" mode, switching automatically based on token availability and SKU input.
 - **Replit Environment:** Uses `uvicorn app:app --host 0.0.0.0 --port 5000 --reload`. Optional environment variables (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.) can be set for LLM features.
 
@@ -72,6 +73,7 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 - Implemented complete pricing module using Strategy + Factory patterns
 - Created 7 marketplace-specific calculators with distinct markup/tax configurations
 - Added 3 REST endpoints for price calculation, policy listing, and validation
-- Integrated frontend auto-pricing that populates price fields automatically when cost_price changes
-- Created 15 unit tests (all passing) covering factory, calculators, and business logic
+- **Added shipping_cost parameter:** All interface methods and implementations now accept shipping_cost (default 0.0), properly calculating total cost (product + shipping) before applying markup/taxes
+- Integrated frontend auto-pricing that populates price fields automatically when cost_price or shipping_cost changes
+- Created 16 unit tests (all passing) covering factory, calculators, and shipping cost scenarios
 - Architecture approved by code review for extensibility, correctness, and best practices
