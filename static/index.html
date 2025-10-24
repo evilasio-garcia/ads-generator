@@ -597,7 +597,8 @@
           
           try {
             const tokens = getTinyTokens();
-            const selectedToken = tokens.find(t => t.instance === requestedInstance)?.token;
+            const instanceIndex = parseInt(requestedInstance);
+            const selectedToken = tokens[instanceIndex]?.token;
             
             if (!selectedToken) {
               throw new Error('Token não encontrado para instância selecionada');
