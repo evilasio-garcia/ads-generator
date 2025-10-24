@@ -46,6 +46,7 @@ class Options(BaseModel):
     gemini_base_url: str = ""
     rules: Dict[str, Any] = Field(default_factory=dict)
     prompt_template: Optional[str] = None
+    tiny_product_data: Optional[Dict[str, Any]] = None
 
 
 class GenerateIn(BaseModel):
@@ -387,6 +388,26 @@ def build_full_prompt_with_files(product: str, marketplace: str, opts: Options, 
     specs = "{}"
     
     base_prompt = render_prompt_template(tpl, product, marketplace, specs)
+    
+    # Injetar dados do Tiny ERP se disponíveis
+    if opts.tiny_product_data:
+        tiny_data = opts.tiny_product_data
+        base_prompt += "\n\n📦 DADOS OFICIAIS DO TINY ERP (USE ESTES DADOS REAIS):\n"
+        
+        if tiny_data.get('height_cm') or tiny_data.get('width_cm') or tiny_data.get('length_cm'):
+            dims = []
+            if tiny_data.get('height_cm'): dims.append(f"Altura: {tiny_data['height_cm']} cm")
+            if tiny_data.get('width_cm'): dims.append(f"Largura: {tiny_data['width_cm']} cm")
+            if tiny_data.get('length_cm'): dims.append(f"Comprimento: {tiny_data['length_cm']} cm")
+            base_prompt += f"- Dimensões: {', '.join(dims)}\n"
+        
+        if tiny_data.get('weight_kg'):
+            base_prompt += f"- Peso: {tiny_data['weight_kg']} kg\n"
+        
+        if tiny_data.get('gtin'):
+            base_prompt += f"- GTIN/EAN: {tiny_data['gtin']}\n"
+        
+        base_prompt += "\n⚠️ IMPORTANTE: Use EXATAMENTE estas dimensões e peso nas descrições e cards. Não arredonde, não invente valores diferentes.\n"
     
     if has_files:
         # Adicionar instruções críticas sobre uso de arquivos

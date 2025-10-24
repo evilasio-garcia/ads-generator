@@ -535,27 +535,34 @@
       button.dataset.timeoutId = timeoutId.toString();
     }
     
-    // Placeholders simulados para modo Tiny
-    const TINY_MOCK_DATA = {
-      gtin: "7891234567890",
-      sku: "PROD-12345-A",
-      height: "25.0",
-      width: "15.0",
-      length: "30.0",
-      weight: "250.0",
-      costPrice: "50.00",
-      listPrice: "99.90",
-      aggressivePrice: "79.90",
-      promoPrice: "89.90",
-      wholesale: [
-        { qty: 10, price: 94.90 },
-        { qty: 50, price: 89.90 },
-        { qty: 100, price: 84.90 }
-      ]
-    };
+    // Dados do produto Tiny (dados reais da API)
+    let tinyProductData = null;
+    let isFetchingTinyData = false;
+    
+    // Buscar dados do produto Tiny da API
+    async function fetchTinyProductData(token, sku) {
+      try {
+        const response = await fetch('/api/tiny/product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, sku })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.detail?.message || `Erro HTTP ${response.status}`);
+        }
+        
+        return result.data;
+      } catch (error) {
+        console.error('Erro ao buscar dados do Tiny:', error);
+        throw error;
+      }
+    }
     
     // Atualizar estado da integração
-    function updateIntegrationMode() {
+    async function updateIntegrationMode() {
       const hasTinyTokens = getTinyTokens().length > 0;
       const selectedInstance = tinyInstance.value;
       const skuValue = tinySKU.value.trim();
@@ -566,37 +573,109 @@
       // Se não há tokens, limpar o SKU antes de desabilitar
       if (!hasTinyTokens) {
         tinySKU.value = "";
+        tinyProductData = null;
       }
       
       tinySKU.disabled = !hasTinyTokens || !selectedInstance;
       
       // Determinar modo de integração
-      if (hasTinyTokens && selectedInstance && skuValue) {
+      const shouldBeTinyMode = hasTinyTokens && selectedInstance && skuValue;
+      
+      if (shouldBeTinyMode && !isFetchingTinyData) {
         integrationMode = "tiny";
+        
+        // Buscar dados do Tiny apenas se mudou o SKU ou não temos dados
+        if (!tinyProductData || tinyProductData.sku !== skuValue) {
+          isFetchingTinyData = true;
+          
+          // Armazenar SKU solicitado para validar após fetch
+          const requestedSKU = skuValue;
+          const requestedInstance = selectedInstance;
+          
+          // Mostrar loading visual
+          tinySKU.classList.add('bg-blue-50', 'animate-pulse');
+          
+          try {
+            const tokens = getTinyTokens();
+            const selectedToken = tokens.find(t => t.instance === requestedInstance)?.token;
+            
+            if (!selectedToken) {
+              throw new Error('Token não encontrado para instância selecionada');
+            }
+            
+            const fetchedData = await fetchTinyProductData(selectedToken, requestedSKU);
+            
+            // Validar se SKU/instância ainda são os mesmos após await
+            const currentSKU = tinySKU.value.trim();
+            const currentInstance = tinyInstance.value;
+            
+            if (currentSKU !== requestedSKU || currentInstance !== requestedInstance) {
+              // SKU/instância mudou durante fetch - descartar dados e retriggerar
+              console.log('SKU/instância mudou durante fetch - descartando dados');
+              isFetchingTinyData = false;
+              tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
+              // Retriggerar com novo SKU
+              updateIntegrationMode();
+              return;
+            }
+            
+            // Dados são válidos - aplicar
+            tinyProductData = fetchedData;
+            
+            // Feedback de sucesso
+            tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
+            tinySKU.classList.add('bg-green-50');
+            setTimeout(() => tinySKU.classList.remove('bg-green-50'), 1500);
+            
+          } catch (error) {
+            console.error('Erro ao buscar produto Tiny:', error);
+            tinyProductData = null;
+            integrationMode = "manual";
+            
+            // Feedback de erro
+            tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
+            tinySKU.classList.add('bg-red-50');
+            setTimeout(() => tinySKU.classList.remove('bg-red-50'), 3000);
+            
+            // Mostrar mensagem de erro
+            alert(`Erro ao buscar produto do Tiny: ${error.message}`);
+            
+            // Limpar UI no path de erro
+            applyTinyState();
+          } finally {
+            isFetchingTinyData = false;
+          }
+        }
       } else {
         integrationMode = "manual";
+        if (!shouldBeTinyMode) {
+          tinyProductData = null;
+        }
       }
       
       // Aplicar estado nos campos
       applyTinyState();
     }
     
-    // Aplicar estado aos campos (habilitar/desabilitar e preencher com mock)
+    // Aplicar estado aos campos (habilitar/desabilitar e preencher com dados reais)
     function applyTinyState() {
       const isTinyMode = integrationMode === "tiny";
       
-      if (isTinyMode) {
-        // Modo Tiny: preencher com dados simulados e desabilitar
-        tinyGTIN.value = TINY_MOCK_DATA.gtin;
-        tinySKUDisplay.value = TINY_MOCK_DATA.sku;
-        tinyHeight.value = TINY_MOCK_DATA.height;
-        tinyWidth.value = TINY_MOCK_DATA.width;
-        tinyLength.value = TINY_MOCK_DATA.length;
-        tinyWeight.value = TINY_MOCK_DATA.weight;
-        tinyCostPrice.value = TINY_MOCK_DATA.costPrice;
-        tinyListPrice.value = TINY_MOCK_DATA.listPrice;
-        tinyAggressivePrice.value = TINY_MOCK_DATA.aggressivePrice;
-        tinyPromoPrice.value = TINY_MOCK_DATA.promoPrice;
+      if (isTinyMode && tinyProductData) {
+        // Modo Tiny: preencher com dados REAIS da API e desabilitar
+        tinyGTIN.value = tinyProductData.gtin || "";
+        tinySKUDisplay.value = tinyProductData.sku || "";
+        tinyHeight.value = tinyProductData.height_cm || "";
+        tinyWidth.value = tinyProductData.width_cm || "";
+        tinyLength.value = tinyProductData.length_cm || "";
+        tinyWeight.value = tinyProductData.weight_kg || "";
+        tinyCostPrice.value = tinyProductData.cost_price || "";
+        tinyListPrice.value = tinyProductData.list_price || "";
+        tinyPromoPrice.value = tinyProductData.promo_price || "";
+        
+        // Preço agressivo = 90% do preço de lista (se não houver promocional)
+        const aggressivePrice = tinyProductData.promo_price || (tinyProductData.list_price * 0.9);
+        tinyAggressivePrice.value = aggressivePrice.toFixed(2);
         
         // Desabilitar campos
         [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight,
@@ -605,8 +684,8 @@
           el.classList.add('bg-gray-50');
         });
         
-        // Preencher tabela de atacado com dados mock
-        wholesaleRows = TINY_MOCK_DATA.wholesale.map(r => ({...r}));
+        // Limpar tabela de atacado (Tiny não retorna preços de atacado)
+        wholesaleRows = [];
         renderWholesaleTable();
         addWholesaleRow.disabled = true;
         
@@ -1912,7 +1991,8 @@ Restrições:
           gemini_api_key: (saved.gemini || "").trim(),
           gemini_base_url: (saved.gemini_base || "").trim(),
           rules: saved.rules || {},
-          prompt_template: saved.prompt_template || DEFAULT_PROMPT_TEMPLATE
+          prompt_template: saved.prompt_template || DEFAULT_PROMPT_TEMPLATE,
+          tiny_product_data: tinyProductData || null
         }
       };
       
