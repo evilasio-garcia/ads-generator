@@ -6,13 +6,16 @@ import random
 import re
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Ads Generator API", version="2.1.1")
+# Importar serviço Tiny
+import tiny_service
+
+app = FastAPI(title="Ads Generator API", version="2.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -504,6 +507,115 @@ async def regen(payload: RegenIn):
             item = {}
         out["cards"] = [item]
     return JSONResponse(content=out)
+
+
+# ===== Tiny ERP Integration Endpoints =====
+
+class TinyGetProductIn(BaseModel):
+    """Request para buscar produto do Tiny por SKU"""
+    token: str = Field(..., description="Token API do Tiny ERP")
+    sku: str = Field(..., description="SKU do produto a buscar")
+
+
+class TinyValidateTokenIn(BaseModel):
+    """Request para validar token do Tiny"""
+    token: str = Field(..., description="Token API do Tiny ERP para validar")
+
+
+@app.post("/api/tiny/product")
+async def tiny_get_product(request: TinyGetProductIn):
+    """
+    Busca dados de um produto no Tiny ERP por SKU.
+    
+    Retorna:
+        - 200: Produto encontrado com sucesso
+        - 401: Token inválido
+        - 404: SKU não encontrado
+        - 408: Timeout
+        - 500: Erro interno
+    """
+    try:
+        product_data = await tiny_service.get_product_by_sku(
+            token=request.token,
+            sku=request.sku
+        )
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "data": product_data
+            }
+        )
+        
+    except tiny_service.TinyAuthError as e:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "status": "error",
+                "type": "auth_error",
+                "message": str(e)
+            }
+        )
+    
+    except tiny_service.TinyNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "status": "error",
+                "type": "not_found",
+                "message": str(e)
+            }
+        )
+    
+    except tiny_service.TinyTimeoutError as e:
+        raise HTTPException(
+            status_code=408,
+            detail={
+                "status": "error",
+                "type": "timeout",
+                "message": str(e)
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "type": "internal_error",
+                "message": f"Erro ao buscar produto: {str(e)}"
+            }
+        )
+
+
+@app.post("/api/tiny/validate-token")
+async def tiny_validate_token(request: TinyValidateTokenIn):
+    """
+    Valida um token do Tiny ERP.
+    
+    Retorna:
+        - 200: Token validado (válido ou inválido)
+    """
+    try:
+        is_valid, error_message = await tiny_service.validate_token(request.token)
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "valid": is_valid,
+                "message": error_message if not is_valid else "Token válido"
+            }
+        )
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "valid": False,
+                "message": f"Erro ao validar: {str(e)}"
+            }
+        )
 
 
 if __name__ == "__main__":
