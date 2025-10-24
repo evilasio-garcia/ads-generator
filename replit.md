@@ -32,8 +32,11 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
   - `GET /` serves the frontend
   - `POST /api/generate` generates ad content
   - `POST /api/regen` regenerates specific fields
-  - `POST /api/tiny/product` fetches product data from Tiny ERP by SKU (NEW - Etapa 2)
-  - `POST /api/tiny/validate-token` validates Tiny ERP tokens (NEW - Etapa 2)
+  - `POST /api/tiny/product` fetches product data from Tiny ERP by SKU
+  - `POST /api/tiny/validate-token` validates Tiny ERP tokens
+  - `POST /pricing/quote` calculates all prices from cost_price + channel (NEW - Etapa 3)
+  - `GET /pricing/policies` lists pricing policies by channel (NEW - Etapa 3)
+  - `POST /pricing/validate` validates pricing inputs (NEW - Etapa 3)
 - **Tiny ERP Backend (tiny_service.py):**
   - **Async Architecture:** Uses httpx.AsyncClient for non-blocking HTTP calls to Tiny API
   - **Retry Logic:** Exponential backoff with max 2 total attempts (initial + 1 retry) using asyncio.sleep
@@ -45,6 +48,13 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 - **Mock Mode:** Activates when no API keys are provided, using predefined content examples.
 - **LLM Integration with Files:** Backend accepts FormData with files, encoding them to base64 for LLM processing (GPT-4o for OpenAI, inline_data for Gemini). Text files are appended to prompts with clear labeling. Strict instructions ensure product characteristics come *only* from uploaded files.
 - **LLM Integration with Tiny Data:** When tiny_product_data is provided in Options, backend automatically injects dimensions and weight into prompts with explicit instructions: "📦 DADOS OFICIAIS DO TINY ERP (USE ESTES DADOS REAIS): Dimensões: X cm, Peso: Y kg. ⚠️ IMPORTANTE: Use EXATAMENTE estas dimensões e peso nas descrições e cards."
+- **Pricing Module (NEW - Etapa 3 - Strategy + Factory Pattern):**
+  - **Architecture:** Interface `IPriceCalculator` defines contract, `BasePriceCalculator` provides shared logic, 7 marketplace-specific implementations
+  - **Supported Channels:** MercadoLivre, Shopee, Amazon, Shein, Magalu, Ecommerce, Telemarketing
+  - **Factory:** `PriceCalculatorFactory.get(channel)` returns correct calculator, validates channel, handles errors (422 for unsupported)
+  - **Calculations:** Deterministic pricing (listing, aggressive, promo, wholesale tiers) based on cost_price + channel-specific markup/tax/margins
+  - **Frontend Integration:** Auto-pricing function calls `/pricing/quote` when cost_price changes, populates price fields automatically (manual mode only)
+  - **Tests:** 15 unit tests covering factory, calculators, and endpoints (pytest)
 - **State Management:** `integrationMode` variable tracks "manual" or "tiny" mode, switching automatically based on token availability and SKU input.
 - **Replit Environment:** Uses `uvicorn app:app --host 0.0.0.0 --port 5000 --reload`. Optional environment variables (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.) can be set for LLM features.
 
@@ -54,4 +64,14 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 - **ERP Integration:** Tiny ERP API (fully integrated - read-only access)
 - **Frontend Framework:** Tailwind CSS (via CDN)
 - **ASGI Server:** Uvicorn
-- **Python Libraries:** FastAPI, python-multipart (file uploads), httpx (async HTTP client for Tiny API), and other dependencies listed in `requirements.txt`.
+- **Python Libraries:** FastAPI, python-multipart (file uploads), httpx (async HTTP client), pytest (testing), and other dependencies listed in `requirements.txt`.
+
+## Recent Changes
+
+**October 24, 2025 - Etapa 3: Pricing Module**
+- Implemented complete pricing module using Strategy + Factory patterns
+- Created 7 marketplace-specific calculators with distinct markup/tax configurations
+- Added 3 REST endpoints for price calculation, policy listing, and validation
+- Integrated frontend auto-pricing that populates price fields automatically when cost_price changes
+- Created 15 unit tests (all passing) covering factory, calculators, and business logic
+- Architecture approved by code review for extensibility, correctness, and best practices

@@ -805,6 +805,84 @@
     tinyInstance.addEventListener('change', updateIntegrationMode);
     tinySKU.addEventListener('input', updateIntegrationMode);
     
+    // ============================================================================
+    // AUTO-PRICING: Calcula preços automaticamente via endpoint /pricing/quote
+    // ============================================================================
+    
+    let autoPricingInProgress = false;
+    
+    async function autoPricing() {
+      // Verificar se deve executar auto-pricing
+      const costPrice = parseFloat(tinyCostPrice.value);
+      const channel = marketplace.value;
+      
+      if (!costPrice || costPrice <= 0 || !channel) {
+        return; // Não há dados suficientes para calcular
+      }
+      
+      // Evitar chamadas concorrentes
+      if (autoPricingInProgress) {
+        return;
+      }
+      
+      try {
+        autoPricingInProgress = true;
+        
+        // Chamar endpoint de pricing
+        const response = await fetch('/pricing/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cost_price: costPrice,
+            channel: channel
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('Erro ao calcular preços:', error);
+          return;
+        }
+        
+        const data = await response.json();
+        
+        // Preencher campos de preço APENAS EM MODO MANUAL
+        // Em modo Tiny, os preços são read-only e vêm da API Tiny
+        if (integrationMode === "manual") {
+          tinyListPrice.value = data.listing_price.toFixed(2);
+          tinyAggressivePrice.value = data.aggressive_price.toFixed(2);
+          tinyPromoPrice.value = data.promo_price.toFixed(2);
+          
+          // Preencher tabela de atacado
+          wholesaleRows = data.wholesale_tiers.map(tier => ({
+            price: tier.price,
+            qty: tier.min_quantity
+          }));
+          renderWholesaleTable();
+          
+          // Feedback visual sutil
+          [tinyListPrice, tinyAggressivePrice, tinyPromoPrice].forEach(field => {
+            field.classList.add('bg-green-50');
+            setTimeout(() => field.classList.remove('bg-green-50'), 1000);
+          });
+        }
+        
+      } catch (error) {
+        console.error('Erro ao buscar auto-pricing:', error);
+      } finally {
+        autoPricingInProgress = false;
+      }
+    }
+    
+    // Listeners para auto-pricing
+    tinyCostPrice.addEventListener('change', () => {
+      autoPricing();
+    });
+    
+    marketplace.addEventListener('change', () => {
+      autoPricing();
+    });
+    
     // Botões de copiar conteúdo
     document.addEventListener('click', (e) => {
       const copyBtn = e.target.closest('.copy-field-btn');
