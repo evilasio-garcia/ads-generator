@@ -69,9 +69,10 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 
 ## Recent Changes
 
-**October 25, 2025 - Financial Analysis + Editable Pricing**
-- **Preço do Anúncio Field:** Added calculated field showing announcement price (promo_price / 0.85, representing 15% discount). Displayed in blue-highlighted box above other prices, automatically updates when promo price changes (both from API and manual edits).
-- **Three Analysis Metrics Per Price:** Each price field (list, aggressive, promo) now shows three detailed metrics below:
+**October 25, 2025 - Financial Analysis + Editable Pricing (UI Refinement)**
+- **Preço do Anúncio Field (Blue Highlighted):** Shows announcement price (promo_price / 0.85, representing 15% discount). Displayed with blue icon, background, and border. Automatically updates when promo price changes (both from API and manual edits). Contains three analysis metrics directly below the price field.
+- **Eliminated "Preço de Lista":** Removed redundant listing price field. The "Preço do Anúncio" replaces it conceptually (same calculation) and now includes the three analysis metrics that were previously displayed below the listing price.
+- **Three Analysis Metrics Per Price:** Each price field (announcement, aggressive, promo) now shows three detailed metrics below:
   - **% Margem**: (valorMonetário / price) × 100 - Shows actual profit margin after all costs
   - **Múltiplo de Valor**: valorMonetário / totalCost - Indicates value generation multiple
   - **Valor Monetário**: price - totalCost - impostos - comissões - Shows net value after all deductions
@@ -83,7 +84,8 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 - **Visual Warnings:** Red highlighting (background, border, text) applied when:
   - Margin % < 0 (negative profitability)
   - Multiple < 30 (low value generation)
-- **Implementation:** Pure function `buildPriceAnalysis()` for calculations, `applyPriceAnalysisForTab()` applies to entire tab, input listeners on editable fields trigger recalculation, guards against totalCost = 0 to prevent NaN/Infinity values.
+  - Warning styles intelligently remove blue classes for announcement price fields and gray classes for other fields
+- **Implementation:** Pure function `buildPriceAnalysis()` for calculations, `applyPriceAnalysisForTab()` applies to entire tab and handles announcement price (now first in price array), `applyWarningStyles()` intelligently restores blue or gray classes based on field context, input listeners on editable fields trigger recalculation, guards against totalCost = 0 to prevent NaN/Infinity values.
 - Architecture approved by code review for correctness, UX clarity, and code quality
 
 **October 25, 2025 - Manual Pricing Mode + Architecture Refactor**

@@ -356,21 +356,10 @@
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
-              </div>
-              
-              <div>
-                <label class="text-sm text-gray-600 font-medium">Preço de lista (R$)</label>
-                <div class="flex gap-1 mt-1">
-                  <input id="tinyListPriceMin" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="99.90" readonly>
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyListPriceMin" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
-                    <span class="ml-1">Copiar</span>
-                  </button>
-                </div>
-                <div class="grid grid-cols-3 gap-1 mt-1">
-                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                <div class="grid grid-cols-3 gap-1 mt-2">
+                  <input type="text" class="analysis-margin rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
               
@@ -447,21 +436,10 @@
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
-              </div>
-              
-              <div>
-                <label class="text-sm text-gray-600 font-medium">Preço de lista (R$)</label>
-                <div class="flex gap-1 mt-1">
-                  <input id="tinyListPriceMax" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="99.90" readonly>
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyListPriceMax" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
-                    <span class="ml-1">Copiar</span>
-                  </button>
-                </div>
-                <div class="grid grid-cols-3 gap-1 mt-1">
-                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                <div class="grid grid-cols-3 gap-1 mt-2">
+                  <input type="text" class="analysis-margin rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
               
@@ -726,12 +704,10 @@
     const calculatePricesBtn = $("#calculatePricesBtn");
     
     // Campos de preço % Min
-    const tinyListPriceMin = $("#tinyListPriceMin");
     const tinyAggressivePriceMin = $("#tinyAggressivePriceMin");
     const tinyPromoPriceMin = $("#tinyPromoPriceMin");
     
     // Campos de preço % Max
-    const tinyListPriceMax = $("#tinyListPriceMax");
     const tinyAggressivePriceMax = $("#tinyAggressivePriceMax");
     const tinyPromoPriceMax = $("#tinyPromoPriceMax");
     
@@ -1164,7 +1140,6 @@
       // Selecionar campos da aba correta
       const tabSuffix = tabType === 'min' ? 'Min' : 'Max';
       const announcePrice = document.getElementById(`tinyAnnouncePrice${tabSuffix}`);
-      const listPrice = document.getElementById(`tinyListPrice${tabSuffix}`);
       const aggressivePrice = document.getElementById(`tinyAggressivePrice${tabSuffix}`);
       const promoPrice = document.getElementById(`tinyPromoPrice${tabSuffix}`);
       
@@ -1180,9 +1155,9 @@
       
       // 3. Calcular e preencher análises para cada preço
       const prices = [
-        { input: listPrice, container: tabContainer.querySelectorAll('.grid')[1] },
-        { input: aggressivePrice, container: tabContainer.querySelectorAll('.grid')[2] },
-        { input: promoPrice, container: tabContainer.querySelectorAll('.grid')[3] }
+        { input: announcePrice, container: tabContainer.querySelectorAll('.grid')[0] },
+        { input: aggressivePrice, container: tabContainer.querySelectorAll('.grid')[1] },
+        { input: promoPrice, container: tabContainer.querySelectorAll('.grid')[2] }
       ];
       
       prices.forEach(({ input, container }) => {
@@ -1218,10 +1193,15 @@
     function applyWarningStyles(field, isWarning) {
       if (isWarning) {
         field.classList.add('bg-red-100', 'border-red-300', 'text-red-800', 'font-semibold');
-        field.classList.remove('bg-gray-50', 'border-gray-200', 'text-gray-700');
+        field.classList.remove('bg-gray-50', 'border-gray-200', 'text-gray-700', 'bg-blue-100', 'border-blue-200', 'text-blue-800');
       } else {
         field.classList.remove('bg-red-100', 'border-red-300', 'text-red-800', 'font-semibold');
-        field.classList.add('bg-gray-50', 'border-gray-200', 'text-gray-700');
+        // Restaurar classes originais: azul para Preço do Anúncio, cinza para os outros
+        if (field.closest('.bg-blue-50')) {
+          field.classList.add('bg-blue-100', 'border-blue-200', 'text-blue-800');
+        } else {
+          field.classList.add('bg-gray-50', 'border-gray-200', 'text-gray-700');
+        }
       }
     }
     
@@ -1309,12 +1289,10 @@
         
         // Preencher campos de preço calculados (funciona em qualquer modo)
         // Preencher % MIN
-        tinyListPriceMin.value = dataMin.listing_price.toFixed(2);
         tinyAggressivePriceMin.value = dataMin.aggressive_price.toFixed(2);
         tinyPromoPriceMin.value = dataMin.promo_price.toFixed(2);
         
         // Preencher % MAX
-        tinyListPriceMax.value = dataMax.listing_price.toFixed(2);
         tinyAggressivePriceMax.value = dataMax.aggressive_price.toFixed(2);
         tinyPromoPriceMax.value = dataMax.promo_price.toFixed(2);
         
@@ -1331,8 +1309,8 @@
         renderWholesaleTable();
           
         // Feedback visual sutil
-        [tinyListPriceMin, tinyAggressivePriceMin, tinyPromoPriceMin,
-         tinyListPriceMax, tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
+        [tinyAggressivePriceMin, tinyPromoPriceMin,
+         tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
           field.classList.add('bg-green-50');
           setTimeout(() => field.classList.remove('bg-green-50'), 1000);
         });
