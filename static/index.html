@@ -1154,10 +1154,12 @@
       if (!tabContainer) return;
       
       // 3. Calcular e preencher análises para cada preço
+      // Nota: querySelectorAll('.grid') retorna TODOS os grids, incluindo o wrapper principal
+      // Índices: [0]=wrapper principal, [1]=métricas anúncio, [2]=métricas agressivo, [3]=métricas promo
       const prices = [
-        { input: announcePrice, container: tabContainer.querySelectorAll('.grid')[0] },
-        { input: aggressivePrice, container: tabContainer.querySelectorAll('.grid')[1] },
-        { input: promoPrice, container: tabContainer.querySelectorAll('.grid')[2] }
+        { input: announcePrice, container: tabContainer.querySelectorAll('.grid')[1] },
+        { input: aggressivePrice, container: tabContainer.querySelectorAll('.grid')[2] },
+        { input: promoPrice, container: tabContainer.querySelectorAll('.grid')[3] }
       ];
       
       prices.forEach(({ input, container }) => {
