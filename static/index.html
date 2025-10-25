@@ -1079,16 +1079,15 @@
           return;
         }
         
-        // Calcular preços para % MIN (Clássico)
-        const pricingDataMin = {
-          comissao_min: marketplaceConfig.comissao_min / 100,
-          comissao_max: marketplaceConfig.comissao_min / 100, // Usar min nos dois
+        // Preparar contexto com parâmetros de precificação (exceto comissão)
+        const pricingContext = {
           tacos: marketplaceConfig.tacos / 100,
           margem_contribuicao: marketplaceConfig.margem_contribuicao / 100,
           lucro: marketplaceConfig.lucro / 100,
           impostos: marketplaceConfig.impostos / 100
         };
         
+        // Calcular preços para % MIN (Clássico) - passar commission_percent diretamente
         const responseMin = await fetch('/pricing/quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1096,7 +1095,8 @@
             cost_price: costPrice,
             shipping_cost: shippingCost,
             channel: channel,
-            ctx: pricingDataMin
+            commission_percent: marketplaceConfig.comissao_min / 100,
+            ctx: pricingContext
           })
         });
         
@@ -1106,18 +1106,8 @@
         }
         
         const dataMin = await responseMin.json();
-        pricingDataMin.response = dataMin;
         
-        // Calcular preços para % MAX (Premium)
-        const pricingDataMax = {
-          comissao_min: marketplaceConfig.comissao_max / 100,
-          comissao_max: marketplaceConfig.comissao_max / 100, // Usar max nos dois
-          tacos: marketplaceConfig.tacos / 100,
-          margem_contribuicao: marketplaceConfig.margem_contribuicao / 100,
-          lucro: marketplaceConfig.lucro / 100,
-          impostos: marketplaceConfig.impostos / 100
-        };
-        
+        // Calcular preços para % MAX (Premium) - passar commission_percent diretamente
         const responseMax = await fetch('/pricing/quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1125,7 +1115,8 @@
             cost_price: costPrice,
             shipping_cost: shippingCost,
             channel: channel,
-            ctx: pricingDataMax
+            commission_percent: marketplaceConfig.comissao_max / 100,
+            ctx: pricingContext
           })
         });
         
@@ -1135,7 +1126,6 @@
         }
         
         const dataMax = await responseMax.json();
-        pricingDataMax.response = dataMax;
         
         // Preencher campos de preço APENAS EM MODO MANUAL
         if (integrationMode === "manual") {

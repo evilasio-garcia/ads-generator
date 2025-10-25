@@ -52,17 +52,22 @@ class MercadoLivrePriceCalculator(BasePriceCalculator):
             # Fallback para comportamento padrão se não houver contexto
             return super().get_listing_price(cost_price, shipping_cost, ctx)
         
+        # Obter percentual de comissão: priorizar commission_percent se fornecido
+        if 'commission_percent' in ctx and ctx.get('commission_percent') is not None:
+            # Usar comissão diretamente informada
+            comissao = float(ctx.get('commission_percent', 0.15))
+        else:
+            # Fallback: usar lógica antiga (min/max)
+            comissao_min = ctx.get('comissao_min', 0.125)  # Clássico: padrão 12.5%
+            comissao_max = ctx.get('comissao_max', 0.175)  # Premium: padrão 17.5%
+            tipo_anuncio = ctx.get('tipo_anuncio', 'premium')  # 'classico' ou 'premium'
+            comissao = comissao_min if tipo_anuncio == 'classico' else comissao_max
+        
         # Obter dados de precificação do contexto
-        comissao_min = ctx.get('comissao_min', 0.125)  # Clássico: padrão 12.5%
-        comissao_max = ctx.get('comissao_max', 0.175)  # Premium: padrão 17.5%
         impostos = ctx.get('impostos', 0.12)  # Padrão 12%
         tacos = ctx.get('tacos', 0.05)  # Investimento em publicidade: padrão 5%
         margem_contribuicao = ctx.get('margem_contribuicao', 0.10)  # M.C.: padrão 10%
-        lucro = ctx.get('lucro', 0.5)  # Lucro: padrão 5%
-        
-        # Determinar qual comissão usar (premium por padrão se não especificado)
-        tipo_anuncio = ctx.get('tipo_anuncio', 'premium')  # 'classico' ou 'premium'
-        comissao = comissao_min if tipo_anuncio == 'classico' else comissao_max
+        lucro = ctx.get('lucro', 0.05)  # Lucro: padrão 5%
         
         # Calcular custo total (produto + frete)
         custo_total = self.calculate_total_cost(cost_price, shipping_cost)
@@ -129,16 +134,23 @@ class MercadoLivrePriceCalculator(BasePriceCalculator):
         if not ctx:
             return super().get_breakdown(cost_price, shipping_cost, ctx)
         
+        # Obter percentual de comissão: priorizar commission_percent se fornecido
+        if 'commission_percent' in ctx and ctx.get('commission_percent') is not None:
+            # Usar comissão diretamente informada
+            comissao = float(ctx.get('commission_percent', 0.15))
+            tipo_anuncio = f"{comissao*100:.1f}%"  # Exibir percentual no breakdown
+        else:
+            # Fallback: usar lógica antiga (min/max)
+            comissao_min = ctx.get('comissao_min', 0.12)
+            comissao_max = ctx.get('comissao_max', 0.17)
+            tipo_anuncio = ctx.get('tipo_anuncio', 'premium')
+            comissao = comissao_min if tipo_anuncio == 'classico' else comissao_max
+        
         # Obter configurações
-        comissao_min = ctx.get('comissao_min', 0.12)
-        comissao_max = ctx.get('comissao_max', 0.17)
         impostos = ctx.get('impostos', 0.08)
         tacos = ctx.get('tacos', 0.05)
         margem_contribuicao = ctx.get('margem_contribuicao', 0.15)
         lucro = ctx.get('lucro', 0.10)
-        tipo_anuncio = ctx.get('tipo_anuncio', 'premium')
-        
-        comissao = comissao_min if tipo_anuncio == 'classico' else comissao_max
         custo_total = self.calculate_total_cost(cost_price, shipping_cost)
         preco_final = self.get_listing_price(cost_price, shipping_cost, ctx)
         

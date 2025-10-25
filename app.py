@@ -651,6 +651,7 @@ class PriceQuoteRequest(BaseModel):
     cost_price: float = Field(..., gt=0, description="Custo do produto (deve ser > 0)")
     shipping_cost: float = Field(0.0, ge=0, description="Custo de frete/envio (padrão 0.0)")
     channel: str = Field(..., description="Canal de venda (mercadolivre, shopee, amazon, etc)")
+    commission_percent: Optional[float] = Field(None, ge=0, le=1, description="Percentual de comissão direto (0.0 a 1.0, ex: 0.15 = 15%)")
     policy_id: Optional[str] = Field(None, description="ID da política de preços (opcional)")
     ctx: Optional[Dict[str, Any]] = Field(None, description="Contexto adicional (categoria, região, etc)")
 
@@ -691,12 +692,17 @@ async def pricing_quote(request: PriceQuoteRequest):
         # Obter calculadora para o canal
         calculator = PriceCalculatorFactory.get(request.channel)
         
+        # Preparar contexto: adicionar commission_percent se fornecido
+        ctx = request.ctx or {}
+        if request.commission_percent is not None:
+            ctx['commission_percent'] = request.commission_percent
+        
         # Calcular todos os preços (incluindo shipping_cost)
-        listing_price = calculator.get_listing_price(request.cost_price, request.shipping_cost, request.ctx)
-        wholesale_tiers = calculator.get_wholesale_tiers(request.cost_price, request.shipping_cost, request.ctx)
-        aggressive_price = calculator.get_aggressive_price(request.cost_price, request.shipping_cost, request.ctx)
-        promo_price = calculator.get_promo_price(request.cost_price, request.shipping_cost, request.ctx)
-        breakdown = calculator.get_breakdown(request.cost_price, request.shipping_cost, request.ctx)
+        listing_price = calculator.get_listing_price(request.cost_price, request.shipping_cost, ctx)
+        wholesale_tiers = calculator.get_wholesale_tiers(request.cost_price, request.shipping_cost, ctx)
+        aggressive_price = calculator.get_aggressive_price(request.cost_price, request.shipping_cost, ctx)
+        promo_price = calculator.get_promo_price(request.cost_price, request.shipping_cost, ctx)
+        breakdown = calculator.get_breakdown(request.cost_price, request.shipping_cost, ctx)
         
         # Converter wholesale_tiers para dict
         tiers_dict = [tier.model_dump() for tier in wholesale_tiers]
