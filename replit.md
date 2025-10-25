@@ -69,13 +69,15 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 
 ## Recent Changes
 
-**October 25, 2025 - Pricing Architecture Refactor + UX Improvements**
+**October 25, 2025 - Manual Pricing Mode + Architecture Refactor**
+- **Manual Pricing Mode:** In manual mode (when data doesn't come from Tiny ERP), automatic price calculation is disabled. Users must click the "Calcular Preços" button (visible only in manual mode, below cost fields) to trigger price calculations. Button is only enabled when cost_price is filled.
+- **Mercado Livre Alert:** When calculating prices for Mercado Livre marketplace, if promo_price > R$ 78,99 and shipping cost is not filled, system displays alert informing user to fill shipping cost for accurate pricing.
 - **Pricing API Refactor:** Simplified commission handling by adding `commission_percent` as direct parameter to `/pricing/quote` endpoint instead of passing commission_type. Backend now injects commission_percent into context for all calculator methods. MercadoLivre calculator prioritizes commission_percent when provided, with backward compatibility fallback to old min/max logic.
-- **Frontend Auto-Pricing:** Refactored autoPricing() to make two calls passing commission percentages directly (comissao_min and comissao_max) instead of using commission_type. Both calls share same pricing context (tacos, impostos, margem_contribuicao, lucro), only varying commission_percent parameter.
+- **Frontend Auto-Pricing:** Refactored autoPricing() to make two calls passing commission percentages directly (comissao_min and comissao_max) instead of using commission_type. Both calls share same pricing context (tacos, impostos, margem_contribuicao, lucro), only varying commission_percent parameter. Auto-pricing only executes automatically in Tiny mode.
 - **Tab Population:** Ensured calculated prices correctly populate respective tabs (% Min tab ← min commission results, % Max tab ← max commission results)
 - **UI Polish:** Added bottom margin (pb-16) to prevent cramped layout at screen bottom
 - **Config Modal:** Redesigned with sidebar navigation (LLM, Rule Sets, Integrações, Precificação sections), scroll support, and active section highlighting
-- Architecture approved by code review for separation of concerns and backward compatibility
+- Architecture approved by code review for separation of concerns, UX flow, and backward compatibility
 
 **October 24, 2025 - Etapa 3: Pricing Module + Mercado Livre Pricing Logic**
 - Implemented complete pricing module using Strategy + Factory patterns
