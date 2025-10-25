@@ -69,13 +69,13 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 
 ## Recent Changes
 
-**October 25, 2025 - UX Improvements: Config Modal with Sidebar Navigation**
-- Redesigned configuration modal with sidebar navigation for better organization
-- Added 4 organized sections: LLM, Rule Sets, Integrações, Precificação
-- Implemented scroll in all sections to handle large content gracefully
-- Added visual feedback for active section in sidebar (indigo highlight)
-- Expanded Rule Sets textarea to use full visible area (25 rows)
-- Improved overall UX with cleaner layout and easier navigation
+**October 25, 2025 - Pricing Architecture Refactor + UX Improvements**
+- **Pricing API Refactor:** Simplified commission handling by adding `commission_percent` as direct parameter to `/pricing/quote` endpoint instead of passing commission_type. Backend now injects commission_percent into context for all calculator methods. MercadoLivre calculator prioritizes commission_percent when provided, with backward compatibility fallback to old min/max logic.
+- **Frontend Auto-Pricing:** Refactored autoPricing() to make two calls passing commission percentages directly (comissao_min and comissao_max) instead of using commission_type. Both calls share same pricing context (tacos, impostos, margem_contribuicao, lucro), only varying commission_percent parameter.
+- **Tab Population:** Ensured calculated prices correctly populate respective tabs (% Min tab ← min commission results, % Max tab ← max commission results)
+- **UI Polish:** Added bottom margin (pb-16) to prevent cramped layout at screen bottom
+- **Config Modal:** Redesigned with sidebar navigation (LLM, Rule Sets, Integrações, Precificação sections), scroll support, and active section highlighting
+- Architecture approved by code review for separation of concerns and backward compatibility
 
 **October 24, 2025 - Etapa 3: Pricing Module + Mercado Livre Pricing Logic**
 - Implemented complete pricing module using Strategy + Factory patterns
