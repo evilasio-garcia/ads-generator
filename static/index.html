@@ -406,7 +406,8 @@
                       <th class="px-3 py-2 text-left font-medium text-gray-700">Preço unitário (R$)</th>
                       <th class="px-3 py-2 text-left font-medium text-gray-700">Quantidade (#)</th>
                       <th class="px-3 py-2 text-left font-medium text-gray-700">% Margem</th>
-                      <th class="px-3 py-2 text-left font-medium text-gray-700">Break-even</th>
+                      <th class="px-3 py-2 text-left font-medium text-gray-700">Múltiplo</th>
+                      <th class="px-3 py-2 text-left font-medium text-gray-700">Valor R$</th>
                       <th class="px-3 py-2 text-center font-medium text-gray-700 w-20"></th>
                     </tr>
                   </thead>
@@ -940,8 +941,10 @@
       const totalCost = (parseFloat(tinyCostPrice.value) || 0) + (parseFloat(tinyShippingCost.value) || 0);
       
       wholesaleRows.forEach((row, idx) => {
-        const margin = calculateMargin(row.price, totalCost);
-        const breakEven = calculateBreakEven(row.price, totalCost);
+        // Usar métricas do backend se disponíveis, senão calcular localmente (temporário)
+        const margin = row.metrics?.margin_percent ?? calculateMargin(row.price, totalCost);
+        const multiple = row.metrics?.value_multiple ?? calculateBreakEven(row.price, totalCost);
+        const valueAmount = row.metrics?.value_amount ?? (row.price - totalCost);
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -973,7 +976,11 @@
           </td>
           <td class="px-3 py-2">
             <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
-                   value="${breakEven < 999 ? breakEven.toFixed(1) + 'x' : '∞'}" readonly>
+                   value="${multiple >= 0 && multiple < 999 ? multiple.toFixed(1) + 'x' : '∞'}" readonly>
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
+                   value="R$ ${valueAmount.toFixed(2)}" readonly>
           </td>
           <td class="px-3 py-2 text-center">
             <button class="btn text-xs" data-remove-row="${idx}" ${isTinyMode ? 'disabled' : ''} title="Remover">
