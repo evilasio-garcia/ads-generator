@@ -378,9 +378,9 @@
                   <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium text-gray-700">Preço unitário (R$)</th>
+                      <th class="px-3 py-2 text-left font-medium text-gray-700">Quantidade (#)</th>
                       <th class="px-3 py-2 text-left font-medium text-gray-700">% Margem</th>
                       <th class="px-3 py-2 text-left font-medium text-gray-700">Break-even</th>
-                      <th class="px-3 py-2 text-left font-medium text-gray-700">Quantidade (#)</th>
                       <th class="px-3 py-2 text-center font-medium text-gray-700 w-20"></th>
                     </tr>
                   </thead>
@@ -906,14 +906,6 @@
             </div>
           </td>
           <td class="px-3 py-2">
-            <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
-                   value="${margin > 0 ? margin.toFixed(1) + '%' : '0%'}" readonly>
-          </td>
-          <td class="px-3 py-2">
-            <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
-                   value="${breakEven < 999 ? breakEven.toFixed(1) + 'x' : '∞'}" readonly>
-          </td>
-          <td class="px-3 py-2">
             <div class="flex items-center gap-1">
               <input type="number" class="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm ${isTinyMode ? 'bg-gray-50' : 'bg-white'}" 
                      value="${row.qty}" data-idx="${idx}" data-field="qty" ${isTinyMode ? 'disabled' : ''}>
@@ -923,6 +915,14 @@
                 </svg>
               </button>
             </div>
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
+                   value="${margin > 0 ? margin.toFixed(1) + '%' : '0%'}" readonly>
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
+                   value="${breakEven < 999 ? breakEven.toFixed(1) + 'x' : '∞'}" readonly>
           </td>
           <td class="px-3 py-2 text-center">
             <button class="btn text-xs" data-remove-row="${idx}" ${isTinyMode ? 'disabled' : ''} title="Remover">
