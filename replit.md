@@ -69,6 +69,23 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 
 ## Recent Changes
 
+**October 25, 2025 - Financial Analysis + Editable Pricing**
+- **Preço do Anúncio Field:** Added calculated field showing announcement price (promo_price / 0.85, representing 15% discount). Displayed in blue-highlighted box above other prices, automatically updates when promo price changes (both from API and manual edits).
+- **Three Analysis Metrics Per Price:** Each price field (list, aggressive, promo) now shows three detailed metrics below:
+  - **% Margem**: (valorMonetário / price) × 100 - Shows actual profit margin after all costs
+  - **Múltiplo de Valor**: valorMonetário / totalCost - Indicates value generation multiple
+  - **Valor Monetário**: price - totalCost - impostos - comissões - Shows net value after all deductions
+- **Calculation Formulas:**
+  - Impostos = price × config.impostos
+  - Comissões = price × (commission% + tacos% + margem_contribuicao% + lucro%)
+  - Valor Monetário = price - totalCost - impostos - comissões
+- **Editable Prices:** Removed readonly from aggressive and promo price fields. Users can manually adjust prices after auto-calculation. Manual edits trigger automatic recalculation of all analysis metrics for that tab.
+- **Visual Warnings:** Red highlighting (background, border, text) applied when:
+  - Margin % < 0 (negative profitability)
+  - Multiple < 30 (low value generation)
+- **Implementation:** Pure function `buildPriceAnalysis()` for calculations, `applyPriceAnalysisForTab()` applies to entire tab, input listeners on editable fields trigger recalculation, guards against totalCost = 0 to prevent NaN/Infinity values.
+- Architecture approved by code review for correctness, UX clarity, and code quality
+
 **October 25, 2025 - Manual Pricing Mode + Architecture Refactor**
 - **Manual Pricing Mode:** In manual mode (when data doesn't come from Tiny ERP), automatic price calculation is disabled. Users must click the "Calcular Preços" button (visible only in manual mode, below cost fields) to trigger price calculations. Button is only enabled when cost_price is filled.
 - **Mercado Livre Alert:** When calculating prices for Mercado Livre marketplace, if promo_price > R$ 78,99 and shipping cost is not filled, system displays alert informing user to fill shipping cost for accurate pricing.
