@@ -18,7 +18,21 @@ class MercadoLivrePriceCalculator(BasePriceCalculator):
     MIN_MARGIN = 0.25  # 25% margem mínima
     AGGRESSIVE_DISCOUNT = 0.12  # 12% desconto agressivo
     PROMO_DISCOUNT = 0.18  # 18% desconto promocional
-    
+
+    def calculate_total_cost(self, cost_price: float, shipping_cost: float) -> float:
+        fixed_tax = 0.0
+        estimated_list_price = cost_price * 1.7 if cost_price < 79 else cost_price
+
+        if estimated_list_price < 29:
+            fixed_tax = 6.25
+        elif estimated_list_price < 50:
+            fixed_tax = 6.5
+        elif estimated_list_price < 79:
+            fixed_tax = 6.75
+
+        """Calcula custo total (produto + frete)"""
+        return cost_price + shipping_cost + fixed_tax
+
     def __init__(self):
         super().__init__(channel="mercadolivre")
     
@@ -39,12 +53,12 @@ class MercadoLivrePriceCalculator(BasePriceCalculator):
             return super().get_listing_price(cost_price, shipping_cost, ctx)
         
         # Obter dados de precificação do contexto
-        comissao_min = ctx.get('comissao_min', 0.12)  # Clássico: padrão 12%
-        comissao_max = ctx.get('comissao_max', 0.17)  # Premium: padrão 17%
-        impostos = ctx.get('impostos', 0.08)  # Padrão 8%
+        comissao_min = ctx.get('comissao_min', 0.125)  # Clássico: padrão 12.5%
+        comissao_max = ctx.get('comissao_max', 0.175)  # Premium: padrão 17.5%
+        impostos = ctx.get('impostos', 0.12)  # Padrão 12%
         tacos = ctx.get('tacos', 0.05)  # Investimento em publicidade: padrão 5%
-        margem_contribuicao = ctx.get('margem_contribuicao', 0.15)  # M.C.: padrão 15%
-        lucro = ctx.get('lucro', 0.10)  # Lucro: padrão 10%
+        margem_contribuicao = ctx.get('margem_contribuicao', 0.10)  # M.C.: padrão 10%
+        lucro = ctx.get('lucro', 0.5)  # Lucro: padrão 5%
         
         # Determinar qual comissão usar (premium por padrão se não especificado)
         tipo_anuncio = ctx.get('tipo_anuncio', 'premium')  # 'classico' ou 'premium'
@@ -56,10 +70,6 @@ class MercadoLivrePriceCalculator(BasePriceCalculator):
         # Calcular denominador (1 - soma de todos os percentuais)
         # Preço = Custo / (1 - %comissao - %impostos - %tacos - %mc - %lucro)
         soma_percentuais = comissao + impostos + tacos + margem_contribuicao + lucro
-        
-        # Proteção: se a soma dos percentuais for >= 1, usar markup padrão
-        if soma_percentuais >= 0.99:
-            return super().get_listing_price(cost_price, shipping_cost, ctx)
         
         denominador = 1 - soma_percentuais
         
