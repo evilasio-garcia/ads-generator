@@ -657,11 +657,12 @@ class PriceQuoteRequest(BaseModel):
 
 
 class PriceQuoteResponse(BaseModel):
-    """Resposta da cotação de preços"""
-    listing_price: float
-    wholesale_tiers: List[Dict[str, Any]]
-    aggressive_price: float
-    promo_price: float
+    """Resposta da cotação de preços com métricas"""
+    listing_price: Dict[str, Any]  # {price, metrics}
+    announcement_price: Dict[str, Any]  # {price, metrics} - promo / 0.85
+    wholesale_tiers: List[Dict[str, Any]]  # [{tier, min_quantity, price, metrics}]
+    aggressive_price: Dict[str, Any]  # {price, metrics}
+    promo_price: Dict[str, Any]  # {price, metrics}
     breakdown: Dict[str, Any]
     channel: str
     policy_id: Optional[str] = None
@@ -677,13 +678,13 @@ class PriceValidateRequest(BaseModel):
 @app.post("/pricing/quote", response_model=PriceQuoteResponse)
 async def pricing_quote(request: PriceQuoteRequest):
     """
-    Calcula todos os preços derivados a partir do custo e canal.
+    Calcula todos os preços derivados a partir do custo e canal COM MÉTRICAS.
     
     Args:
         request: PriceQuoteRequest com cost_price, channel, policy_id?, ctx?
         
     Returns:
-        PriceQuoteResponse com todos os preços calculados e breakdown
+        PriceQuoteResponse com todos os preços calculados, métricas e breakdown
         
     Raises:
         422: Canal não suportado ou cost_price inválido
@@ -697,21 +698,29 @@ async def pricing_quote(request: PriceQuoteRequest):
         if request.commission_percent is not None:
             ctx['commission_percent'] = request.commission_percent
         
-        # Calcular todos os preços (incluindo shipping_cost)
-        listing_price = calculator.get_listing_price(request.cost_price, request.shipping_cost, ctx)
-        wholesale_tiers = calculator.get_wholesale_tiers(request.cost_price, request.shipping_cost, ctx)
-        aggressive_price = calculator.get_aggressive_price(request.cost_price, request.shipping_cost, ctx)
-        promo_price = calculator.get_promo_price(request.cost_price, request.shipping_cost, ctx)
+        # Calcular todos os preços COM MÉTRICAS (incluindo shipping_cost)
+        listing_price_obj = calculator.get_listing_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
+        wholesale_tiers = calculator.get_wholesale_tiers_with_metrics(request.cost_price, request.shipping_cost, ctx)
+        aggressive_price_obj = calculator.get_aggressive_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
+        promo_price_obj = calculator.get_promo_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
         breakdown = calculator.get_breakdown(request.cost_price, request.shipping_cost, ctx)
         
-        # Converter wholesale_tiers para dict
+        # Calcular preço do anúncio (promo / 0.85) com métricas
+        announcement_price_value = promo_price_obj.price / 0.85
+        announcement_price_metrics = calculator.calculate_metrics(announcement_price_value, request.cost_price, request.shipping_cost, ctx)
+        
+        # Converter tiers para dict
         tiers_dict = [tier.model_dump() for tier in wholesale_tiers]
         
         return PriceQuoteResponse(
-            listing_price=listing_price,
+            listing_price=listing_price_obj.model_dump(),
+            announcement_price={
+                "price": round(announcement_price_value, 2),
+                "metrics": announcement_price_metrics.model_dump()
+            },
             wholesale_tiers=tiers_dict,
-            aggressive_price=aggressive_price,
-            promo_price=promo_price,
+            aggressive_price=aggressive_price_obj.model_dump(),
+            promo_price=promo_price_obj.model_dump(),
             breakdown=breakdown.model_dump(),
             channel=request.channel,
             policy_id=request.policy_id
