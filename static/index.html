@@ -1195,6 +1195,39 @@
     }
     
     /**
+     * Popula campos de métricas com dados do backend
+     * @param {string} tabType - 'min' ou 'max'
+     * @param {number} gridIndex - Índice do grid (0=anúncio, 1=agressivo, 2=promo)
+     * @param {Object} metrics - Objeto com métricas { margin_percent, value_multiple, value_amount, ... }
+     */
+    function populateMetrics(tabType, gridIndex, metrics) {
+      const tabContainer = document.querySelector(`.price-tab-content[data-tab="${tabType}"]`);
+      if (!tabContainer) return;
+      
+      // Selecionar o grid correto (índice 1, 2 ou 3 - índice 0 é o wrapper principal)
+      const container = tabContainer.querySelectorAll('.grid')[gridIndex + 1];
+      if (!container) return;
+      
+      const marginField = container.querySelector('.analysis-margin');
+      const multipleField = container.querySelector('.analysis-multiple');
+      const valueField = container.querySelector('.analysis-value');
+      
+      if (marginField && multipleField && valueField && metrics) {
+        // Preencher valores
+        marginField.value = `${metrics.margin_percent.toFixed(1)}%`;
+        multipleField.value = metrics.value_multiple >= 0 && metrics.value_multiple < 999 
+          ? `${metrics.value_multiple.toFixed(1)}x` 
+          : (metrics.value_multiple >= 999 ? '∞' : '-');
+        valueField.value = `R$ ${metrics.value_amount.toFixed(2)}`;
+        
+        // Aplicar estilos de aviso
+        applyWarningStyles(marginField, metrics.margin_percent < 0);
+        applyWarningStyles(multipleField, metrics.value_multiple < 30 && metrics.value_multiple >= 0);
+        applyWarningStyles(valueField, metrics.margin_percent < 0);
+      }
+    }
+    
+    /**
      * Aplica estilos de aviso (vermelho) quando necessário
      * @param {HTMLElement} field - Campo a ser estilizado
      * @param {boolean} isWarning - Se deve mostrar aviso
@@ -1296,24 +1329,47 @@
         
         const dataMax = await responseMax.json();
         
-        // Preencher campos de preço calculados (funciona em qualquer modo)
-        // Preencher % MIN
-        tinyAggressivePriceMin.value = dataMin.aggressive_price.toFixed(2);
-        tinyPromoPriceMin.value = dataMin.promo_price.toFixed(2);
+        // ============================================================================
+        // POPULAR PREÇOS E MÉTRICAS VINDOS DO BACKEND (aba % MIN)
+        // ============================================================================
         
-        // Preencher % MAX
-        tinyAggressivePriceMax.value = dataMax.aggressive_price.toFixed(2);
-        tinyPromoPriceMax.value = dataMax.promo_price.toFixed(2);
+        // Preço do Anúncio (Min)
+        const announcePriceMin = document.getElementById('tinyAnnouncePriceMin');
+        announcePriceMin.value = dataMin.announcement_price.price.toFixed(2);
+        populateMetrics('min', 0, dataMin.announcement_price.metrics);
         
-        // Aplicar análises financeiras para ambas as abas
-        applyPriceAnalysisForTab('min');
-        applyPriceAnalysisForTab('max');
+        // Preço Agressivo (Min)
+        tinyAggressivePriceMin.value = dataMin.aggressive_price.price.toFixed(2);
+        populateMetrics('min', 1, dataMin.aggressive_price.metrics);
         
-        // Preencher tabela de atacado (apenas % MIN)
+        // Preço Promocional (Min)
+        tinyPromoPriceMin.value = dataMin.promo_price.price.toFixed(2);
+        populateMetrics('min', 2, dataMin.promo_price.metrics);
+        
+        // ============================================================================
+        // POPULAR PREÇOS E MÉTRICAS VINDOS DO BACKEND (aba % MAX)
+        // ============================================================================
+        
+        // Preço do Anúncio (Max)
+        const announcePriceMax = document.getElementById('tinyAnnouncePriceMax');
+        announcePriceMax.value = dataMax.announcement_price.price.toFixed(2);
+        populateMetrics('max', 0, dataMax.announcement_price.metrics);
+        
+        // Preço Agressivo (Max)
+        tinyAggressivePriceMax.value = dataMax.aggressive_price.price.toFixed(2);
+        populateMetrics('max', 1, dataMax.aggressive_price.metrics);
+        
+        // Preço Promocional (Max)
+        tinyPromoPriceMax.value = dataMax.promo_price.price.toFixed(2);
+        populateMetrics('max', 2, dataMax.promo_price.metrics);
+        
+        // ============================================================================
+        // PREENCHER TABELA DE ATACADO COM MÉTRICAS (apenas % MIN)
+        // ============================================================================
         wholesaleRows = dataMin.wholesale_tiers.map(tier => ({
           price: tier.price,
           qty: tier.min_quantity,
-          totalCost: totalCost
+          metrics: tier.metrics  // Incluir métricas do backend
         }));
         renderWholesaleTable();
           
@@ -1377,21 +1433,10 @@
       autoPricing();
     });
     
-    // Listeners para edição manual de preços → recalcular análises
-    const editablePricesMin = [tinyAggressivePriceMin, tinyPromoPriceMin];
-    const editablePricesMax = [tinyAggressivePriceMax, tinyPromoPriceMax];
-    
-    editablePricesMin.forEach(field => {
-      field.addEventListener('input', () => {
-        applyPriceAnalysisForTab('min');
-      });
-    });
-    
-    editablePricesMax.forEach(field => {
-      field.addEventListener('input', () => {
-        applyPriceAnalysisForTab('max');
-      });
-    });
+    // NOTA: Edição manual de preços agora usa métricas do backend
+    // Quando o usuário edita um preço, as métricas não são recalculadas localmente
+    // Para recalcular, deve usar o botão "Calcular Preços" novamente
+    // TODO: Implementar recálculo automático via API quando usuário edita preços
     
     // Botões de copiar conteúdo
     document.addEventListener('click', (e) => {
