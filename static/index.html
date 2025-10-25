@@ -37,6 +37,8 @@
     .tts-active svg { stroke:white !important; }
     .tts-highlight { background:#dbeafe; color:#1e40af; font-weight:600; border-radius:.25rem; padding:0 .125rem; transition:all .1s; }
     .mono { font-family:monospace; }
+    .cfg-nav-btn.active { background:#4f46e5; color:white; }
+    .cfg-nav-btn.active svg { stroke:white; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -384,83 +386,132 @@
 
   <!-- Modal Config -->
   <div id="configModal" class="modal">
-    <div class="modal-card card p-5">
-      <div class="flex items-center justify-between">
+    <div class="modal-card card" style="max-width: 1100px; width: 95%; max-height: 85vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
         <h3 class="text-lg font-semibold text-gray-800">Configurações</h3>
         <button id="cfgClose" class="btn" title="Fechar">Fechar</button>
       </div>
 
-      <div class="grid sm:grid-cols-2 gap-4 mt-3">
-        <div>
-          <label class="text-sm text-gray-700 font-medium">OpenAI API Key</label>
-          <input id="cfgOpenAI" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+      <!-- Body with Sidebar + Content -->
+      <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar Menu -->
+        <div class="w-48 bg-gray-50 border-r border-gray-200 overflow-y-auto">
+          <nav class="p-2">
+            <button class="cfg-nav-btn active w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="llm">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              LLM
+            </button>
+            <button class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="rulesets">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Rule Sets
+            </button>
+            <button class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="integrations">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              Integrações
+            </button>
+            <button class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="pricing">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Precificação
+            </button>
+          </nav>
         </div>
-        <div>
-          <label class="text-sm text-gray-700 font-medium">OpenAI Base URL (opcional)</label>
-          <input id="cfgOpenAIBase" type="text" placeholder="https://api.openai.com/v1" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-        </div>
-        <div>
-          <label class="text-sm text-gray-700 font-medium">Gemini API Key</label>
-          <input id="cfgGemini" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-        </div>
-        <div>
-          <label class="text-sm text-gray-700 font-medium">Gemini Base URL (opcional)</label>
-          <input id="cfgGeminiBase" type="text" placeholder="https://generativelanguage.googleapis.com" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto">
+          <!-- Section: LLM -->
+          <div class="cfg-section active p-5" data-section="llm">
+            <h4 class="text-md font-semibold text-gray-800 mb-4">Configuração de LLM</h4>
+            
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm text-gray-700 font-medium">OpenAI API Key</label>
+                <input id="cfgOpenAI" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-gray-700 font-medium">OpenAI Base URL (opcional)</label>
+                <input id="cfgOpenAIBase" type="text" placeholder="https://api.openai.com/v1" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-gray-700 font-medium">Gemini API Key</label>
+                <input id="cfgGemini" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="text-sm text-gray-700 font-medium">Gemini Base URL (opcional)</label>
+                <input id="cfgGeminiBase" type="text" placeholder="https://generativelanguage.googleapis.com" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <label class="text-sm text-gray-700 font-medium">Prompt Template</label>
+              <textarea id="cfgPromptTpl" rows="18" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder='Use {product}, {marketplace} e {specs}. As demais chaves {{ }} do JSON podem ficar sem escape.'></textarea>
+            </div>
+          </div>
+
+          <!-- Section: Rule Sets -->
+          <div class="cfg-section p-5" data-section="rulesets" style="display: none;">
+            <h4 class="text-md font-semibold text-gray-800 mb-4">Rule Sets</h4>
+            <p class="text-sm text-gray-600 mb-3">Configure regras específicas por marketplace (formato JSON)</p>
+            
+            <textarea id="cfgRules" rows="25" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono" 
+              placeholder='{"mercadolivre":{"title_max_chars":60}}'></textarea>
+          </div>
+
+          <!-- Section: Integrações -->
+          <div class="cfg-section p-5" data-section="integrations" style="display: none;">
+            <h4 class="text-md font-semibold text-gray-800 mb-4">Integrações</h4>
+            
+            <div class="border-b border-gray-200 pb-4 mb-4">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <label class="text-sm text-gray-700 font-medium">Tokens Tiny ERP</label>
+                  <p class="text-xs text-gray-500 mt-1">Configure as instâncias do Tiny ERP para buscar dados de produtos</p>
+                </div>
+                <button id="cfgAddTiny" class="btn text-xs" title="Adicionar instância">+ Adicionar</button>
+              </div>
+              <div id="cfgTinyTokensList" class="grid gap-2">
+                <p class="text-xs text-gray-500 italic">Nenhum token configurado</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Precificação -->
+          <div class="cfg-section p-5" data-section="pricing" style="display: none;">
+            <h4 class="text-md font-semibold text-gray-800 mb-4">Dados de Precificação</h4>
+            <p class="text-xs text-gray-500 mb-3">Configure os percentuais de comissão, impostos e margens para cada marketplace</p>
+            
+            <div class="mb-3">
+              <button id="cfgAddPricing" class="btn text-xs" title="Adicionar marketplace">+ Adicionar Marketplace</button>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs border border-gray-200 rounded-md">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">Marketplace</th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Min<br/><span class="font-normal text-gray-500">(Clássico)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Max<br/><span class="font-normal text-gray-500">(Premium)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% TACOS<br/><span class="font-normal text-gray-500">(Publicidade)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% M.C.<br/><span class="font-normal text-gray-500">(Margem)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Lucro</th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Impostos</th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700 w-16">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="cfgPricingTableBody">
+                  <tr>
+                    <td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço cadastrada</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="mt-4">
-        <label class="text-sm text-gray-700 font-medium">RuleSets (JSON por marketplace)</label>
-        <textarea id="cfgRules" rows="8" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder='{"mercadolivre":{"title_max_chars":60}}'></textarea>
-      </div>
-
-      <div class="mt-4">
-        <label class="text-sm text-gray-700 font-medium">Prompt Template</label>
-        <textarea id="cfgPromptTpl" rows="12" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-          placeholder='Use {product}, {marketplace} e {specs}. As demais chaves {{ }} do JSON podem ficar sem escape.'></textarea>
-      </div>
-
-      <div class="mt-4 border-t border-gray-200 pt-4">
-        <div class="flex items-center justify-between mb-3">
-          <label class="text-sm text-gray-700 font-medium">Tokens Tiny ERP</label>
-          <button id="cfgAddTiny" class="btn text-xs" title="Adicionar instância">+ Adicionar</button>
-        </div>
-        <div id="cfgTinyTokensList" class="grid gap-2">
-          <p class="text-xs text-gray-500 italic">Nenhum token configurado</p>
-        </div>
-      </div>
-
-      <div class="mt-4 border-t border-gray-200 pt-4">
-        <div class="flex items-center justify-between mb-3">
-          <label class="text-sm text-gray-700 font-medium">Dados de Precificação</label>
-          <button id="cfgAddPricing" class="btn text-xs" title="Adicionar marketplace">+ Adicionar</button>
-        </div>
-        <p class="text-xs text-gray-500 mb-3">Configure os percentuais de comissão, impostos e margens para cada marketplace</p>
-        
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs border border-gray-200 rounded-md">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-2 py-2 text-left font-medium text-gray-700">Marketplace</th>
-                <th class="px-2 py-2 text-center font-medium text-gray-700">% Min<br/><span class="font-normal text-gray-500">(Clássico)</span></th>
-                <th class="px-2 py-2 text-center font-medium text-gray-700">% Max<br/><span class="font-normal text-gray-500">(Premium)</span></th>
-                <th class="px-2 py-2 text-center font-medium text-gray-700">% TACOS<br/><span class="font-normal text-gray-500">(Publicidade)</span></th>
-                <th class="px-2 py-2 text-center font-medium text-gray-700">% M.C.<br/><span class="font-normal text-gray-500">(Margem)</span></th>
-                <th class="px-2 py-2 text-center font-medium text-gray-700">% Lucro</th>
-                <th class="px-2 py-2 text-center font-medium text-gray-700">% Impostos</th>
-                <th class="px-2 py-2 text-center font-medium text-gray-700 w-16">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="cfgPricingTableBody">
-              <tr>
-                <td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço cadastrada</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="mt-4 flex justify-end gap-2">
+      <!-- Footer -->
+      <div class="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50">
         <button id="cfgCancel" class="btn">Cancelar</button>
         <button id="cfgSave" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
       </div>
@@ -1509,6 +1560,28 @@ Restrições:
 - Responda em JSON com as chaves: title, description, faq (array de objetos {q,a}), cards (array de objetos {title,text}).
 `;
 
+    // Config Section Navigation
+    function switchConfigSection(sectionName) {
+      // Remover active de todos os botões e seções
+      document.querySelectorAll('.cfg-nav-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.cfg-section').forEach(section => section.style.display = 'none');
+      
+      // Ativar botão e seção selecionados
+      const btn = document.querySelector(`.cfg-nav-btn[data-section="${sectionName}"]`);
+      const section = document.querySelector(`.cfg-section[data-section="${sectionName}"]`);
+      
+      if (btn) btn.classList.add('active');
+      if (section) section.style.display = 'block';
+    }
+    
+    // Event listeners para navegação
+    document.querySelectorAll('.cfg-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const section = btn.dataset.section;
+        switchConfigSection(section);
+      });
+    });
+
     btnConfig.addEventListener("click", ()=> {
       const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
       cfgOpenAI.value = saved.openai || "";
@@ -1519,6 +1592,7 @@ Restrições:
       cfgPromptTpl.value = saved.prompt_template || DEFAULT_PROMPT_TEMPLATE;
       renderTinyTokensList();
       renderPricingTable(); // Renderizar tabela de precificação
+      switchConfigSection('llm'); // Sempre abrir na seção LLM
       cfgModal.classList.add("open");
     });
     function closeCfg(){ cfgModal.classList.remove("open"); }

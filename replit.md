@@ -69,6 +69,14 @@ The application uses a Python 3.11 FastAPI backend and a static HTML frontend wi
 
 ## Recent Changes
 
+**October 25, 2025 - UX Improvements: Config Modal with Sidebar Navigation**
+- Redesigned configuration modal with sidebar navigation for better organization
+- Added 4 organized sections: LLM, Rule Sets, Integrações, Precificação
+- Implemented scroll in all sections to handle large content gracefully
+- Added visual feedback for active section in sidebar (indigo highlight)
+- Expanded Rule Sets textarea to use full visible area (25 rows)
+- Improved overall UX with cleaner layout and easier navigation
+
 **October 24, 2025 - Etapa 3: Pricing Module + Mercado Livre Pricing Logic**
 - Implemented complete pricing module using Strategy + Factory patterns
 - Created 7 marketplace-specific calculators with distinct markup/tax configurations
