@@ -1127,75 +1127,73 @@
         
         const dataMax = await responseMax.json();
         
-        // Preencher campos de preço APENAS EM MODO MANUAL
-        if (integrationMode === "manual") {
-          // Preencher % MIN
-          tinyListPriceMin.value = dataMin.listing_price.toFixed(2);
-          tinyAggressivePriceMin.value = dataMin.aggressive_price.toFixed(2);
-          tinyPromoPriceMin.value = dataMin.promo_price.toFixed(2);
+        // Preencher campos de preço calculados (funciona em qualquer modo)
+        // Preencher % MIN
+        tinyListPriceMin.value = dataMin.listing_price.toFixed(2);
+        tinyAggressivePriceMin.value = dataMin.aggressive_price.toFixed(2);
+        tinyPromoPriceMin.value = dataMin.promo_price.toFixed(2);
+        
+        // Preencher campos calculados % MIN
+        const minContainer = document.querySelector('.price-tab-content[data-tab="min"]');
+        fillCalculatedFields(
+          tinyListPriceMin,
+          minContainer.querySelectorAll('input[type="text"]')[0],
+          minContainer.querySelectorAll('input[type="text"]')[1],
+          totalCost
+        );
+        fillCalculatedFields(
+          tinyAggressivePriceMin,
+          minContainer.querySelectorAll('input[type="text"]')[2],
+          minContainer.querySelectorAll('input[type="text"]')[3],
+          totalCost
+        );
+        fillCalculatedFields(
+          tinyPromoPriceMin,
+          minContainer.querySelectorAll('input[type="text"]')[4],
+          minContainer.querySelectorAll('input[type="text"]')[5],
+          totalCost
+        );
+        
+        // Preencher % MAX
+        tinyListPriceMax.value = dataMax.listing_price.toFixed(2);
+        tinyAggressivePriceMax.value = dataMax.aggressive_price.toFixed(2);
+        tinyPromoPriceMax.value = dataMax.promo_price.toFixed(2);
+        
+        // Preencher campos calculados % MAX
+        const maxContainer = document.querySelector('.price-tab-content[data-tab="max"]');
+        fillCalculatedFields(
+          tinyListPriceMax,
+          maxContainer.querySelectorAll('input[type="text"]')[0],
+          maxContainer.querySelectorAll('input[type="text"]')[1],
+          totalCost
+        );
+        fillCalculatedFields(
+          tinyAggressivePriceMax,
+          maxContainer.querySelectorAll('input[type="text"]')[2],
+          maxContainer.querySelectorAll('input[type="text"]')[3],
+          totalCost
+        );
+        fillCalculatedFields(
+          tinyPromoPriceMax,
+          maxContainer.querySelectorAll('input[type="text"]')[4],
+          maxContainer.querySelectorAll('input[type="text"]')[5],
+          totalCost
+        );
+        
+        // Preencher tabela de atacado (apenas % MIN)
+        wholesaleRows = dataMin.wholesale_tiers.map(tier => ({
+          price: tier.price,
+          qty: tier.min_quantity,
+          totalCost: totalCost
+        }));
+        renderWholesaleTable();
           
-          // Preencher campos calculados % MIN
-          const minContainer = document.querySelector('.price-tab-content[data-tab="min"]');
-          fillCalculatedFields(
-            tinyListPriceMin,
-            minContainer.querySelectorAll('input[type="text"]')[0],
-            minContainer.querySelectorAll('input[type="text"]')[1],
-            totalCost
-          );
-          fillCalculatedFields(
-            tinyAggressivePriceMin,
-            minContainer.querySelectorAll('input[type="text"]')[2],
-            minContainer.querySelectorAll('input[type="text"]')[3],
-            totalCost
-          );
-          fillCalculatedFields(
-            tinyPromoPriceMin,
-            minContainer.querySelectorAll('input[type="text"]')[4],
-            minContainer.querySelectorAll('input[type="text"]')[5],
-            totalCost
-          );
-          
-          // Preencher % MAX
-          tinyListPriceMax.value = dataMax.listing_price.toFixed(2);
-          tinyAggressivePriceMax.value = dataMax.aggressive_price.toFixed(2);
-          tinyPromoPriceMax.value = dataMax.promo_price.toFixed(2);
-          
-          // Preencher campos calculados % MAX
-          const maxContainer = document.querySelector('.price-tab-content[data-tab="max"]');
-          fillCalculatedFields(
-            tinyListPriceMax,
-            maxContainer.querySelectorAll('input[type="text"]')[0],
-            maxContainer.querySelectorAll('input[type="text"]')[1],
-            totalCost
-          );
-          fillCalculatedFields(
-            tinyAggressivePriceMax,
-            maxContainer.querySelectorAll('input[type="text"]')[2],
-            maxContainer.querySelectorAll('input[type="text"]')[3],
-            totalCost
-          );
-          fillCalculatedFields(
-            tinyPromoPriceMax,
-            maxContainer.querySelectorAll('input[type="text"]')[4],
-            maxContainer.querySelectorAll('input[type="text"]')[5],
-            totalCost
-          );
-          
-          // Preencher tabela de atacado (apenas % MIN)
-          wholesaleRows = dataMin.wholesale_tiers.map(tier => ({
-            price: tier.price,
-            qty: tier.min_quantity,
-            totalCost: totalCost
-          }));
-          renderWholesaleTable();
-          
-          // Feedback visual sutil
-          [tinyListPriceMin, tinyAggressivePriceMin, tinyPromoPriceMin,
-           tinyListPriceMax, tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
-            field.classList.add('bg-green-50');
-            setTimeout(() => field.classList.remove('bg-green-50'), 1000);
-          });
-        }
+        // Feedback visual sutil
+        [tinyListPriceMin, tinyAggressivePriceMin, tinyPromoPriceMin,
+         tinyListPriceMax, tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
+          field.classList.add('bg-green-50');
+          setTimeout(() => field.classList.remove('bg-green-50'), 1000);
+        });
         
       } catch (error) {
         console.error('Erro ao buscar auto-pricing:', error);
