@@ -342,40 +342,67 @@
           <!-- Tab Content: % Min -->
           <div class="price-tab-content active mt-4 mb-6" data-tab="min">
             <div class="grid sm:grid-cols-1 gap-4">
+              <!-- Preço do Anúncio (calculado: promo / 0.85) -->
+              <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <label class="text-sm text-blue-800 font-semibold flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                  Preço do Anúncio (R$)
+                  <span class="text-xs font-normal text-blue-600">(com 15% desconto = promo)</span>
+                </label>
+                <div class="flex gap-1 mt-1">
+                  <input id="tinyAnnouncePriceMin" type="number" step="0.01" class="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-900" placeholder="0.00" readonly>
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAnnouncePriceMin" title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                    <span class="ml-1">Copiar</span>
+                  </button>
+                </div>
+              </div>
+              
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço anúncio (R$)</label>
+                <label class="text-sm text-gray-600 font-medium">Preço de lista (R$)</label>
                 <div class="flex gap-1 mt-1">
                   <input id="tinyListPriceMin" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="99.90" readonly>
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0x" title="Break-even (vendas)">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyListPriceMin" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
+                <div class="grid grid-cols-3 gap-1 mt-1">
+                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                </div>
               </div>
+              
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$)</label>
+                <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
                 <div class="flex gap-1 mt-1">
-                  <input id="tinyAggressivePriceMin" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90" readonly>
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0x" title="Break-even (vendas)">
+                  <input id="tinyAggressivePriceMin" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMin" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
+                <div class="grid grid-cols-3 gap-1 mt-1">
+                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                </div>
               </div>
+              
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço promocional (R$)</label>
+                <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
                 <div class="flex gap-1 mt-1">
-                  <input id="tinyPromoPriceMin" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90" readonly>
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0x" title="Break-even (vendas)">
+                  <input id="tinyPromoPriceMin" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMin" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
                     <span class="ml-1">Copiar</span>
                   </button>
+                </div>
+                <div class="grid grid-cols-3 gap-1 mt-1">
+                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
             </div>
@@ -406,40 +433,67 @@
           <!-- Tab Content: % Max -->
           <div class="price-tab-content mt-4 mb-6" data-tab="max">
             <div class="grid sm:grid-cols-1 gap-4">
+              <!-- Preço do Anúncio (calculado: promo / 0.85) -->
+              <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <label class="text-sm text-blue-800 font-semibold flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                  Preço do Anúncio (R$)
+                  <span class="text-xs font-normal text-blue-600">(com 15% desconto = promo)</span>
+                </label>
+                <div class="flex gap-1 mt-1">
+                  <input id="tinyAnnouncePriceMax" type="number" step="0.01" class="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-900" placeholder="0.00" readonly>
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAnnouncePriceMax" title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                    <span class="ml-1">Copiar</span>
+                  </button>
+                </div>
+              </div>
+              
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço anúncio (R$)</label>
+                <label class="text-sm text-gray-600 font-medium">Preço de lista (R$)</label>
                 <div class="flex gap-1 mt-1">
                   <input id="tinyListPriceMax" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="99.90" readonly>
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0x" title="Break-even (vendas)">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyListPriceMax" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
+                <div class="grid grid-cols-3 gap-1 mt-1">
+                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                </div>
               </div>
+              
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$)</label>
+                <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
                 <div class="flex gap-1 mt-1">
-                  <input id="tinyAggressivePriceMax" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90" readonly>
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0x" title="Break-even (vendas)">
+                  <input id="tinyAggressivePriceMax" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMax" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
+                <div class="grid grid-cols-3 gap-1 mt-1">
+                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                </div>
               </div>
+              
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço promocional (R$)</label>
+                <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
                 <div class="flex gap-1 mt-1">
-                  <input id="tinyPromoPriceMax" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90" readonly>
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="w-20 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-center text-gray-600" readonly placeholder="0x" title="Break-even (vendas)">
+                  <input id="tinyPromoPriceMax" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMax" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
                     <span class="ml-1">Copiar</span>
                   </button>
+                </div>
+                <div class="grid grid-cols-3 gap-1 mt-1">
+                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
+                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
             </div>
@@ -1041,27 +1095,134 @@
     // ============================================================================
     
     // Calcula % de margem: (preço - custo_total) / preço * 100
-    function calculateMargin(price, totalCost) {
-      if (price <= 0) return 0;
-      const margin = ((price - totalCost) / price) * 100;
-      return Math.max(0, margin);
-    }
-    
-    // Calcula break-even: custo_total / (preço - custo_total)
-    function calculateBreakEven(price, totalCost) {
-      const profit = price - totalCost;
-      if (profit <= 0) return 999; // Impossível recuperar investimento
-      return totalCost / profit;
-    }
-    
-    // Preenche campos calculados ao lado de um campo de preço
-    function fillCalculatedFields(priceInput, marginInput, breakEvenInput, totalCost) {
-      const price = parseFloat(priceInput.value) || 0;
-      const margin = calculateMargin(price, totalCost);
-      const breakEven = calculateBreakEven(price, totalCost);
+    /**
+     * Calcula análise financeira para um preço específico
+     * @param {Object} params - Parâmetros de cálculo
+     * @param {number} params.price - Preço do produto
+     * @param {number} params.totalCost - Custo total (produto + frete)
+     * @param {number} params.commissionPercent - % de comissão (decimal, ex: 0.12)
+     * @param {Object} params.config - Configuração de precificação (tacos, margem_contribuicao, lucro, impostos)
+     * @returns {Object} - {marginPct, valueMultiple, valueAmount}
+     */
+    function buildPriceAnalysis({ price, totalCost, commissionPercent, config }) {
+      if (price <= 0) {
+        return { marginPct: 0, valueMultiple: 0, valueAmount: 0 };
+      }
       
-      marginInput.value = margin > 0 ? `${margin.toFixed(1)}%` : '0%';
-      breakEvenInput.value = breakEven < 999 ? `${breakEven.toFixed(1)}x` : '∞';
+      // Calcular todas as taxas variáveis (proporcionais ao preço)
+      const impostos = price * config.impostos;
+      const comissaoTotal = price * (commissionPercent + config.tacos + config.margem_contribuicao + config.lucro);
+      
+      // Valor monetário = o que sobra após todos os descontos
+      const valueAmount = price - totalCost - impostos - comissaoTotal;
+      
+      // % de Margem = valor monetário / preço * 100
+      const marginPct = (valueAmount / price) * 100;
+      
+      // Múltiplo = valor monetário / custo total
+      const valueMultiple = totalCost > 0 ? valueAmount / totalCost : 0;
+      
+      return {
+        marginPct: marginPct,
+        valueMultiple: valueMultiple,
+        valueAmount: valueAmount
+      };
+    }
+    
+    /**
+     * Aplica análise de precificação para uma aba (min ou max)
+     * @param {string} tabType - 'min' ou 'max'
+     */
+    function applyPriceAnalysisForTab(tabType) {
+      const costPrice = parseFloat(tinyCostPrice.value) || 0;
+      const shippingCost = parseFloat(tinyShippingCost.value) || 0;
+      const totalCost = costPrice + shippingCost;
+      
+      // Guard: não calcular se não há custo definido
+      if (totalCost <= 0) {
+        console.warn('Custo total deve ser maior que zero para calcular análises');
+        return;
+      }
+      
+      // Obter configuração de precificação
+      const channel = marketplace.value;
+      const marketplaceConfig = getMarketplacePricingContext(channel);
+      
+      // Determinar qual % de comissão usar
+      const commissionPercent = tabType === 'min' 
+        ? marketplaceConfig.comissao_min / 100
+        : marketplaceConfig.comissao_max / 100;
+      
+      // Configuração de taxas
+      const config = {
+        tacos: marketplaceConfig.tacos,
+        margem_contribuicao: marketplaceConfig.margem_contribuicao,
+        lucro: marketplaceConfig.lucro,
+        impostos: marketplaceConfig.impostos
+      };
+      
+      // Selecionar campos da aba correta
+      const tabSuffix = tabType === 'min' ? 'Min' : 'Max';
+      const announcePrice = document.getElementById(`tinyAnnouncePrice${tabSuffix}`);
+      const listPrice = document.getElementById(`tinyListPrice${tabSuffix}`);
+      const aggressivePrice = document.getElementById(`tinyAggressivePrice${tabSuffix}`);
+      const promoPrice = document.getElementById(`tinyPromoPrice${tabSuffix}`);
+      
+      // 1. Calcular Preço do Anúncio (promo / 0.85)
+      const promoPriceValue = parseFloat(promoPrice.value) || 0;
+      if (promoPriceValue > 0) {
+        announcePrice.value = (promoPriceValue / 0.85).toFixed(2);
+      }
+      
+      // 2. Obter container da aba
+      const tabContainer = document.querySelector(`.price-tab-content[data-tab="${tabType}"]`);
+      if (!tabContainer) return;
+      
+      // 3. Calcular e preencher análises para cada preço
+      const prices = [
+        { input: listPrice, container: tabContainer.querySelectorAll('.grid')[1] },
+        { input: aggressivePrice, container: tabContainer.querySelectorAll('.grid')[2] },
+        { input: promoPrice, container: tabContainer.querySelectorAll('.grid')[3] }
+      ];
+      
+      prices.forEach(({ input, container }) => {
+        const price = parseFloat(input.value) || 0;
+        const analysis = buildPriceAnalysis({ price, totalCost, commissionPercent, config });
+        
+        // Selecionar campos de análise
+        const marginField = container.querySelector('.analysis-margin');
+        const multipleField = container.querySelector('.analysis-multiple');
+        const valueField = container.querySelector('.analysis-value');
+        
+        if (marginField && multipleField && valueField) {
+          // Preencher valores
+          marginField.value = `${analysis.marginPct.toFixed(1)}%`;
+          multipleField.value = analysis.valueMultiple >= 0 && analysis.valueMultiple < 999 
+            ? `${analysis.valueMultiple.toFixed(1)}x` 
+            : (analysis.valueMultiple >= 999 ? '∞' : '-');
+          valueField.value = `R$ ${analysis.valueAmount.toFixed(2)}`;
+          
+          // Aplicar estilos de destaque
+          applyWarningStyles(marginField, analysis.marginPct < 0);
+          applyWarningStyles(multipleField, analysis.valueMultiple < 30 && analysis.valueMultiple >= 0);
+          applyWarningStyles(valueField, analysis.marginPct < 0);
+        }
+      });
+    }
+    
+    /**
+     * Aplica estilos de aviso (vermelho) quando necessário
+     * @param {HTMLElement} field - Campo a ser estilizado
+     * @param {boolean} isWarning - Se deve mostrar aviso
+     */
+    function applyWarningStyles(field, isWarning) {
+      if (isWarning) {
+        field.classList.add('bg-red-100', 'border-red-300', 'text-red-800', 'font-semibold');
+        field.classList.remove('bg-gray-50', 'border-gray-200', 'text-gray-700');
+      } else {
+        field.classList.remove('bg-red-100', 'border-red-300', 'text-red-800', 'font-semibold');
+        field.classList.add('bg-gray-50', 'border-gray-200', 'text-gray-700');
+      }
     }
     
     // ============================================================================
@@ -1152,52 +1313,14 @@
         tinyAggressivePriceMin.value = dataMin.aggressive_price.toFixed(2);
         tinyPromoPriceMin.value = dataMin.promo_price.toFixed(2);
         
-        // Preencher campos calculados % MIN
-        const minContainer = document.querySelector('.price-tab-content[data-tab="min"]');
-        fillCalculatedFields(
-          tinyListPriceMin,
-          minContainer.querySelectorAll('input[type="text"]')[0],
-          minContainer.querySelectorAll('input[type="text"]')[1],
-          totalCost
-        );
-        fillCalculatedFields(
-          tinyAggressivePriceMin,
-          minContainer.querySelectorAll('input[type="text"]')[2],
-          minContainer.querySelectorAll('input[type="text"]')[3],
-          totalCost
-        );
-        fillCalculatedFields(
-          tinyPromoPriceMin,
-          minContainer.querySelectorAll('input[type="text"]')[4],
-          minContainer.querySelectorAll('input[type="text"]')[5],
-          totalCost
-        );
-        
         // Preencher % MAX
         tinyListPriceMax.value = dataMax.listing_price.toFixed(2);
         tinyAggressivePriceMax.value = dataMax.aggressive_price.toFixed(2);
         tinyPromoPriceMax.value = dataMax.promo_price.toFixed(2);
         
-        // Preencher campos calculados % MAX
-        const maxContainer = document.querySelector('.price-tab-content[data-tab="max"]');
-        fillCalculatedFields(
-          tinyListPriceMax,
-          maxContainer.querySelectorAll('input[type="text"]')[0],
-          maxContainer.querySelectorAll('input[type="text"]')[1],
-          totalCost
-        );
-        fillCalculatedFields(
-          tinyAggressivePriceMax,
-          maxContainer.querySelectorAll('input[type="text"]')[2],
-          maxContainer.querySelectorAll('input[type="text"]')[3],
-          totalCost
-        );
-        fillCalculatedFields(
-          tinyPromoPriceMax,
-          maxContainer.querySelectorAll('input[type="text"]')[4],
-          maxContainer.querySelectorAll('input[type="text"]')[5],
-          totalCost
-        );
+        // Aplicar análises financeiras para ambas as abas
+        applyPriceAnalysisForTab('min');
+        applyPriceAnalysisForTab('max');
         
         // Preencher tabela de atacado (apenas % MIN)
         wholesaleRows = dataMin.wholesale_tiers.map(tier => ({
@@ -1265,6 +1388,22 @@
     // Listener do botão calcular preços (modo manual)
     calculatePricesBtn.addEventListener('click', () => {
       autoPricing();
+    });
+    
+    // Listeners para edição manual de preços → recalcular análises
+    const editablePricesMin = [tinyAggressivePriceMin, tinyPromoPriceMin];
+    const editablePricesMax = [tinyAggressivePriceMax, tinyPromoPriceMax];
+    
+    editablePricesMin.forEach(field => {
+      field.addEventListener('input', () => {
+        applyPriceAnalysisForTab('min');
+      });
+    });
+    
+    editablePricesMax.forEach(field => {
+      field.addEventListener('input', () => {
+        applyPriceAnalysisForTab('max');
+      });
     });
     
     // Botões de copiar conteúdo
