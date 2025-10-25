@@ -386,15 +386,15 @@
 
   <!-- Modal Config -->
   <div id="configModal" class="modal">
-    <div class="modal-card card" style="max-width: 1100px; width: 95%; max-height: 85vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div class="modal-card card" style="max-width: 1100px; width: 95%; height: 85vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
       <!-- Header -->
-      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
         <h3 class="text-lg font-semibold text-gray-800">Configurações</h3>
         <button id="cfgClose" class="btn" title="Fechar">Fechar</button>
       </div>
 
       <!-- Body with Sidebar + Content -->
-      <div class="flex flex-1 overflow-hidden" style="min-height: 500px;">
+      <div class="flex flex-1 overflow-hidden">
         <!-- Sidebar Menu -->
         <div class="w-48 bg-gray-50 border-r border-gray-200 overflow-y-auto">
           <nav class="p-2">
@@ -511,7 +511,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50">
+      <div class="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
         <button id="cfgCancel" class="btn">Cancelar</button>
         <button id="cfgSave" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
       </div>
