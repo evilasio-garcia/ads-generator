@@ -971,11 +971,11 @@
           </td>
           <td class="px-3 py-2">
             <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
-                   value="${margin > 0 ? margin.toFixed(1) + '%' : '0%'}" readonly>
+                   value="${margin > 0 ? margin.toFixed(2) + '%' : '0%'}" readonly>
           </td>
           <td class="px-3 py-2">
             <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
-                   value="${multiple >= 0 && multiple < 999 ? multiple.toFixed(1) + 'x' : '∞'}" readonly>
+                   value="${multiple >= 0 && multiple < 999 ? multiple.toFixed(2) + 'x' : '∞'}" readonly>
           </td>
           <td class="px-3 py-2">
             <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600" 
@@ -1179,9 +1179,9 @@
         
         if (marginField && multipleField && valueField) {
           // Preencher valores
-          marginField.value = `${analysis.marginPct.toFixed(1)}%`;
+          marginField.value = `${analysis.marginPct.toFixed(2)}%`;
           multipleField.value = analysis.valueMultiple >= 0 && analysis.valueMultiple < 999 
-            ? `${analysis.valueMultiple.toFixed(1)}x` 
+            ? `${analysis.valueMultiple.toFixed(2)}x` 
             : (analysis.valueMultiple >= 999 ? '∞' : '-');
           valueField.value = `R$ ${analysis.valueAmount.toFixed(2)}`;
           
@@ -1230,9 +1230,9 @@
       }
       
       // Preencher valores
-      marginField.value = `${metrics.margin_percent.toFixed(1)}%`;
+      marginField.value = `${metrics.margin_percent.toFixed(2)}%`;
       multipleField.value = metrics.value_multiple >= 0 && metrics.value_multiple < 999 
-        ? `${metrics.value_multiple.toFixed(1)}x` 
+        ? `${metrics.value_multiple.toFixed(2)}x` 
         : (metrics.value_multiple >= 999 ? '∞' : '-');
       valueField.value = `R$ ${metrics.value_amount.toFixed(2)}`;
       
