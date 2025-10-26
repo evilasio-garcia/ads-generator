@@ -1330,11 +1330,17 @@
         
         // Obter dados de precificação do marketplace selecionado
         const pricingConfigAll = getPricingConfig();
-        const marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
+        let marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
         
+        // Se não encontrou configuração salva, usar valores padrão
         if (!marketplaceConfig) {
-          console.warn('Nenhuma configuração de precificação encontrada para', channel);
-          return;
+          console.log('Usando configuração padrão para', channel);
+          marketplaceConfig = DEFAULT_PRICING_CONFIG[channel];
+          
+          if (!marketplaceConfig) {
+            console.error('Marketplace não suportado:', channel);
+            return;
+          }
         }
         
         // Preparar contexto com parâmetros de precificação (exceto comissão)
