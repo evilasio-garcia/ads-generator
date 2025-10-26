@@ -1330,17 +1330,32 @@
         
         // Obter dados de precificação do marketplace selecionado
         const pricingConfigAll = getPricingConfig();
-        let marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
+        const marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
         
-        // Se não encontrou configuração salva, usar valores padrão
+        // Se não encontrou configuração, alertar usuário
         if (!marketplaceConfig) {
-          console.log('Usando configuração padrão para', channel);
-          marketplaceConfig = DEFAULT_PRICING_CONFIG[channel];
+          const marketplaceNames = {
+            mercadolivre: 'Mercado Livre',
+            shopee: 'Shopee',
+            amazon: 'Amazon',
+            magalu: 'Magalu',
+            shein: 'Shein'
+          };
           
-          if (!marketplaceConfig) {
-            console.error('Marketplace não suportado:', channel);
-            return;
-          }
+          const marketplaceName = marketplaceNames[channel] || channel;
+          
+          alert(`⚠️ Configuração de Precificação Ausente\n\n` +
+                `Não foi possível calcular os preços porque não há configuração cadastrada para "${marketplaceName}".\n\n` +
+                `Para resolver:\n` +
+                `1. Clique no botão "⚙️ Configuração" no topo da página\n` +
+                `2. Vá até a seção "Precificação"\n` +
+                `3. Clique em "➕ Adicionar Marketplace"\n` +
+                `4. Configure os parâmetros (comissão, tacos, margem, etc.)\n` +
+                `5. Salve a configuração\n\n` +
+                `Após configurar, tente buscar o produto novamente.`);
+          
+          console.warn('Configuração de precificação ausente para:', channel);
+          return;
         }
         
         // Preparar contexto com parâmetros de precificação (exceto comissão)
