@@ -347,7 +347,6 @@
                 <label class="text-sm text-blue-800 font-semibold flex items-center gap-1">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                   Preço do Anúncio (R$)
-                  <span class="text-xs font-normal text-blue-600">(com 15% desconto = promo)</span>
                 </label>
                 <div class="flex gap-1 mt-1">
                   <input id="tinyAnnouncePriceMin" type="number" step="0.01" class="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-900" placeholder="0.00" readonly>
@@ -1239,7 +1238,7 @@
       
       // Aplicar estilos de aviso
       applyWarningStyles(marginField, metrics.margin_percent < 0);
-      applyWarningStyles(multipleField, metrics.value_multiple < 30 && metrics.value_multiple >= 0);
+      applyWarningStyles(multipleField, metrics.value_multiple > 30);
       applyWarningStyles(valueField, metrics.margin_percent < 0);
     }
     
@@ -1350,8 +1349,8 @@
         // ============================================================================
         
         // Preço do Anúncio (Min)
-        document.getElementById('tinyAnnouncePriceMin').value = dataMin.announcement_price.price.toFixed(2);
-        populateMetrics('tinyAnnouncePriceMin', dataMin.announcement_price.metrics);
+        document.getElementById('tinyAnnouncePriceMin').value = dataMin.listing_price.price.toFixed(2);
+        populateMetrics('tinyAnnouncePriceMin', dataMin.listing_price.metrics);
         
         // Preço Agressivo (Min)
         tinyAggressivePriceMin.value = dataMin.aggressive_price.price.toFixed(2);
@@ -1366,8 +1365,8 @@
         // ============================================================================
         
         // Preço do Anúncio (Max)
-        document.getElementById('tinyAnnouncePriceMax').value = dataMax.announcement_price.price.toFixed(2);
-        populateMetrics('tinyAnnouncePriceMax', dataMax.announcement_price.metrics);
+        document.getElementById('tinyAnnouncePriceMax').value = dataMax.listing_price.price.toFixed(2);
+        populateMetrics('tinyAnnouncePriceMax', dataMax.listing_price.metrics);
         
         // Preço Agressivo (Max)
         tinyAggressivePriceMax.value = dataMax.aggressive_price.price.toFixed(2);

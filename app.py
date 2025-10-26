@@ -659,7 +659,6 @@ class PriceQuoteRequest(BaseModel):
 class PriceQuoteResponse(BaseModel):
     """Resposta da cotação de preços com métricas"""
     listing_price: Dict[str, Any]  # {price, metrics}
-    announcement_price: Dict[str, Any]  # {price, metrics} - promo / 0.85
     wholesale_tiers: List[Dict[str, Any]]  # [{tier, min_quantity, price, metrics}]
     aggressive_price: Dict[str, Any]  # {price, metrics}
     promo_price: Dict[str, Any]  # {price, metrics}
@@ -705,19 +704,11 @@ async def pricing_quote(request: PriceQuoteRequest):
         promo_price_obj = calculator.get_promo_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
         breakdown = calculator.get_breakdown(request.cost_price, request.shipping_cost, ctx)
         
-        # Calcular preço do anúncio (promo / 0.85) com métricas
-        announcement_price_value = promo_price_obj.price / 0.85
-        announcement_price_metrics = calculator.calculate_metrics(announcement_price_value, request.cost_price, request.shipping_cost, ctx)
-        
         # Converter tiers para dict
         tiers_dict = [tier.model_dump() for tier in wholesale_tiers]
         
         return PriceQuoteResponse(
             listing_price=listing_price_obj.model_dump(),
-            announcement_price={
-                "price": round(announcement_price_value, 2),
-                "metrics": announcement_price_metrics.model_dump()
-            },
             wholesale_tiers=tiers_dict,
             aggressive_price=aggressive_price_obj.model_dump(),
             promo_price=promo_price_obj.model_dump(),
