@@ -837,6 +837,14 @@
             // Dados são válidos - aplicar
             tinyProductData = fetchedData;
             
+            // Verificar se tem preço de custo válido
+            const costPrice = parseFloat(fetchedData.cost_price) || 0;
+            if (costPrice === 0) {
+              // Se custo for zero/vazio, forçar modo manual para precificação
+              console.log('Preço de custo do Tiny está vazio - usando modo manual para precificação');
+              integrationMode = "manual";
+            }
+            
             // Feedback de sucesso
             tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
             tinySKU.classList.add('bg-green-50');
@@ -875,9 +883,10 @@
     // Aplicar estado aos campos (habilitar/desabilitar e preencher com dados reais)
     function applyTinyState() {
       const isTinyMode = integrationMode === "tiny";
+      const hasTinyData = tinyProductData !== null;
       
-      if (isTinyMode && tinyProductData) {
-        // Modo Tiny: preencher com dados REAIS da API e desabilitar
+      if (isTinyMode && hasTinyData) {
+        // Modo Tiny COMPLETO: preencher com dados REAIS da API e desabilitar
         productName.value = tinyProductData.title || "";
         tinyGTIN.value = tinyProductData.gtin || "";
         tinySKUDisplay.value = tinyProductData.sku || "";
@@ -904,8 +913,41 @@
         // Chamar auto-pricing após preencher dados do Tiny
         autoPricing();
         
+      } else if (hasTinyData && !isTinyMode) {
+        // Modo HÍBRIDO: Tiny retornou dados mas SEM preço de custo
+        // Preencher campos de cadastro mas deixar editáveis
+        productName.value = tinyProductData.title || "";
+        tinyGTIN.value = tinyProductData.gtin || "";
+        tinySKUDisplay.value = tinyProductData.sku || "";
+        tinyHeight.value = tinyProductData.height_cm || "";
+        tinyWidth.value = tinyProductData.width_cm || "";
+        tinyLength.value = tinyProductData.length_cm || "";
+        tinyWeight.value = tinyProductData.weight_kg || "";
+        tinyCostPrice.value = ""; // Deixar vazio para usuário preencher
+        
+        // Campos do Tiny ficam read-only mas visualmente diferentes
+        [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight].forEach(el => {
+          el.disabled = true;
+          el.classList.add('bg-gray-50');
+        });
+        
+        // Custo e frete ficam editáveis
+        [tinyCostPrice, tinyShippingCost].forEach(el => {
+          el.disabled = false;
+          el.classList.remove('bg-gray-50');
+        });
+        
+        // Limpar tabela de atacado
+        wholesaleRows = [];
+        renderWholesaleTable();
+        addWholesaleRow.disabled = false;
+        
+        // Mostrar botão de cálculo manual e validar
+        manualPricingButton.style.display = 'block';
+        validateCalculateButton();
+        
       } else {
-        // Modo Manual: LIMPAR valores e habilitar
+        // Modo Manual PURO: LIMPAR valores e habilitar
         tinyGTIN.value = "";
         tinySKUDisplay.value = "";
         tinyHeight.value = "";
