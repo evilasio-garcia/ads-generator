@@ -363,8 +363,15 @@
               </div>
               
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
-                <div class="flex gap-1 mt-1">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <div class="flex items-center gap-1">
+                    <button id="aggressiveMinPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <span id="aggressiveMinCount" class="text-xs text-gray-500 hidden">1/1</span>
+                    <button id="aggressiveMinNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                  </div>
+                </div>
+                <div class="flex gap-1">
                   <input id="tinyAggressivePriceMin" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMin" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
@@ -379,8 +386,15 @@
               </div>
               
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
-                <div class="flex gap-1 mt-1">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <div class="flex items-center gap-1">
+                    <button id="promoMinPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <span id="promoMinCount" class="text-xs text-gray-500 hidden">1/1</span>
+                    <button id="promoMinNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                  </div>
+                </div>
+                <div class="flex gap-1">
                   <input id="tinyPromoPriceMin" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMin" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
@@ -443,8 +457,15 @@
               </div>
               
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
-                <div class="flex gap-1 mt-1">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <div class="flex items-center gap-1">
+                    <button id="aggressiveMaxPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <span id="aggressiveMaxCount" class="text-xs text-gray-500 hidden">1/1</span>
+                    <button id="aggressiveMaxNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                  </div>
+                </div>
+                <div class="flex gap-1">
                   <input id="tinyAggressivePriceMax" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMax" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
@@ -459,8 +480,15 @@
               </div>
               
               <div>
-                <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
-                <div class="flex gap-1 mt-1">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <div class="flex items-center gap-1">
+                    <button id="promoMaxPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <span id="promoMaxCount" class="text-xs text-gray-500 hidden">1/1</span>
+                    <button id="promoMaxNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                  </div>
+                </div>
+                <div class="flex gap-1">
                   <input id="tinyPromoPriceMax" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90">
                   <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMax" title="Copiar conteúdo">
                     <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
@@ -1402,10 +1430,12 @@
         // Preço Agressivo (Min)
         tinyAggressivePriceMin.value = dataMin.aggressive_price.price.toFixed(2);
         populateMetrics('tinyAggressivePriceMin', dataMin.aggressive_price.metrics);
+        pushPriceHistory('aggressivePriceMin', dataMin.aggressive_price.price, dataMin.aggressive_price.metrics);
         
         // Preço Promocional (Min)
         tinyPromoPriceMin.value = dataMin.promo_price.price.toFixed(2);
         populateMetrics('tinyPromoPriceMin', dataMin.promo_price.metrics);
+        pushPriceHistory('promoPriceMin', dataMin.promo_price.price, dataMin.promo_price.metrics);
         
         // ============================================================================
         // POPULAR PREÇOS E MÉTRICAS VINDOS DO BACKEND (aba % MAX)
@@ -1418,10 +1448,12 @@
         // Preço Agressivo (Max)
         tinyAggressivePriceMax.value = dataMax.aggressive_price.price.toFixed(2);
         populateMetrics('tinyAggressivePriceMax', dataMax.aggressive_price.metrics);
+        pushPriceHistory('aggressivePriceMax', dataMax.aggressive_price.price, dataMax.aggressive_price.metrics);
         
         // Preço Promocional (Max)
         tinyPromoPriceMax.value = dataMax.promo_price.price.toFixed(2);
         populateMetrics('tinyPromoPriceMax', dataMax.promo_price.metrics);
+        pushPriceHistory('promoPriceMax', dataMax.promo_price.price, dataMax.promo_price.metrics);
         
         // ============================================================================
         // PREENCHER TABELA DE ATACADO COM MÉTRICAS (apenas % MIN)
@@ -2142,7 +2174,16 @@ Restrições:
     });
 
     // -------- Estado / Histórico --------
-    const history = { title:[], titleIdx:-1, description:[], descIdx:-1, faq:[], cards:[], cardLines:[] };
+    const history = {
+      title:[], titleIdx:-1,
+      description:[], descIdx:-1,
+      faq:[], cards:[], cardLines:[],
+      // Histórico de preços (cada item: { price, metrics: { margin_percent, value_multiple, value_amount } })
+      aggressivePriceMin: [], aggressivePriceMinIdx: -1,
+      promoPriceMin: [], promoPriceMinIdx: -1,
+      aggressivePriceMax: [], aggressivePriceMaxIdx: -1,
+      promoPriceMax: [], promoPriceMaxIdx: -1
+    };
     function persistState(){ localStorage.setItem(LS_STATE, JSON.stringify(history)); }
     function restoreState(){
       try{
@@ -2164,6 +2205,16 @@ Restrições:
       history.cards = [];
       history.cardLines = [];
       
+      // Limpar histórico de preços
+      history.aggressivePriceMin = [];
+      history.aggressivePriceMinIdx = -1;
+      history.promoPriceMin = [];
+      history.promoPriceMinIdx = -1;
+      history.aggressivePriceMax = [];
+      history.aggressivePriceMaxIdx = -1;
+      history.promoPriceMax = [];
+      history.promoPriceMaxIdx = -1;
+      
       // Limpar interface
       outTitle.value = "";
       outDesc.value = "";
@@ -2172,6 +2223,7 @@ Restrições:
       
       // Limpar controles de versão
       updateVersionControls();
+      updatePriceVersionControls();
       
       // Limpar playlist TTS
       rebuildPlaylist();
@@ -2210,6 +2262,109 @@ Restrições:
       descNext.classList.toggle("hidden", !(dCount>1 && dIdx<dCount-1));
       descCount.classList.toggle("hidden", !(dCount>1));
       if(dCount>1) descCount.textContent = `${dIdx+1}/${dCount}`;
+    }
+    
+    // -------- Versionamento de Preços --------
+    /**
+     * Adiciona nova versão de preço ao histórico
+     * @param {string} key - Tipo de preço: 'aggressivePriceMin', 'promoPriceMin', 'aggressivePriceMax', 'promoPriceMax'
+     * @param {number} price - Valor do preço
+     * @param {Object} metrics - Métricas: { margin_percent, value_multiple, value_amount }
+     */
+    function pushPriceHistory(key, price, metrics) {
+      const historyKey = key;
+      const idxKey = key + 'Idx';
+      
+      // Truncar array se estivermos no meio do histórico
+      history[historyKey] = history[historyKey].slice(0, history[idxKey] + 1);
+      
+      // Adicionar nova versão
+      history[historyKey].push({ price, metrics });
+      history[idxKey] = history[historyKey].length - 1;
+      
+      // Aplicar valor no campo
+      applyPriceToField(key, price, metrics);
+      
+      persistState();
+      updatePriceVersionControls();
+    }
+    
+    /**
+     * Navega entre versões de preço
+     * @param {string} key - Tipo de preço
+     * @param {number} dir - Direção: -1 (anterior) ou +1 (próxima)
+     */
+    function navPriceHistory(key, dir) {
+      const historyKey = key;
+      const idxKey = key + 'Idx';
+      
+      const next = history[idxKey] + dir;
+      if (next >= 0 && next < history[historyKey].length) {
+        history[idxKey] = next;
+        const version = history[historyKey][next];
+        applyPriceToField(key, version.price, version.metrics);
+      }
+      
+      persistState();
+      updatePriceVersionControls();
+    }
+    
+    /**
+     * Aplica preço e métricas ao campo correspondente
+     */
+    function applyPriceToField(key, price, metrics) {
+      const fieldMap = {
+        'aggressivePriceMin': 'tinyAggressivePriceMin',
+        'promoPriceMin': 'tinyPromoPriceMin',
+        'aggressivePriceMax': 'tinyAggressivePriceMax',
+        'promoPriceMax': 'tinyPromoPriceMax'
+      };
+      
+      const fieldId = fieldMap[key];
+      if (!fieldId) return;
+      
+      // Preencher preço
+      const priceField = document.getElementById(fieldId);
+      if (priceField) {
+        priceField.value = price.toFixed(2);
+      }
+      
+      // Preencher métricas
+      if (metrics) {
+        populateMetrics(fieldId, metrics);
+      }
+    }
+    
+    /**
+     * Atualiza visibilidade dos controles de versão de preços
+     */
+    function updatePriceVersionControls() {
+      // Definir mapeamento de controles
+      const controls = [
+        { key: 'aggressivePriceMin', prevId: 'aggressiveMinPrev', nextId: 'aggressiveMinNext', countId: 'aggressiveMinCount' },
+        { key: 'promoPriceMin', prevId: 'promoMinPrev', nextId: 'promoMinNext', countId: 'promoMinCount' },
+        { key: 'aggressivePriceMax', prevId: 'aggressiveMaxPrev', nextId: 'aggressiveMaxNext', countId: 'aggressiveMaxCount' },
+        { key: 'promoPriceMax', prevId: 'promoMaxPrev', nextId: 'promoMaxNext', countId: 'promoMaxCount' }
+      ];
+      
+      controls.forEach(({ key, prevId, nextId, countId }) => {
+        const historyArray = history[key];
+        const idx = history[key + 'Idx'];
+        const count = historyArray.length;
+        
+        const prevBtn = document.getElementById(prevId);
+        const nextBtn = document.getElementById(nextId);
+        const countSpan = document.getElementById(countId);
+        
+        if (prevBtn && nextBtn && countSpan) {
+          prevBtn.classList.toggle('hidden', !(count > 1 && idx > 0));
+          nextBtn.classList.toggle('hidden', !(count > 1 && idx < count - 1));
+          countSpan.classList.toggle('hidden', !(count > 1));
+          if (count > 1) {
+            countSpan.textContent = `${idx + 1}/${count}`;
+          }
+        }
+      });
     }
 
     // -------- FAQ --------
@@ -2977,6 +3132,76 @@ Restrições:
     titleNext.addEventListener("click", ()=> navHistory("title",+1));
     descPrev.addEventListener("click", ()=> navHistory("description",-1));
     descNext.addEventListener("click", ()=> navHistory("description",+1));
+    
+    // Event listeners para navegação de versões de preço
+    $("#aggressiveMinPrev").addEventListener("click", ()=> navPriceHistory("aggressivePriceMin", -1));
+    $("#aggressiveMinNext").addEventListener("click", ()=> navPriceHistory("aggressivePriceMin", +1));
+    $("#promoMinPrev").addEventListener("click", ()=> navPriceHistory("promoPriceMin", -1));
+    $("#promoMinNext").addEventListener("click", ()=> navPriceHistory("promoPriceMin", +1));
+    $("#aggressiveMaxPrev").addEventListener("click", ()=> navPriceHistory("aggressivePriceMax", -1));
+    $("#aggressiveMaxNext").addEventListener("click", ()=> navPriceHistory("aggressivePriceMax", +1));
+    $("#promoMaxPrev").addEventListener("click", ()=> navPriceHistory("promoPriceMax", -1));
+    $("#promoMaxNext").addEventListener("click", ()=> navPriceHistory("promoPriceMax", +1));
+    
+    // Event listeners para mudanças manuais em preços (salvar versão quando usuário edita)
+    function setupPriceChangeListener(fieldId, historyKey) {
+      const field = document.getElementById(fieldId);
+      if (!field) return;
+      
+      field.addEventListener('change', function() {
+        const price = parseFloat(this.value);
+        if (isNaN(price) || price <= 0) return;
+        
+        // Recalcular métricas localmente
+        const costPrice = parseFloat(tinyCostPrice.value) || 0;
+        const shippingCost = parseFloat(tinyShippingCost.value) || 0;
+        const totalCost = costPrice + shippingCost;
+        
+        if (totalCost <= 0) {
+          console.warn('Custo total é zero, não é possível calcular métricas');
+          return;
+        }
+        
+        // Obter configuração de precificação
+        const channel = marketplace.value;
+        const pricingConfigAll = getPricingConfig();
+        let marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
+        
+        if (!marketplaceConfig) {
+          // Sem configuração, salvar sem métricas
+          pushPriceHistory(historyKey, price, null);
+          return;
+        }
+        
+        // Calcular métricas localmente
+        const commissionPercent = historyKey.includes('Min') ? 
+          marketplaceConfig.comissao_min / 100 : marketplaceConfig.comissao_max / 100;
+        
+        const taxes = marketplaceConfig.impostos / 100 || 0;
+        const commission = price * commissionPercent;
+        const taxAmount = price * taxes;
+        const valueAmount = price - totalCost - commission - taxAmount;
+        const marginPercent = totalCost > 0 ? ((valueAmount / price) * 100) : 0;
+        const valueMultiple = totalCost > 0 ? (price / totalCost) : 0;
+        
+        const metrics = {
+          margin_percent: marginPercent,
+          value_multiple: valueMultiple,
+          value_amount: valueAmount,
+          taxes: taxAmount,
+          commissions: commission
+        };
+        
+        // Salvar no histórico
+        pushPriceHistory(historyKey, price, metrics);
+      });
+    }
+    
+    // Configurar listeners para todos os campos de preço
+    setupPriceChangeListener('tinyAggressivePriceMin', 'aggressivePriceMin');
+    setupPriceChangeListener('tinyPromoPriceMin', 'promoPriceMin');
+    setupPriceChangeListener('tinyAggressivePriceMax', 'aggressivePriceMax');
+    setupPriceChangeListener('tinyPromoPriceMax', 'promoPriceMax');
 
     restoreState();
     updateTinyInstanceSelect();
