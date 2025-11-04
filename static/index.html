@@ -3148,8 +3148,9 @@ Restrições:
       const field = document.getElementById(fieldId);
       if (!field) return;
       
-      field.addEventListener('change', function() {
-        const price = parseFloat(this.value);
+      // Função para processar mudança de preço
+      function handlePriceChange() {
+        const price = parseFloat(field.value);
         if (isNaN(price) || price <= 0) return;
         
         // Recalcular métricas localmente
@@ -3159,6 +3160,7 @@ Restrições:
         
         if (totalCost <= 0) {
           console.warn('Custo total é zero, não é possível calcular métricas');
+          alert('⚠️ Configure o custo do produto e o custo de frete para calcular as métricas de preço.');
           return;
         }
         
@@ -3168,8 +3170,9 @@ Restrições:
         let marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
         
         if (!marketplaceConfig) {
-          // Sem configuração, salvar sem métricas
-          pushPriceHistory(historyKey, price, null);
+          console.warn('Configuração de precificação ausente para:', channel);
+          alert('⚠️ Configure os parâmetros de precificação para este marketplace antes de calcular métricas.\n\n' +
+                'Vá em: Configuração → Precificação → Adicionar Marketplace');
           return;
         }
         
@@ -3192,8 +3195,27 @@ Restrições:
           commissions: commission
         };
         
+        // Atualizar métricas na interface IMEDIATAMENTE
+        populateMetrics(fieldId, metrics);
+        
         // Salvar no histórico
         pushPriceHistory(historyKey, price, metrics);
+        
+        // Feedback visual
+        field.classList.add('bg-green-50');
+        setTimeout(() => field.classList.remove('bg-green-50'), 800);
+      }
+      
+      // Listener para quando campo perde foco
+      field.addEventListener('change', handlePriceChange);
+      
+      // Listener para quando usuário pressiona Enter
+      field.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault(); // Prevenir submit de formulário
+          handlePriceChange();
+          field.blur(); // Tirar foco do campo
+        }
       });
     }
     
