@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field
 
 # Importar serviço Tiny
 import tiny_service
-
 # Importar pricing module
 from pricing import PriceCalculatorFactory
 
@@ -202,13 +201,14 @@ def call_openai(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
     base = opts.openai_base_url.strip() or "https://api.openai.com/v1"
     url = f"{base}/chat/completions"
     headers = {"Authorization": f"Bearer {opts.openai_api_key}", "Content-Type": "application/json"}
-    
+
     # Construir conteúdo com arquivos se houver
     if files_data and len(files_data) > 0:
+        # noinspection PyListCreation
         content_parts = []
         # Adicionar prompt de texto
         content_parts.append({"type": "text", "text": prompt})
-        
+
         # Adicionar imagens (OpenAI suporta imagens via vision)
         for file_info in files_data:
             if file_info['mime_type'].startswith('image/'):
@@ -225,11 +225,12 @@ def call_openai(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
                     "type": "text",
                     "text": f"\n\n[Conteúdo do arquivo {file_info['filename']}]:\n{text_content}"
                 })
-        
-        payload = {"model": "gpt-4o", "messages": [{"role": "user", "content": content_parts}], "temperature": 0.7, "max_tokens": 4096}
+
+        payload = {"model": "gpt-4o", "messages": [{"role": "user", "content": content_parts}], "temperature": 0.7,
+                   "max_tokens": 4096}
     else:
         payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}], "temperature": 0.7}
-    
+
     r = requests.post(url, headers=headers, json=payload, timeout=90)
     r.raise_for_status()
     data = r.json()
@@ -240,10 +241,10 @@ def call_gemini(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
     import requests
     base = opts.gemini_base_url.strip() or "https://generativelanguage.googleapis.com"
     url = f"{base}/v1/models/gemini-1.5-flash:generateContent?key={opts.gemini_api_key}"
-    
+
     # Construir partes do conteúdo
     parts = [{"text": prompt}]
-    
+
     if files_data and len(files_data) > 0:
         for file_info in files_data:
             if file_info['mime_type'].startswith('image/'):
@@ -258,7 +259,7 @@ def call_gemini(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
                 parts.append({
                     "text": f"\n\n[Conteúdo do arquivo {file_info['filename']}]:\n{text_content}"
                 })
-    
+
     payload = {"contents": [{"parts": parts}]}
     r = requests.post(url, json=payload, timeout=90)
     r.raise_for_status()
@@ -270,6 +271,7 @@ def call_gemini(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
 
 
 def parse_json_loose(s: str) -> Dict[str, Any]:
+    # noinspection RegExpRedundantEscape
     m = re.search(r"\{.*\}", s, flags=re.DOTALL)
     if m:
         try:
@@ -327,47 +329,51 @@ async def process_uploaded_files(files: List[UploadFile]) -> tuple[List[Dict[str
     """
     files_data = []
     warnings = []
-    
+
     # Limites de segurança
+    # noinspection PyPep8Naming
     MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
+    # noinspection PyPep8Naming
     MAX_FILES = 10  # Máximo de arquivos
+    # noinspection PyPep8Naming
     MAX_TOTAL_SIZE = 20 * 1024 * 1024  # 20MB total
-    
+
     # Tipos de arquivo aceitos
+    # noinspection PyPep8Naming
     ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'text/plain']
-    
+
     # Validar número de arquivos
     if len(files) > MAX_FILES:
         warnings.append(f"❌ Muitos arquivos enviados (máx. {MAX_FILES}). Apenas os primeiros serão processados.")
         files = files[:MAX_FILES]
-    
+
     total_size = 0
     for file in files:
         content = await file.read()
         mime_type = file.content_type or "application/octet-stream"
         file_size = len(content)
-        
+
         # Validar tamanho individual
         if file_size > MAX_FILE_SIZE:
             warnings.append(f"❌ {file.filename}: arquivo muito grande (máx. 5MB)")
             continue
-        
+
         # Validar tamanho total
         if total_size + file_size > MAX_TOTAL_SIZE:
             warnings.append(f"❌ {file.filename}: limite total de tamanho atingido (máx. 20MB total)")
             break
-        
+
         # Validar tipo
         if mime_type not in ALLOWED_TYPES:
             warnings.append(f"⚠️ {file.filename}: tipo não suportado ({mime_type})")
             continue
-        
+
         file_info = {
             "filename": file.filename,
             "mime_type": mime_type,
             "base64_data": base64.b64encode(content).decode('utf-8'),
         }
-        
+
         # Se for texto, decodificar para incluir no prompt
         if mime_type == 'text/plain':
             try:
@@ -378,10 +384,10 @@ async def process_uploaded_files(files: List[UploadFile]) -> tuple[List[Dict[str
             except:
                 warnings.append(f"⚠️ {file.filename}: erro ao decodificar texto")
                 continue
-        
+
         files_data.append(file_info)
         total_size += file_size
-    
+
     return files_data, warnings
 
 
@@ -389,29 +395,32 @@ def build_full_prompt_with_files(product: str, marketplace: str, opts: Options, 
     """Constrói prompt com instruções específicas sobre uso de arquivos"""
     tpl = opts.prompt_template or DEFAULT_PROMPT_TEMPLATE
     specs = "{}"
-    
+
     base_prompt = render_prompt_template(tpl, product, marketplace, specs)
-    
+
     # Injetar dados do Tiny ERP se disponíveis
     if opts.tiny_product_data:
         tiny_data = opts.tiny_product_data
         base_prompt += "\n\n📦 DADOS OFICIAIS DO TINY ERP (USE ESTES DADOS REAIS):\n"
-        
+
         if tiny_data.get('height_cm') or tiny_data.get('width_cm') or tiny_data.get('length_cm'):
             dims = []
-            if tiny_data.get('height_cm'): dims.append(f"Altura: {tiny_data['height_cm']} cm")
-            if tiny_data.get('width_cm'): dims.append(f"Largura: {tiny_data['width_cm']} cm")
-            if tiny_data.get('length_cm'): dims.append(f"Comprimento: {tiny_data['length_cm']} cm")
+            if tiny_data.get('height_cm'):
+                dims.append(f"Altura: {tiny_data['height_cm']} cm")
+            if tiny_data.get('width_cm'):
+                dims.append(f"Largura: {tiny_data['width_cm']} cm")
+            if tiny_data.get('length_cm'):
+                dims.append(f"Comprimento: {tiny_data['length_cm']} cm")
             base_prompt += f"- Dimensões: {', '.join(dims)}\n"
-        
+
         if tiny_data.get('weight_kg'):
             base_prompt += f"- Peso: {tiny_data['weight_kg']} kg\n"
-        
+
         if tiny_data.get('gtin'):
             base_prompt += f"- GTIN/EAN: {tiny_data['gtin']}\n"
-        
+
         base_prompt += "\n⚠️ IMPORTANTE: Use EXATAMENTE estas dimensões e peso nas descrições e cards. Não arredonde, não invente valores diferentes.\n"
-    
+
     if has_files:
         # Adicionar instruções críticas sobre uso de arquivos
         base_prompt += "\n\n⚠️ INSTRUÇÕES CRÍTICAS SOBRE ARQUIVOS ENVIADOS:\n"
@@ -424,19 +433,19 @@ def build_full_prompt_with_files(product: str, marketplace: str, opts: Options, 
         base_prompt += "  → Use CRIATIVIDADE TOTAL para criar textos persuasivos e atraentes.\n"
         base_prompt += "  → Seja livre para usar técnicas de copywriting, gatilhos mentais e persuasão.\n"
         base_prompt += "  → Mas sempre baseado nas características REAIS extraídas dos arquivos.\n"
-    
+
     return base_prompt
 
 
 @app.post("/api/generate")
 async def generate(
-    request: Request,
-    json_data: Optional[str] = Form(None),
-    files: List[UploadFile] = File(default=[])
+        request: Request,
+        json_data: Optional[str] = Form(None),
+        files: List[UploadFile] = File(default=[])
 ):
     # Detectar se é FormData ou JSON
     content_type = request.headers.get("content-type", "")
-    
+
     if "multipart/form-data" in content_type:
         # FormData com possíveis arquivos
         if not json_data:
@@ -448,7 +457,7 @@ async def generate(
         payload_dict = await request.json()
         payload = GenerateIn(**payload_dict)
         files = []  # Sem arquivos em JSON
-    
+
     if not (have_openai(payload.options) or have_gemini(payload.options)):
         return JSONResponse(content=mock_generate(payload.product_name, payload.marketplace))
 
@@ -461,7 +470,7 @@ async def generate(
         # Se todos os arquivos foram rejeitados, tratar como sem arquivos
         if not files_data:
             has_files = False
-    
+
     # Construir prompt com instruções específicas sobre arquivos
     base_prompt = build_full_prompt_with_files(payload.product_name, payload.marketplace, payload.options, has_files)
     data = call_model_json(base_prompt, payload.options, files_data)
@@ -478,11 +487,11 @@ async def generate(
         "cards": cards,
         "sources_used": {"mock": False}
     }
-    
+
     # Adicionar avisos sobre arquivos se houver
     if file_warnings:
         response_data["file_warnings"] = file_warnings
-    
+
     if has_files and files_data:
         response_data["files_processed"] = len(files_data)
 
@@ -563,7 +572,7 @@ async def tiny_get_product(request: TinyGetProductIn):
             token=request.token,
             sku=request.sku
         )
-        
+
         return JSONResponse(
             status_code=200,
             content={
@@ -571,7 +580,7 @@ async def tiny_get_product(request: TinyGetProductIn):
                 "data": product_data
             }
         )
-        
+
     except tiny_service.TinyAuthError as e:
         raise HTTPException(
             status_code=401,
@@ -581,7 +590,7 @@ async def tiny_get_product(request: TinyGetProductIn):
                 "message": str(e)
             }
         )
-    
+
     except tiny_service.TinyNotFoundError as e:
         raise HTTPException(
             status_code=404,
@@ -591,7 +600,7 @@ async def tiny_get_product(request: TinyGetProductIn):
                 "message": str(e)
             }
         )
-    
+
     except tiny_service.TinyTimeoutError as e:
         raise HTTPException(
             status_code=408,
@@ -601,7 +610,7 @@ async def tiny_get_product(request: TinyGetProductIn):
                 "message": str(e)
             }
         )
-    
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -623,7 +632,7 @@ async def tiny_validate_token(request: TinyValidateTokenIn):
     """
     try:
         is_valid, error_message = await tiny_service.validate_token(request.token)
-        
+
         return JSONResponse(
             status_code=200,
             content={
@@ -631,7 +640,7 @@ async def tiny_validate_token(request: TinyValidateTokenIn):
                 "message": error_message if not is_valid else "Token válido"
             }
         )
-        
+
     except Exception as e:
         return JSONResponse(
             status_code=200,
@@ -651,7 +660,8 @@ class PriceQuoteRequest(BaseModel):
     cost_price: float = Field(..., gt=0, description="Custo do produto (deve ser > 0)")
     shipping_cost: float = Field(0.0, ge=0, description="Custo de frete/envio (padrão 0.0)")
     channel: str = Field(..., description="Canal de venda (mercadolivre, shopee, amazon, etc)")
-    commission_percent: Optional[float] = Field(None, ge=0, le=1, description="Percentual de comissão direto (0.0 a 1.0, ex: 0.15 = 15%)")
+    commission_percent: Optional[float] = Field(None, ge=0, le=1,
+                                                description="Percentual de comissão direto (0.0 a 1.0, ex: 0.15 = 15%)")
     policy_id: Optional[str] = Field(None, description="ID da política de preços (opcional)")
     ctx: Optional[Dict[str, Any]] = Field(None, description="Contexto adicional (categoria, região, etc)")
 
@@ -691,22 +701,23 @@ async def pricing_quote(request: PriceQuoteRequest):
     try:
         # Obter calculadora para o canal
         calculator = PriceCalculatorFactory.get(request.channel)
-        
+
         # Preparar contexto: adicionar commission_percent se fornecido
         ctx = request.ctx or {}
         if request.commission_percent is not None:
             ctx['commission_percent'] = request.commission_percent
-        
+
         # Calcular todos os preços COM MÉTRICAS (incluindo shipping_cost)
         listing_price_obj = calculator.get_listing_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
         wholesale_tiers = calculator.get_wholesale_tiers_with_metrics(request.cost_price, request.shipping_cost, ctx)
-        aggressive_price_obj = calculator.get_aggressive_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
+        aggressive_price_obj = calculator.get_aggressive_price_with_metrics(request.cost_price, request.shipping_cost,
+                                                                            ctx)
         promo_price_obj = calculator.get_promo_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
         breakdown = calculator.get_breakdown(request.cost_price, request.shipping_cost, ctx)
-        
+
         # Converter tiers para dict
         tiers_dict = [tier.model_dump() for tier in wholesale_tiers]
-        
+
         return PriceQuoteResponse(
             listing_price=listing_price_obj.model_dump(),
             wholesale_tiers=tiers_dict,
@@ -716,7 +727,7 @@ async def pricing_quote(request: PriceQuoteRequest):
             channel=request.channel,
             policy_id=request.policy_id
         )
-        
+
     except ValueError as e:
         # Canal não suportado
         raise HTTPException(
@@ -742,7 +753,7 @@ async def pricing_policies():
         Dict com canais suportados e suas configurações padrão
     """
     supported_channels = PriceCalculatorFactory.get_supported_channels()
-    
+
     policies = {}
     for channel in supported_channels:
         try:
@@ -757,7 +768,7 @@ async def pricing_policies():
             }
         except Exception:
             pass
-    
+
     return {
         "supported_channels": supported_channels,
         "policies": policies
@@ -777,29 +788,105 @@ async def pricing_validate(request: PriceValidateRequest):
         422: Inválido (com mensagem de erro)
     """
     errors = []
-    
+
     # Validar cost_price
     if request.cost_price <= 0:
         errors.append("cost_price deve ser maior que zero")
-    
+
     # Validar shipping_cost
     if request.shipping_cost < 0:
         errors.append("shipping_cost não pode ser negativo")
-    
+
     # Validar channel
     if not PriceCalculatorFactory.is_supported(request.channel):
         errors.append(
             f"Canal '{request.channel}' não suportado. "
             f"Canais disponíveis: {', '.join(PriceCalculatorFactory.get_supported_channels())}"
         )
-    
+
     if errors:
         raise HTTPException(
             status_code=422,
             detail={"errors": errors}
         )
-    
+
     return {"valid": True, "message": "Entrada válida"}
+
+
+class CalcMetricsRequest(BaseModel):
+    price: float
+    cost_price: float
+    shipping_cost: float = 0.0
+    channel: str
+    ctx: Optional[
+        Dict[str, Any]] = None  # deve aceitar commission_percent, impostos, tacos, margem_contribuicao, lucro, etc.
+
+
+class CalcMetricsResponse(BaseModel):
+    margin_percent: float
+    value_multiple: float
+    value_amount: float
+
+
+@app.post("/pricing/calculate-metrics", response_model=CalcMetricsResponse)
+async def pricing_calculate_metrics(request: CalcMetricsRequest):
+    """
+    Calcula métricas (margin_percent, value_multiple, value_amount) para um PREÇO informado,
+    considerando cost_price, shipping_cost e o contexto do canal.
+    Tenta usar calculator.calculate_metrics(...); se não existir, faz um cálculo genérico com ctx.
+    """
+    try:
+        calculator = PriceCalculatorFactory.get(request.channel)
+
+        ctx = request.ctx or {}
+
+        # Caminho 1: se a calculadora já expõe a função "calculate_metrics", use-a.
+        if hasattr(calculator, "calculate_metrics"):
+            metrics = calculator.calculate_metrics(
+                price=request.price,
+                cost_price=request.cost_price,
+                shipping_cost=request.shipping_cost,
+                ctx=ctx
+            )
+            # compatível com pydantic/model_dump ou dict simples
+            if hasattr(metrics, "model_dump"):
+                m = metrics.model_dump()
+            elif isinstance(metrics, dict):
+                m = metrics
+            else:
+                # fallback defensivo
+                m = {
+                    "margin_percent": float(getattr(metrics, "margin_percent", 0.0)),
+                    "value_multiple": float(getattr(metrics, "value_multiple", 0.0)),
+                    "value_amount": float(getattr(metrics, "value_amount", 0.0)),
+                }
+            return CalcMetricsResponse(**m)
+
+        # Caminho 2 (fallback): cálculo genérico a partir do contexto (comissão, impostos, etc.)
+        price = float(request.price or 0)
+        cost_total = float(request.cost_price or 0) + float(request.shipping_cost or 0)
+
+        commission_pct = float(ctx.get("commission_percent", 0.0) or 0.0)
+        impostos_pct = float(ctx.get("impostos", 0.0) or 0.0)
+        tacos_pct = float(ctx.get("tacos", 0.0) or 0.0)
+        mc_pct = float(ctx.get("margem_contribuicao", 0.0) or 0.0)
+        lucro_pct = float(ctx.get("lucro", 0.0) or 0.0)
+
+        # Despesas proporcionais ao preço
+        variaveis_sobre_preco = price * (commission_pct + impostos_pct + tacos_pct + mc_pct + lucro_pct)
+
+        value_amount = price - cost_total - variaveis_sobre_preco
+        margin_percent = (value_amount / price) * 100 if price > 0 else 0.0
+        value_multiple = (value_amount / cost_total) if cost_total > 0 else 0.0
+
+        return CalcMetricsResponse(
+            margin_percent=margin_percent,
+            value_multiple=value_multiple,
+            value_amount=value_amount
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"message": f"Erro ao calcular métricas: {str(e)}"})
 
 
 if __name__ == "__main__":

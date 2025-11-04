@@ -1330,32 +1330,17 @@
         
         // Obter dados de precificação do marketplace selecionado
         const pricingConfigAll = getPricingConfig();
-        const marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
+        let marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
         
-        // Se não encontrou configuração, alertar usuário
+        // Se não encontrou configuração salva, usar valores padrão
         if (!marketplaceConfig) {
-          const marketplaceNames = {
-            mercadolivre: 'Mercado Livre',
-            shopee: 'Shopee',
-            amazon: 'Amazon',
-            magalu: 'Magalu',
-            shein: 'Shein'
-          };
+          console.log('Usando configuração padrão para', channel);
+          marketplaceConfig = DEFAULT_PRICING_CONFIG[channel];
           
-          const marketplaceName = marketplaceNames[channel] || channel;
-          
-          alert(`⚠️ Configuração de Precificação Ausente\n\n` +
-                `Não foi possível calcular os preços porque não há configuração cadastrada para "${marketplaceName}".\n\n` +
-                `Para resolver:\n` +
-                `1. Clique no botão "⚙️ Configuração" no topo da página\n` +
-                `2. Vá até a seção "Precificação"\n` +
-                `3. Clique em "➕ Adicionar Marketplace"\n` +
-                `4. Configure os parâmetros (comissão, tacos, margem, etc.)\n` +
-                `5. Salve a configuração\n\n` +
-                `Após configurar, tente buscar o produto novamente.`);
-          
-          console.warn('Configuração de precificação ausente para:', channel);
-          return;
+          if (!marketplaceConfig) {
+            console.error('Marketplace não suportado:', channel);
+            return;
+          }
         }
         
         // Preparar contexto com parâmetros de precificação (exceto comissão)
@@ -2896,6 +2881,91 @@ Restrições:
         loader.style.display="none"; setTimeout(()=> statusArea.classList.add("hidden"), 800);
       }
     }
+
+    async function recalcMetricsForField(priceFieldId) {
+      const priceEl = document.getElementById(priceFieldId);
+      const price = parseFloat(priceEl.value || 0);
+      const costPrice = parseFloat(tinyCostPrice.value) || 0;
+      const shippingCost = parseFloat(tinyShippingCost.value) || 0;
+      const channel = marketplace.value;
+
+      if (!(price > 0) || !(costPrice >= 0) || !channel) {
+        console.warn("Dados insuficientes para calcular métricas (price/cost/channel)");
+        return;
+      }
+
+      // Pega a configuração do marketplace já usada no autoPricing
+      const pricingConfigAll = getPricingConfig();
+      const marketplaceConfig = pricingConfigAll.find(c => c.marketplace === channel);
+      if (!marketplaceConfig) {
+        alert("Configure os parâmetros de precificação antes de calcular as métricas.");
+        return;
+      }
+
+      // Define qual comissão usar: Min para aba MIN, Max para aba MAX
+      const isMin = priceFieldId.endsWith("Min");
+      const commission = isMin ? (marketplaceConfig.comissao_min / 100) : (marketplaceConfig.comissao_max / 100);
+
+      // Contexto igual ao usado no /pricing/quote
+      const ctx = {
+        tacos: (marketplaceConfig.tacos / 100),
+        margem_contribuicao: (marketplaceConfig.margem_contribuicao / 100),
+        lucro: (marketplaceConfig.lucro / 100),
+        impostos: (marketplaceConfig.impostos / 100),
+        commission_percent: commission
+      };
+
+      try {
+        const resp = await fetch('/pricing/calculate-metrics', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            price: price,
+            cost_price: costPrice,
+            shipping_cost: shippingCost,
+            channel: channel,
+            ctx: ctx
+          })
+        });
+
+        if (!resp.ok) {
+          console.error("Falha ao calcular métricas para o preço digitado.");
+          return;
+        }
+
+        const metrics = await resp.json();
+
+        // Atualiza os 3 campos de métricas do bloco correspondente
+        // (reutiliza sua função já existente)
+        populateMetrics(priceFieldId, metrics);
+
+        // Feedback visual sutil
+        priceEl.classList.add('bg-green-50');
+        setTimeout(() => priceEl.classList.remove('bg-green-50'), 800);
+
+      } catch (err) {
+        console.error("Erro no recalcMetricsForField:", err);
+      }
+    }
+
+    // Campos que disparam cálculo de métricas quando o usuário pressiona Enter
+    const recalculablePriceFields = [
+      'tinyAggressivePriceMin',
+      'tinyPromoPriceMin',
+      'tinyAggressivePriceMax',
+      'tinyPromoPriceMax'
+    ];
+
+    recalculablePriceFields.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          recalcMetricsForField(id);
+        }
+      });
+    });
 
     // Listeners principais
     $("#btnGenerate").addEventListener("click", generate);
