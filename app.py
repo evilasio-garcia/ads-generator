@@ -1037,12 +1037,12 @@ async def gateway_info():
         "icon_url":
             "http://127.0.0.1:5002/static/favicon.svg"
             if settings.dev_mode
-            else "https://ads-gen.rapidopracachorro.com/static/favicon.svg",
+            else "https://ads-generator.rapidopracachorro.com/static/favicon.svg",
         "tooltip": "Gerador de anúncios",
         "app_url":
             "http://127.0.0.1:5002/auth/gateway-login"
             if settings.dev_mode
-            else "https://ads-gen.rapidopracachorro.com/auth/gateway-login",
+            else "https://ads-generator.rapidopracachorro.com/auth/gateway-login",
         "auth_type": "GATEWAY_TOKEN",
         "button_color": "#161824"
     }
