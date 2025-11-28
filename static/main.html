@@ -673,9 +673,17 @@
 </body>
 <script>
   function $(q){ return document.querySelector(q); }
-  const LS_KEY = "adsgen_settings_v2";
-  const LS_STATE = "adsgen_state_v3";
-  const LS_TTS_RATE = "adsgen_tts_rate";
+
+  let appConfig = {
+    openai: "",
+    openai_base: "",
+    gemini: "",
+    gemini_base: "",
+    rules: {},
+    prompt_template: "",
+    tiny_tokens: [],
+    pricing_config: [],
+  };
 
   const productName = $("#productName"), marketplace=$("#marketplace"), llm=$("#llm");
   const btnGenerate=$("#btnGenerate");
@@ -1908,14 +1916,13 @@
 
   // Funções para gerenciar tokens Tiny
   function getTinyTokens() {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-    return saved.tiny_tokens || [];
+    if (!appConfig || !Array.isArray(appConfig.tiny_tokens)) return [];
+    return appConfig.tiny_tokens;
   }
 
   function saveTinyTokens(tokens) {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-    saved.tiny_tokens = tokens;
-    localStorage.setItem(LS_KEY, JSON.stringify(saved));
+    if (!appConfig) appConfig = {};
+    appConfig.tiny_tokens = tokens || [];
   }
 
   function renderTinyTokensList() {
@@ -1999,14 +2006,13 @@
   };
 
   function getPricingConfig() {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-    return saved.pricing_config || [];
+    if (!appConfig || !Array.isArray(appConfig.pricing_config)) return [];
+    return appConfig.pricing_config;
   }
 
   function savePricingConfig(config) {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-    saved.pricing_config = config;
-    localStorage.setItem(LS_KEY, JSON.stringify(saved));
+    if (!appConfig) appConfig = {};
+    appConfig.pricing_config = Array.isArray(config) ? config : [];
   }
 
   function renderPricingTable() {
@@ -2103,7 +2109,23 @@
     };
   }
 
-  const DEFAULT_PROMPT_TEMPLATE =
+  
+  async function loadConfigFromServer() {
+    try {
+      const r = await fetch("/api/config", { method: "GET" });
+      if (!r.ok) {
+        console.warn("Não foi possível carregar config do servidor, usando valores padrão.");
+        return;
+      }
+      const data = await r.json();
+      appConfig = data || {};
+      updateTinyInstanceSelect();
+    } catch (e) {
+      console.warn("Erro ao carregar config do servidor:", e);
+    }
+  }
+
+const DEFAULT_PROMPT_TEMPLATE =
 `Produto: "{product}"
 Marketplace: {marketplace}
 Especificações agregadas (parciais e possivelmente ruidosas): {specs}
@@ -2144,7 +2166,7 @@ Restrições:
   });
 
   btnConfig.addEventListener("click", ()=> {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
+    const saved = appConfig || {};
     cfgOpenAI.value = saved.openai || "";
     cfgOpenAIBase.value = saved.openai_base || "";
     cfgGemini.value = saved.gemini || "";
@@ -2159,7 +2181,7 @@ Restrições:
   function closeCfg(){ cfgModal.classList.remove("open"); }
   cfgCancel.addEventListener("click", closeCfg);
   cfgClose.addEventListener("click", closeCfg);
-  cfgSave.addEventListener("click", ()=> {
+  cfgSave.addEventListener("click", async ()=> {
     let rules = {};
     if (cfgRules.value.trim()) {
       try { rules = JSON.parse(cfgRules.value); } catch(e){ alert("RuleSets inválido (JSON). Corrija e tente novamente."); return; }
@@ -2174,9 +2196,25 @@ Restrições:
       tiny_tokens: getTinyTokens(),
       pricing_config: getPricingConfig() // Salvar dados de precificação
     };
-    localStorage.setItem(LS_KEY, JSON.stringify(payload));
-    updateTinyInstanceSelect();
-    closeCfg();
+
+    try {
+      const r = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) {
+        alert("Erro ao salvar configurações no servidor.");
+        return;
+      }
+      const saved = await r.json();
+      appConfig = saved || {};
+      updateTinyInstanceSelect();
+      closeCfg();
+    } catch (e) {
+      console.error("Erro ao salvar configurações no servidor:", e);
+      alert("Erro ao salvar configurações no servidor.");
+    }
   });
 
   // -------- Estado / Histórico --------
@@ -2190,16 +2228,11 @@ Restrições:
     aggressivePriceMax: [], aggressivePriceMaxIdx: -1,
     promoPriceMax: [], promoPriceMaxIdx: -1
   };
-  function persistState(){ localStorage.setItem(LS_STATE, JSON.stringify(history)); }
+  function persistState(){
+    // Persistência desabilitada: não usamos mais cache no navegador.
+  }
   function restoreState(){
-    try{
-      const st = JSON.parse(localStorage.getItem(LS_STATE)||"null");
-      if(!st) return;
-      Object.assign(history, st);
-      if(history.titleIdx>=0) outTitle.value = history.title[history.titleIdx];
-      if(history.descIdx>=0) outDesc.value = history.description[history.descIdx];
-      renderFAQFromState(); renderCardsFromState(); updateVersionControls(); rebuildPlaylist();
-    }catch(e){}
+    // Estado inicial já está definido em "history"; nada para restaurar do navegador.
   }
   function resetHistory(){
     // Limpar histórico
@@ -2531,7 +2564,7 @@ Restrições:
   }
 
   // -------- TTS / Playlist --------
-  let playlist = []; let curIdx = -1; let autoplay = true; let rate = parseFloat(localStorage.getItem(LS_TTS_RATE) || "1") || 1;
+  let playlist = []; let curIdx = -1; let autoplay = true; let rate = 1;
   let isPaused = false;
   const ttsNow = $("#ttsNow"); const ttsAuto = $("#ttsAuto"); const ttsRateBtn = $("#ttsRate");
   ttsRateBtn.textContent = rate+"x";
@@ -2840,7 +2873,7 @@ Restrições:
   ttsRateBtn.addEventListener("click", ()=> {
     let next = 1;
     if(rate===1) next=1.5; else if(rate===1.5) next=2; else next=1;
-    rate = next; localStorage.setItem(LS_TTS_RATE, String(rate));
+    rate = next;
     ttsRateBtn.textContent = rate+"x";
     ttsRateFloat.textContent = rate+"x";
     if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); speakCurrent(); }
@@ -2849,7 +2882,7 @@ Restrições:
   // -------- Regenerações (backend) --------
   async function regenTitle(withPrompt=false){
     outTitle.classList.add("pulse");
-    let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+    const saved = appConfig || {}
     let promptText = "";
     if(withPrompt){ const txt = await openPrompt("Instruções para regerar o título:"); if(txt===null){ outTitle.classList.remove("pulse"); return; } promptText = txt; }
     const body = {
@@ -2868,7 +2901,7 @@ Restrições:
   }
   async function regenDesc(withPrompt=false){
     outDesc.classList.add("pulse");
-    let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+    const saved = appConfig || {}
     let promptText = "";
     if(withPrompt){ const txt = await openPrompt("Instruções para regerar a descrição:"); if(txt===null){ outDesc.classList.remove("pulse"); return; } promptText = txt; }
     const body = {
@@ -2886,7 +2919,7 @@ Restrições:
     } finally { outDesc.classList.remove("pulse"); }
   }
   async function regenFAQ(index, promptText=""){
-    let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+    const saved = appConfig || {}
     const body = {
       product_name: productName.value.trim(),
       marketplace: marketplace.value,
@@ -2910,7 +2943,7 @@ Restrições:
     }
   }
   async function regenCard(index, promptText=""){
-    let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+    const saved = appConfig || {}
     const body = {
       product_name: productName.value.trim(),
       marketplace: marketplace.value,
@@ -2977,7 +3010,7 @@ Restrições:
 
     statusArea.classList.remove("hidden"); loader.style.display="inline-block"; statusText.textContent="Gerando…";
     demoWarn.classList.add("hidden");
-    let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+    const saved = appConfig || {}
 
     const req = {
       product_name: productName.value.trim(),
@@ -3162,5 +3195,6 @@ Restrições:
   restoreState();
   updateTinyInstanceSelect();
   renderWholesaleTable();
+  loadConfigFromServer();
 </script>
 </html>

@@ -4,13 +4,18 @@ import json
 import os
 import random
 import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import requests
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy import Column, DateTime, Integer, String, create_engine
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 # Importar serviço Tiny
 import tiny_service
@@ -33,6 +38,41 @@ app.add_middleware(
 if not os.path.isdir("static"):
     os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+# -----------------------------------------------------------------------------
+# Database configuration for persistent user settings
+# -----------------------------------------------------------------------------
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://app_ads_generator_usr:app_ads_generator_psw@localhost:5432/app_ads_generator_db",
+)
+
+engine = create_engine(DATABASE_URL, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Base = declarative_base()
+
+
+class UserConfig(Base):
+    __tablename__ = "user_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, unique=True, index=True, nullable=False)
+    data = Column(JSONB, nullable=False, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+def get_db():
+    db: Session = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+Base.metadata.create_all(bind=engine)
 
 
 @app.get("/", include_in_schema=False)
@@ -84,6 +124,30 @@ DEFAULT_PROMPT_TEMPLATE = (
     "- Adapte o tom ao marketplace especificado.\n"
     "- Responda em JSON com as chaves: title, description, faq (array de objetos {q,a}), cards (array de objetos {title,text}).\n"
 )
+
+
+class ConfigPayload(BaseModel):
+    openai: str = ""
+    openai_base: str = ""
+    gemini: str = ""
+    gemini_base: str = ""
+    rules: Dict[str, Any] = Field(default_factory=dict)
+    prompt_template: Optional[str] = None
+    tiny_tokens: List[Dict[str, Any]] = Field(default_factory=list)
+    pricing_config: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+def _default_config_payload() -> Dict[str, Any]:
+    return {
+        "openai": "",
+        "openai_base": "",
+        "gemini": "",
+        "gemini_base": "",
+        "rules": {},
+        "prompt_template": DEFAULT_PROMPT_TEMPLATE,
+        "tiny_tokens": [],
+        "pricing_config": [],
+    }
 
 
 def render_prompt_template(tpl: str, product: str, marketplace: str, specs: str) -> str:
@@ -199,7 +263,6 @@ def have_gemini(opts: Options) -> bool:
 
 
 def call_openai(prompt: str, opts: Options, files_data: Optional[List[Dict[str, Any]]] = None) -> str:
-    import requests
     base = opts.openai_base_url.strip() or "https://api.openai.com/v1"
     url = f"{base}/chat/completions"
     headers = {"Authorization": f"Bearer {opts.openai_api_key}", "Content-Type": "application/json"}
@@ -240,7 +303,6 @@ def call_openai(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
 
 
 def call_gemini(prompt: str, opts: Options, files_data: Optional[List[Dict[str, Any]]] = None) -> str:
-    import requests
     base = opts.gemini_base_url.strip() or "https://generativelanguage.googleapis.com"
     url = f"{base}/v1/models/gemini-1.5-flash:generateContent?key={opts.gemini_api_key}"
 
@@ -437,6 +499,53 @@ def build_full_prompt_with_files(product: str, marketplace: str, opts: Options, 
         base_prompt += "  → Mas sempre baseado nas características REAIS extraídas dos arquivos.\n"
 
     return base_prompt
+
+
+# -----------------------------------------------------------------------------
+# API endpoints for configuration persistence
+# -----------------------------------------------------------------------------
+
+@app.get("/api/config")
+async def get_config(
+        current_user: CurrentUser = Depends(get_current_user_master),
+        db: Session = Depends(get_db),
+):
+    user_id = str(current_user.user_id)
+
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+
+    if not cfg:
+        return JSONResponse(content=_default_config_payload())
+
+    data = cfg.data or {}
+    base = _default_config_payload()
+    base.update(data)
+    return JSONResponse(content=base)
+
+
+@app.post("/api/config")
+async def save_config(
+        payload: ConfigPayload,
+        current_user: CurrentUser = Depends(get_current_user_master),
+        db: Session = Depends(get_db),
+):
+    user_id = str(current_user.user_id)
+
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    payload_dict = payload.dict()
+
+    if cfg is None:
+        cfg = UserConfig(user_id=user_id, data=payload_dict)
+        db.add(cfg)
+    else:
+        cfg.data = payload_dict
+
+    db.commit()
+    db.refresh(cfg)
+
+    base = _default_config_payload()
+    base.update(cfg.data or {})
+    return JSONResponse(content=base)
 
 
 @app.post("/api/generate")

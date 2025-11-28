@@ -1,40 +1,11 @@
-# ---------------------------
-# Core Web App
-# ---------------------------
 fastapi[all]
 uvicorn
-jinja2
-python-multipart
-requests
 httpx
 PyJWT
-starlette
-
-# ---------------------------
-# Pydantic v2
-# ---------------------------
 pydantic
-
-# ---------------------------
-# Arquivos / Documentos
-# ---------------------------
-pdfminer.six==20221105
-python-docx==1.1.0
-
-# ---------------------------
-# Web Parsing
-# ---------------------------
-lxml==4.9.3
-readability-lxml==0.8.1
-
-# ---------------------------
-# OpenAI / Gemini / Search APIs
-# ---------------------------
-openai
-google-generativeai
-google-search-results
-
-# ---------------------------
-# Dev / Test
-# ---------------------------
 pytest
+sqlalchemy
+requests
+psycopg[binary]
+python-dotenv
+starlette
