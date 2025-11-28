@@ -44,7 +44,7 @@ Sem chaves → **modo MOCK** com conteúdo de exemplo.
 ├── .gitignore
 ├── README.md
 └── static/
-    └── index.html
+    └── main.html
 ```
 
 ## Git (inicial)
