@@ -6,7 +6,7 @@ import random
 import re
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 
 # Importar serviço Tiny
 import tiny_service
+from auth_helpers import gateway_login_helper, CurrentUser, get_current_user_master
+from config import settings
 # Importar pricing module
 from pricing import PriceCalculatorFactory
 
@@ -34,9 +36,9 @@ app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
 
 @app.get("/", include_in_schema=False)
-async def root_index():
-    # Serve the SPA from /static/index.html
-    index_path = os.path.join("static", "index.html")
+async def root_index(current_user: CurrentUser = Depends(get_current_user_master)):
+    # Serve the SPA from /static/main.html
+    index_path = os.path.join("static", "main.html")
     return FileResponse(index_path)
 
 
@@ -441,7 +443,8 @@ def build_full_prompt_with_files(product: str, marketplace: str, opts: Options, 
 async def generate(
         request: Request,
         json_data: Optional[str] = Form(None),
-        files: List[UploadFile] = File(default=[])
+        files: List[UploadFile] = File(default=[]),
+        current_user: CurrentUser = Depends(get_current_user_master)
 ):
     # Detectar se é FormData ou JSON
     content_type = request.headers.get("content-type", "")
@@ -499,7 +502,7 @@ async def generate(
 
 
 @app.post("/api/regen")
-async def regen(payload: RegenIn):
+async def regen(payload: RegenIn, current_user: CurrentUser = Depends(get_current_user_master)):
     field = payload.field.lower().strip()
 
     if not (have_openai(payload.options) or have_gemini(payload.options)):
@@ -556,7 +559,7 @@ class TinyValidateTokenIn(BaseModel):
 
 
 @app.post("/api/tiny/product")
-async def tiny_get_product(request: TinyGetProductIn):
+async def tiny_get_product(request: TinyGetProductIn, current_user: CurrentUser = Depends(get_current_user_master)):
     """
     Busca dados de um produto no Tiny ERP por SKU.
     
@@ -623,7 +626,10 @@ async def tiny_get_product(request: TinyGetProductIn):
 
 
 @app.post("/api/tiny/validate-token")
-async def tiny_validate_token(request: TinyValidateTokenIn):
+async def tiny_validate_token(
+        request: TinyValidateTokenIn,
+        current_user: CurrentUser = Depends(get_current_user_master)
+):
     """
     Valida um token do Tiny ERP.
     
@@ -685,13 +691,17 @@ class PriceValidateRequest(BaseModel):
 
 
 @app.post("/pricing/quote", response_model=PriceQuoteResponse)
-async def pricing_quote(request: PriceQuoteRequest):
+async def pricing_quote(
+        request: PriceQuoteRequest,
+        current_user: CurrentUser = Depends(get_current_user_master)
+):
     """
     Calcula todos os preços derivados a partir do custo e canal COM MÉTRICAS.
     
     Args:
         request: PriceQuoteRequest com cost_price, channel, policy_id?, ctx?
-        
+        current_user: SSO validation mechanism
+
     Returns:
         PriceQuoteResponse com todos os preços calculados, métricas e breakdown
         
@@ -745,7 +755,7 @@ async def pricing_quote(request: PriceQuoteRequest):
 
 
 @app.get("/pricing/policies")
-async def pricing_policies():
+async def pricing_policies(current_user: CurrentUser = Depends(get_current_user_master)):
     """
     Lista políticas de preço disponíveis por canal.
     
@@ -776,12 +786,16 @@ async def pricing_policies():
 
 
 @app.post("/pricing/validate")
-async def pricing_validate(request: PriceValidateRequest):
+async def pricing_validate(
+        request: PriceValidateRequest,
+        current_user: CurrentUser = Depends(get_current_user_master)
+):
     """
     Valida entradas de precificação.
     
     Args:
         request: PriceValidateRequest com cost_price e channel
+        current_user: SSO validation mechanism
         
     Returns:
         200: Válido
@@ -829,7 +843,10 @@ class CalcMetricsResponse(BaseModel):
 
 
 @app.post("/pricing/calculate-metrics", response_model=CalcMetricsResponse)
-async def pricing_calculate_metrics(request: CalcMetricsRequest):
+async def pricing_calculate_metrics(
+        request: CalcMetricsRequest,
+        current_user: CurrentUser = Depends(get_current_user_master)
+):
     """
     Calcula métricas (margin_percent, value_multiple, value_amount) para um PREÇO informado,
     considerando cost_price, shipping_cost e o contexto do canal.
@@ -889,7 +906,45 @@ async def pricing_calculate_metrics(request: CalcMetricsRequest):
         raise HTTPException(status_code=500, detail={"message": f"Erro ao calcular métricas: {str(e)}"})
 
 
+# ========= FUNÇÕES DE ITERAÇÃO COM O GATEWAY =========
+
+@app.get("/auth/gateway-login")
+async def gateway_login(request: Request, token: str, state: str = None, redirect: str = "/"):
+    return await gateway_login_helper(request, token, state, redirect)
+
+
+@app.get("/gateway_info", tags=["gateway"], summary="Informações para integração ao Application Gateway")
+async def gateway_info():
+    """
+    Endpoint público que fornece ao Application Gateway
+    as informações necessárias para auto-preenchimento da
+    tela de cadastro de aplicativos internos.
+    """
+
+    data = {
+        "name": "Ads Generator",
+        "slug": settings.app_slug,
+        "description": "Gerador de anúncios",
+        "icon_url":
+            "http://127.0.0.1:5002/static/favicon.svg"
+            if settings.dev_mode
+            else "https://ads-gen.rapidopracachorro.com/static/favicon.svg",
+        "tooltip": "Gerador de anúncios",
+        "app_url":
+            "http://127.0.0.1:5002/auth/gateway-login"
+            if settings.dev_mode
+            else "https://ads-gen.rapidopracachorro.com/auth/gateway-login",
+        "auth_type": "GATEWAY_TOKEN",
+        "button_color": "#161824"
+    }
+
+    return JSONResponse(content=data)
+
+
+# ========= MAIN PARA RODAR DEBUGANDO =========
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("app:app", host="127.0.0.1", port=5002, reload=True)

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Fundo arredondado -->
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#161824"/>
+
+  <!-- Cartão de anúncio -->
+  <rect x="14" y="18" width="36" height="22" rx="4" fill="#ffffff"/>
+
+  <!-- Bloco "imagem" do anúncio -->
+  <rect x="18" y="22" width="10" height="14" rx="2" fill="#4F8CFF"/>
+
+  <!-- Linhas de texto do anúncio -->
+  <rect x="30" y="23" width="16" height="3" rx="1.5" fill="#C3C7D9"/>
+  <rect x="30" y="28" width="12" height="3" rx="1.5" fill="#C3C7D9"/>
+  <rect x="30" y="33" width="9"  height="3" rx="1.5" fill="#C3C7D9"/>
+
+  <!-- Botão de play (representando mídia/anúncio) -->
+  <circle cx="32" cy="44" r="9" fill="#00D48A"/>
+  <polygon points="30,40 38,44 30,48" fill="#ffffff"/>
+</svg>

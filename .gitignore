@@ -35,3 +35,4 @@ yarn-error.log*
 logs/
 *.sqlite*
 *.db
+attached_assets/
