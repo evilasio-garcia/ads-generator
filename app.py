@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, Integer, String, create_engine
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # Importar serviço Tiny
 import tiny_service
@@ -26,12 +27,18 @@ from pricing import PriceCalculatorFactory
 
 app = FastAPI(title="Ads Generator API", version="2.2.0")
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(
+    ProxyHeadersMiddleware,
+    trusted_hosts="*",
 )
 
 # Static
