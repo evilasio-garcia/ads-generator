@@ -539,7 +539,7 @@ async def save_config(
     user_id = str(current_user.user_id)
 
     cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
-    payload_dict = payload.dict()
+    payload_dict = payload.model_dump()
 
     if cfg is None:
         cfg = UserConfig(user_id=user_id, data=payload_dict)
