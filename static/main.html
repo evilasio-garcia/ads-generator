@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,43 +9,240 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <style>
-    :root { --indigo-600:#4f46e5; --indigo-700:#4338ca; --bg:#f3f4f6; --card:#ffffff; }
-    body { font-family:'Inter',sans-serif; background:var(--bg); }
-    .card { background:var(--card); border:1px solid #e5e7eb; border-radius:1rem; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-    .btn { display:inline-flex; align-items:center; justify-content:center; padding:.45rem .7rem; border-radius:.5rem; background:white; color:#374151; border:1px solid #e5e7eb; }
-    .btn:hover{ background:#f9fafb; }
-    .icon { width:18px; height:18px; stroke:#4b5563; fill:none; }
-    .icon-fill { width:18px; height:18px; stroke:#4b5563; fill:#4b5563; }
-    .loader { width:22px; height:22px; border-radius:9999px; border:3px solid #e5e7eb; border-top-color:#6b7280; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .modal { position:fixed; inset:0; background:rgba(15,23,42,.28); display:none; align-items:center; justify-content:center; padding:1.25rem; z-index:50; }
-    .modal.open { display:flex; }
-    .modal-card { width:100%; max-width:44rem; }
-    .muted { color:#6b7280 }
-    .badge { padding:.125rem .5rem; font-size:.75rem; border:1px solid #e5e7eb; border-radius:9999px; }
-    .subctrl { display:flex; align-items:center; gap:.5rem; font-size:.8rem; color:#4b5563; }
-    .pulse { animation: pulse 1s ease-in-out infinite; }
-    @keyframes pulse { 0%{opacity:.6} 50%{opacity:1} 100%{opacity:.6} }
-    .toolbar { display:flex; align-items:center; gap:.5rem; }
-    .toolbar .grow { flex:1 1 auto; }
-    .floating-right { margin-left:auto; display:flex; gap:.5rem; }
-    .label-row { display:flex; align-items:center; justify-content:space-between; }
-    .floating-tts { position:fixed; top:1rem; left:50%; transform:translateX(-50%); background:white; border:1px solid #e5e7eb; border-radius:1rem; box-shadow:0 4px 12px rgba(0,0,0,.1); padding:1rem; z-index:40; display:none; max-width:90vw; }
-    .floating-tts.show { display:block; animation: slideDown 0.3s ease-out; }
-    @keyframes slideDown { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
-    .floating-tts .controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
-    .floating-tts .label { font-size:.75rem; font-weight:600; color:#6b7280; margin-right:.5rem; }
-    .tts-active { background:#4f46e5 !important; color:white !important; }
-    .tts-active svg { stroke:white !important; }
-    .tts-highlight { background:#dbeafe; color:#1e40af; font-weight:600; border-radius:.25rem; padding:0 .125rem; transition:all .1s; }
-    .mono { font-family:monospace; }
-    .cfg-nav-btn.active { background:#4f46e5; color:white; }
-    .cfg-nav-btn.active svg { stroke:white; }
-    .price-tab-btn.active { color:#4f46e5; border-bottom-color:#4f46e5; }
-    .price-tab-content { display: none; }
-    .price-tab-content.active { display: block; }
+    :root {
+      --indigo-600: #4f46e5;
+      --indigo-700: #4338ca;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: .45rem .7rem;
+      border-radius: .5rem;
+      background: white;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+    }
+
+    .btn:hover {
+      background: #f9fafb;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      stroke: #4b5563;
+      fill: none;
+    }
+
+    .icon-fill {
+      width: 18px;
+      height: 18px;
+      stroke: #4b5563;
+      fill: #4b5563;
+    }
+
+    .loader {
+      width: 22px;
+      height: 22px;
+      border-radius: 9999px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #6b7280;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .28);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      z-index: 50;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 44rem;
+    }
+
+    .muted {
+      color: #6b7280
+    }
+
+    .badge {
+      padding: .125rem .5rem;
+      font-size: .75rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 9999px;
+    }
+
+    .subctrl {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .8rem;
+      color: #4b5563;
+    }
+
+    .pulse {
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: .6
+      }
+
+      50% {
+        opacity: 1
+      }
+
+      100% {
+        opacity: .6
+      }
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .toolbar .grow {
+      flex: 1 1 auto;
+    }
+
+    .floating-right {
+      margin-left: auto;
+      display: flex;
+      gap: .5rem;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .floating-tts {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
+      padding: 1rem;
+      z-index: 40;
+      display: none;
+      max-width: 90vw;
+    }
+
+    .floating-tts.show {
+      display: block;
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    .floating-tts .controls {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+
+    .floating-tts .label {
+      font-size: .75rem;
+      font-weight: 600;
+      color: #6b7280;
+      margin-right: .5rem;
+    }
+
+    .tts-active {
+      background: #4f46e5 !important;
+      color: white !important;
+    }
+
+    .tts-active svg {
+      stroke: white !important;
+    }
+
+    .tts-highlight {
+      background: #dbeafe;
+      color: #1e40af;
+      font-weight: 600;
+      border-radius: .25rem;
+      padding: 0 .125rem;
+      transition: all .1s;
+    }
+
+    .mono {
+      font-family: monospace;
+    }
+
+    .cfg-nav-btn.active {
+      background: #4f46e5;
+      color: white;
+    }
+
+    .cfg-nav-btn.active svg {
+      stroke: white;
+    }
+
+    .price-tab-btn.active {
+      color: #4f46e5;
+      border-bottom-color: #4f46e5;
+    }
+
+    .price-tab-content {
+      display: none;
+    }
+
+    .price-tab-content.active {
+      display: block;
+    }
   </style>
 </head>
+
 <body class="min-h-screen">
   <main class="w-full max-w-5xl mx-auto p-4 grid gap-6">
     <section class="card p-5">
@@ -55,7 +253,11 @@
         </div>
         <div class="flex gap-2">
           <button id="btnConfig" class="btn" title="Configurar">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8 4a8 8 0 01-.32 2.24l2.06 1.6-2 3.46-2.45-1a8.06 8.06 0 01-1.93 1.12l-.37 2.62h-4l-.37-2.62A8.06 8.06 0 017.7 20.3l-2.45 1-2-3.46 2.06-1.6A7.93 7.93 0 015 12a7.93 7.93 0 01.32-2.24L3.26 8.16l2-3.46 2.45 1A8.06 8.06 0 019.64 4.6L10 2h4l.37 2.62a8.06 8.06 0 011.93 1.12l2.45-1 2 3.46-2.06 1.6A8 8 0 0120 12z" stroke-width="1.5"/></svg>
+            <svg class="icon" viewBox="0 0 24 24">
+              <path
+                d="M12 8a4 4 0 100 8 4 4 0 000-8zm8 4a8 8 0 01-.32 2.24l2.06 1.6-2 3.46-2.45-1a8.06 8.06 0 01-1.93 1.12l-.37 2.62h-4l-.37-2.62A8.06 8.06 0 017.7 20.3l-2.45 1-2-3.46 2.06-1.6A7.93 7.93 0 015 12a7.93 7.93 0 01.32-2.24L3.26 8.16l2-3.46 2.45 1A8.06 8.06 0 019.64 4.6L10 2h4l.37 2.62a8.06 8.06 0 011.93 1.12l2.45-1 2 3.46-2.06 1.6A8 8 0 0120 12z"
+                stroke-width="1.5" />
+            </svg>
           </button>
         </div>
       </div>
@@ -63,24 +265,31 @@
       <div class="mt-4 grid sm:grid-cols-2 gap-4">
         <div>
           <label class="text-sm text-gray-700 font-medium">Origem de dados</label>
-          <select id="tinyInstance" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" disabled>
+          <select id="tinyInstance"
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            disabled>
             <option value="">Nenhuma instância Tiny cadastrada</option>
           </select>
         </div>
         <div>
           <label class="text-sm text-gray-700 font-medium">SKU (Tiny)</label>
-          <input id="tinySKU" type="text" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Digite o SKU do Tiny" disabled>
+          <input id="tinySKU" type="text"
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Digite o SKU do Tiny" disabled>
         </div>
       </div>
 
       <div class="mt-4 grid sm:grid-cols-2 gap-4">
         <div>
           <label class="text-sm text-gray-700 font-medium">Produto</label>
-          <input id="productName" type="text" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ex.: Tapete higiênico 80x60 lavanda">
+          <input id="productName" type="text"
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Ex.: Tapete higiênico 80x60 lavanda">
         </div>
         <div>
           <label class="text-sm text-gray-700 font-medium">Marketplace</label>
-          <select id="marketplace" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="marketplace"
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="mercadolivre">Mercado Livre</option>
             <option value="shopee">Shopee</option>
             <option value="amazon">Amazon</option>
@@ -90,7 +299,8 @@
         </div>
         <div class="sm:col-span-2">
           <label class="text-sm text-gray-700 font-medium">LLM</label>
-          <select id="llm" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="llm"
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="openai">OpenAI</option>
             <option value="gemini">Google Gemini</option>
           </select>
@@ -100,22 +310,18 @@
       <!-- Upload de arquivos -->
       <div class="mt-4">
         <label class="text-sm text-gray-700 font-medium">Arquivos de referência (opcional)</label>
-        <p class="text-xs text-gray-500 mt-1">Imagens e arquivos de texto para gerar anúncios baseados em dados reais do produto (máx. 5MB por arquivo)</p>
+        <p class="text-xs text-gray-500 mt-1">Imagens e arquivos de texto para gerar anúncios baseados em dados reais do
+          produto (máx. 5MB por arquivo)</p>
         <div class="mt-2">
-          <input 
-            type="file" 
-            id="fileInput" 
-            multiple 
-            accept="image/*,.txt"
-            class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-          />
+          <input type="file" id="fileInput" multiple accept="image/*,.txt"
+            class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
         </div>
-        
+
         <!-- Tabela de arquivos carregados -->
         <div id="filesTable" class="mt-3 hidden">
           <!-- Avisos Gerais -->
           <div id="fileWarnings" class="mb-3 hidden"></div>
-          
+
           <div class="rounded-md border border-gray-200 overflow-hidden">
             <table class="w-full text-sm">
               <thead class="bg-gray-50 border-b border-gray-200">
@@ -136,7 +342,9 @@
 
       <!-- Botão Gerar -->
       <div class="mt-4">
-        <button id="btnGenerate" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full"><span class="mr-2">⚡</span>Gerar conteúdo</button>
+        <button id="btnGenerate"
+          class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full"><span
+            class="mr-2">⚡</span>Gerar conteúdo</button>
       </div>
 
       <div id="statusArea" class="mt-4 hidden">
@@ -156,15 +364,26 @@
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-800">Leitura em voz alta</h2>
         <div class="flex items-center gap-2" id="ttsControls">
-          <button id="ttsPlay" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" stroke-width="1.5"/></svg></button>
-          <button id="ttsPrev" class="btn" title="Anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M11 6l-7 6 7 6V6zM20 5v14" stroke-width="1.5"/></svg></button>
-          <button id="ttsNext" class="btn" title="Próximo"><svg class="icon" viewBox="0 0 24 24"><path d="M13 6l7 6-7 6V6zM4 5v14" stroke-width="1.5"/></svg></button>
-          <button id="ttsPause" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5"/></svg></button>
-          <button id="ttsStop" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" stroke-width="1.5"/></svg></button>
+          <button id="ttsPlay" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" stroke-width="1.5" />
+            </svg></button>
+          <button id="ttsPrev" class="btn" title="Anterior"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M11 6l-7 6 7 6V6zM20 5v14" stroke-width="1.5" />
+            </svg></button>
+          <button id="ttsNext" class="btn" title="Próximo"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M13 6l7 6-7 6V6zM4 5v14" stroke-width="1.5" />
+            </svg></button>
+          <button id="ttsPause" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5" />
+            </svg></button>
+          <button id="ttsStop" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M6 6h12v12H6z" stroke-width="1.5" />
+            </svg></button>
           <button id="ttsRate" class="btn" title="Velocidade">1x</button>
         </div>
       </div>
-      <p class="text-sm text-gray-600 mt-2">Ordem: <b>Título</b> → <b>Descrição</b> → <b>FAQ (aprovada)</b> → <b>Cards</b>. <span class="badge muted" id="ttsAuto">Autoplay ON</span></p>
+      <p class="text-sm text-gray-600 mt-2">Ordem: <b>Título</b> → <b>Descrição</b> → <b>FAQ (aprovada)</b> →
+        <b>Cards</b>. <span class="badge muted" id="ttsAuto">Autoplay ON</span></p>
       <div id="ttsNow" class="text-sm text-gray-700 mt-2"></div>
     </section>
 
@@ -172,7 +391,11 @@
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-800">Resultado</h2>
         <div class="flex gap-2">
-          <button id="copyAll" class="btn" title="Copiar tudo"><svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg></button>
+          <button id="copyAll" class="btn" title="Copiar tudo"><svg class="icon" viewBox="0 0 24 24">
+              <path
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                stroke-width="1.5" fill="none" />
+            </svg></button>
         </div>
       </div>
 
@@ -182,15 +405,30 @@
           <h3 class="font-medium text-gray-700 mt-1">Título</h3>
           <div class="toolbar">
             <div class="grow"></div>
-            <button id="titlePrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+            <button id="titlePrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24">
+                <path d="M15 6l-7 6 7 6" stroke-width="1.5" />
+              </svg></button>
             <span id="titleCount" class="muted hidden">1/1</span>
-            <button id="titleNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
-            <button id="regenTitle" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
-            <button id="regenTitlePrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
-            <button id="copyTitle" class="btn" title="Copiar título"><svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg></button>
+            <button id="titleNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24">
+                <path d="M9 6l7 6-7 6" stroke-width="1.5" />
+              </svg></button>
+            <button id="regenTitle" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24">
+                <path
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                  stroke-width="1.5" />
+              </svg></button>
+            <button id="regenTitlePrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24">
+                <path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5" />
+              </svg></button>
+            <button id="copyTitle" class="btn" title="Copiar título"><svg class="icon" viewBox="0 0 24 24">
+                <path
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  stroke-width="1.5" fill="none" />
+              </svg></button>
           </div>
         </div>
-        <textarea id="outTitle" rows="2" class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
+        <textarea id="outTitle" rows="2"
+          class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
       </div>
 
       <!-- Descrição -->
@@ -200,15 +438,35 @@
         </div>
         <div class="toolbar mt-1">
           <div class="grow"></div>
-          <button id="descPrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+          <button id="descPrev" class="btn hidden" title="Versão anterior"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M15 6l-7 6 7 6" stroke-width="1.5" />
+            </svg></button>
           <span id="descCount" class="muted hidden">1/1</span>
-          <button id="descNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
-          <button id="regenDesc" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
-          <button id="regenDescPrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
-          <button id="copyDesc" class="btn" title="Copiar descrição (com FAQ)"><svg class="icon-fill" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M4 4h11v11H4z"/></svg></button>
-          <button id="copyDescNoFAQ" class="btn" title="Copiar descrição (sem FAQ)"><svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg></button>
+          <button id="descNext" class="btn hidden" title="Próxima versão"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M9 6l7 6-7 6" stroke-width="1.5" />
+            </svg></button>
+          <button id="regenDesc" class="btn" title="Regerar"><svg class="icon" viewBox="0 0 24 24">
+              <path
+                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                stroke-width="1.5" />
+            </svg></button>
+          <button id="regenDescPrompt" class="btn" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24">
+              <path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5" />
+            </svg></button>
+          <button id="copyDesc" class="btn" title="Copiar descrição (com FAQ)"><svg class="icon-fill"
+              viewBox="0 0 24 24">
+              <path d="M9 9h11v11H9z" />
+              <path d="M4 4h11v11H4z" />
+            </svg></button>
+          <button id="copyDescNoFAQ" class="btn" title="Copiar descrição (sem FAQ)"><svg class="icon"
+              viewBox="0 0 24 24">
+              <path
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                stroke-width="1.5" fill="none" />
+            </svg></button>
         </div>
-        <textarea id="outDesc" rows="10" class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
+        <textarea id="outDesc" rows="10"
+          class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
       </div>
 
       <!-- FAQ -->
@@ -216,7 +474,11 @@
         <div class="label-row">
           <h3 class="font-medium text-gray-700">FAQ</h3>
           <div class="toolbar">
-            <button id="copyFAQApproved" class="btn" title="Copiar FAQ aprovada"><svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg></button>
+            <button id="copyFAQApproved" class="btn" title="Copiar FAQ aprovada"><svg class="icon" viewBox="0 0 24 24">
+                <path
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  stroke-width="1.5" fill="none" />
+              </svg></button>
           </div>
         </div>
         <div id="faqList" class="mt-2 grid gap-2"></div>
@@ -235,9 +497,14 @@
           <div>
             <label class="text-sm text-gray-600 font-medium">GTIN/EAN</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinyGTIN" type="text" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="7891234567890">
+              <input id="tinyGTIN" type="text"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="7891234567890">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyGTIN" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
@@ -245,9 +512,14 @@
           <div>
             <label class="text-sm text-gray-600 font-medium">SKU</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinySKUDisplay" type="text" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="PROD-12345">
+              <input id="tinySKUDisplay" type="text"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="PROD-12345">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinySKUDisplay" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
@@ -255,9 +527,14 @@
           <div>
             <label class="text-sm text-gray-600 font-medium">Altura (cm)</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinyHeight" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="25.0">
+              <input id="tinyHeight" type="number" step="0.01"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="25.0">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyHeight" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
@@ -265,9 +542,14 @@
           <div>
             <label class="text-sm text-gray-600 font-medium">Largura (cm)</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinyWidth" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="15.0">
+              <input id="tinyWidth" type="number" step="0.01"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="15.0">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyWidth" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
@@ -275,9 +557,14 @@
           <div>
             <label class="text-sm text-gray-600 font-medium">Comprimento (cm)</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinyLength" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="30.0">
+              <input id="tinyLength" type="number" step="0.01"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="30.0">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyLength" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
@@ -285,9 +572,14 @@
           <div>
             <label class="text-sm text-gray-600 font-medium">Peso (kg)</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinyWeight" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="250.0">
+              <input id="tinyWeight" type="number" step="0.01"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="250.0">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyWeight" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
@@ -298,15 +590,20 @@
       <!-- Informações de preço -->
       <div class="mt-6" id="tinyPriceSection">
         <h3 class="font-medium text-gray-700">Informações de preço</h3>
-        
+
         <!-- Custos Base -->
         <div class="grid sm:grid-cols-2 gap-4 mt-3">
           <div>
             <label class="text-sm text-gray-600 font-medium">Custo base (R$)</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinyCostPrice" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="50.00">
+              <input id="tinyCostPrice" type="number" step="0.01"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="50.00">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyCostPrice" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
@@ -314,20 +611,29 @@
           <div>
             <label class="text-sm text-gray-600 font-medium">Custo do frete (R$)</label>
             <div class="flex gap-1 mt-1">
-              <input id="tinyShippingCost" type="number" step="0.01" class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="0.00">
+              <input id="tinyShippingCost" type="number" step="0.01"
+                class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="0.00">
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyShippingCost" title="Copiar conteúdo">
-                <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    stroke-width="1.5" fill="none" />
+                </svg>
                 <span class="ml-1">Copiar</span>
               </button>
             </div>
           </div>
         </div>
-        
+
         <!-- Botão Calcular Preços (apenas modo manual) -->
         <div id="manualPricingButton" class="mt-3" style="display: none;">
-          <button id="calculatePricesBtn" class="btn w-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+          <button id="calculatePricesBtn"
+            class="btn w-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled>
             <svg class="icon w-4 h-4 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path
+                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
             Calcular Preços
           </button>
@@ -336,8 +642,12 @@
         <!-- Tabs de Precificação -->
         <div class="mt-4">
           <div class="flex gap-2 border-b border-gray-200">
-            <button class="price-tab-btn active px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600" data-tab="min">% Min (Clássico)</button>
-            <button class="price-tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800" data-tab="max">% Max (Premium)</button>
+            <button
+              class="price-tab-btn active px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600"
+              data-tab="min">% Min (Clássico)</button>
+            <button
+              class="price-tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800"
+              data-tab="max">% Max (Premium)</button>
           </div>
 
           <!-- Tab Content: % Min -->
@@ -346,70 +656,126 @@
               <!-- Preço do Anúncio (calculado: promo / 0.85) -->
               <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
                 <label class="text-sm text-blue-800 font-semibold flex items-center gap-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
                   Preço do Anúncio (R$)
                 </label>
                 <div class="flex gap-1 mt-1">
-                  <input id="tinyAnnouncePriceMin" type="number" step="0.01" class="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-900" placeholder="0.00" readonly>
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAnnouncePriceMin" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                  <input id="tinyAnnouncePriceMin" type="number" step="0.01"
+                    class="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-900"
+                    placeholder="0.00" readonly>
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAnnouncePriceMin"
+                    title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        stroke-width="1.5" fill="none" />
+                    </svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
                 <div class="grid grid-cols-3 gap-1 mt-2">
-                  <input type="text" class="analysis-margin rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="R$ 0" title="Valor monetário">
+                  <input type="text"
+                    class="analysis-margin rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium"
+                    readonly placeholder="0%" title="% de margem">
+                  <input type="text"
+                    class="analysis-multiple rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium"
+                    readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text"
+                    class="analysis-value rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium"
+                    readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
-              
+
               <div>
                 <div class="flex items-center justify-between gap-2 mb-1">
-                  <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span
+                      class="text-xs text-gray-500">editável</span></label>
                   <div class="flex items-center gap-1">
-                    <button id="aggressiveMinPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <button id="aggressiveMinPrev" class="btn btn-sm hidden" title="Versão anterior"><svg
+                        class="icon w-3 h-3" viewBox="0 0 24 24">
+                        <path d="M15 6l-7 6 7 6" stroke-width="1.5" />
+                      </svg></button>
                     <span id="aggressiveMinCount" class="text-xs text-gray-500 hidden">1/1</span>
-                    <button id="aggressiveMinNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                    <button id="aggressiveMinNext" class="btn btn-sm hidden" title="Próxima versão"><svg
+                        class="icon w-3 h-3" viewBox="0 0 24 24">
+                        <path d="M9 6l7 6-7 6" stroke-width="1.5" />
+                      </svg></button>
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <input id="tinyAggressivePriceMin" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90">
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMin" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                  <input id="tinyAggressivePriceMin" type="number" step="0.01"
+                    class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    placeholder="79.90">
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMin"
+                    title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        stroke-width="1.5" fill="none" />
+                    </svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
                 <div class="grid grid-cols-3 gap-1 mt-1">
-                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                  <input type="text"
+                    class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0%" title="% de margem">
+                  <input type="text"
+                    class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text"
+                    class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
-              
+
               <div>
                 <div class="flex items-center justify-between gap-2 mb-1">
-                  <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span
+                      class="text-xs text-gray-500">editável</span></label>
                   <div class="flex items-center gap-1">
-                    <button id="promoMinPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <button id="promoMinPrev" class="btn btn-sm hidden" title="Versão anterior"><svg
+                        class="icon w-3 h-3" viewBox="0 0 24 24">
+                        <path d="M15 6l-7 6 7 6" stroke-width="1.5" />
+                      </svg></button>
                     <span id="promoMinCount" class="text-xs text-gray-500 hidden">1/1</span>
-                    <button id="promoMinNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                    <button id="promoMinNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3"
+                        viewBox="0 0 24 24">
+                        <path d="M9 6l7 6-7 6" stroke-width="1.5" />
+                      </svg></button>
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <input id="tinyPromoPriceMin" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90">
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMin" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                  <input id="tinyPromoPriceMin" type="number" step="0.01"
+                    class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    placeholder="89.90">
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMin"
+                    title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        stroke-width="1.5" fill="none" />
+                    </svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
                 <div class="grid grid-cols-3 gap-1 mt-1">
-                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                  <input type="text"
+                    class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0%" title="% de margem">
+                  <input type="text"
+                    class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text"
+                    class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
             </div>
-            
+
             <!-- Tabela de Atacado (apenas na aba % Min) -->
             <div class="mt-4">
               <label class="text-sm text-gray-600 font-medium">Faixas de preço por atacado</label>
@@ -440,66 +806,122 @@
               <!-- Preço do Anúncio (calculado: promo / 0.85) -->
               <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
                 <label class="text-sm text-blue-800 font-semibold flex items-center gap-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
                   Preço do Anúncio (R$)
                 </label>
                 <div class="flex gap-1 mt-1">
-                  <input id="tinyAnnouncePriceMax" type="number" step="0.01" class="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-900" placeholder="0.00" readonly>
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAnnouncePriceMax" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                  <input id="tinyAnnouncePriceMax" type="number" step="0.01"
+                    class="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-900"
+                    placeholder="0.00" readonly>
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAnnouncePriceMax"
+                    title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        stroke-width="1.5" fill="none" />
+                    </svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
                 <div class="grid grid-cols-3 gap-1 mt-2">
-                  <input type="text" class="analysis-margin rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium" readonly placeholder="R$ 0" title="Valor monetário">
+                  <input type="text"
+                    class="analysis-margin rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium"
+                    readonly placeholder="0%" title="% de margem">
+                  <input type="text"
+                    class="analysis-multiple rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium"
+                    readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text"
+                    class="analysis-value rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs text-center text-blue-800 font-medium"
+                    readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
-              
+
               <div>
                 <div class="flex items-center justify-between gap-2 mb-1">
-                  <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <label class="text-sm text-gray-600 font-medium">Preço agressivo (R$) <span
+                      class="text-xs text-gray-500">editável</span></label>
                   <div class="flex items-center gap-1">
-                    <button id="aggressiveMaxPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <button id="aggressiveMaxPrev" class="btn btn-sm hidden" title="Versão anterior"><svg
+                        class="icon w-3 h-3" viewBox="0 0 24 24">
+                        <path d="M15 6l-7 6 7 6" stroke-width="1.5" />
+                      </svg></button>
                     <span id="aggressiveMaxCount" class="text-xs text-gray-500 hidden">1/1</span>
-                    <button id="aggressiveMaxNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                    <button id="aggressiveMaxNext" class="btn btn-sm hidden" title="Próxima versão"><svg
+                        class="icon w-3 h-3" viewBox="0 0 24 24">
+                        <path d="M9 6l7 6-7 6" stroke-width="1.5" />
+                      </svg></button>
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <input id="tinyAggressivePriceMax" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="79.90">
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMax" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                  <input id="tinyAggressivePriceMax" type="number" step="0.01"
+                    class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    placeholder="79.90">
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyAggressivePriceMax"
+                    title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        stroke-width="1.5" fill="none" />
+                    </svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
                 <div class="grid grid-cols-3 gap-1 mt-1">
-                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                  <input type="text"
+                    class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0%" title="% de margem">
+                  <input type="text"
+                    class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text"
+                    class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
-              
+
               <div>
                 <div class="flex items-center justify-between gap-2 mb-1">
-                  <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span class="text-xs text-gray-500">editável</span></label>
+                  <label class="text-sm text-gray-600 font-medium">Preço promocional (R$) <span
+                      class="text-xs text-gray-500">editável</span></label>
                   <div class="flex items-center gap-1">
-                    <button id="promoMaxPrev" class="btn btn-sm hidden" title="Versão anterior"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+                    <button id="promoMaxPrev" class="btn btn-sm hidden" title="Versão anterior"><svg
+                        class="icon w-3 h-3" viewBox="0 0 24 24">
+                        <path d="M15 6l-7 6 7 6" stroke-width="1.5" />
+                      </svg></button>
                     <span id="promoMaxCount" class="text-xs text-gray-500 hidden">1/1</span>
-                    <button id="promoMaxNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+                    <button id="promoMaxNext" class="btn btn-sm hidden" title="Próxima versão"><svg class="icon w-3 h-3"
+                        viewBox="0 0 24 24">
+                        <path d="M9 6l7 6-7 6" stroke-width="1.5" />
+                      </svg></button>
                   </div>
                 </div>
                 <div class="flex gap-1">
-                  <input id="tinyPromoPriceMax" type="number" step="0.01" class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="89.90">
-                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMax" title="Copiar conteúdo">
-                    <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>
+                  <input id="tinyPromoPriceMax" type="number" step="0.01"
+                    class="editable-price flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    placeholder="89.90">
+                  <button class="btn text-xs copy-field-btn" data-copy-field="tinyPromoPriceMax"
+                    title="Copiar conteúdo">
+                    <svg class="icon w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        stroke-width="1.5" fill="none" />
+                    </svg>
                     <span class="ml-1">Copiar</span>
                   </button>
                 </div>
                 <div class="grid grid-cols-3 gap-1 mt-1">
-                  <input type="text" class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0%" title="% de margem">
-                  <input type="text" class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="0x" title="Múltiplo de valor">
-                  <input type="text" class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700" readonly placeholder="R$ 0" title="Valor monetário">
+                  <input type="text"
+                    class="analysis-margin rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0%" title="% de margem">
+                  <input type="text"
+                    class="analysis-multiple rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="0x" title="Múltiplo de valor">
+                  <input type="text"
+                    class="analysis-value rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-700"
+                    readonly placeholder="R$ 0" title="Valor monetário">
                 </div>
               </div>
             </div>
@@ -508,18 +930,28 @@
       </div>
     </section>
   </main>
-  
+
   <div class="pb-16"></div><!-- Margem inferior para evitar elementos "apertados" -->
 
   <!-- Controles TTS Flutuantes -->
   <div id="floatingTTS" class="floating-tts">
     <div class="controls">
       <span class="label">🔊 Leitura</span>
-      <button id="ttsPlayFloat" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" stroke-width="1.5"/></svg></button>
-      <button id="ttsPrevFloat" class="btn" title="Anterior"><svg class="icon" viewBox="0 0 24 24"><path d="M11 6l-7 6 7 6V6zM20 5v14" stroke-width="1.5"/></svg></button>
-      <button id="ttsNextFloat" class="btn" title="Próximo"><svg class="icon" viewBox="0 0 24 24"><path d="M13 6l7 6-7 6V6zM4 5v14" stroke-width="1.5"/></svg></button>
-      <button id="ttsPauseFloat" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5"/></svg></button>
-      <button id="ttsStopFloat" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" stroke-width="1.5"/></svg></button>
+      <button id="ttsPlayFloat" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z" stroke-width="1.5" />
+        </svg></button>
+      <button id="ttsPrevFloat" class="btn" title="Anterior"><svg class="icon" viewBox="0 0 24 24">
+          <path d="M11 6l-7 6 7 6V6zM20 5v14" stroke-width="1.5" />
+        </svg></button>
+      <button id="ttsNextFloat" class="btn" title="Próximo"><svg class="icon" viewBox="0 0 24 24">
+          <path d="M13 6l7 6-7 6V6zM4 5v14" stroke-width="1.5" />
+        </svg></button>
+      <button id="ttsPauseFloat" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24">
+          <path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5" />
+        </svg></button>
+      <button id="ttsStopFloat" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24">
+          <path d="M6 6h12v12H6z" stroke-width="1.5" />
+        </svg></button>
       <button id="ttsRateFloat" class="btn" title="Velocidade">1x</button>
     </div>
   </div>
@@ -528,17 +960,21 @@
   <div id="promptModal" class="modal">
     <div class="modal-card card p-5">
       <h3 id="promptTitle" class="text-lg font-semibold text-gray-800">Instruções adicionais</h3>
-      <textarea id="promptText" rows="6" class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Descreva o que ajustar, corrigir ou detalhar..."></textarea>
+      <textarea id="promptText" rows="6"
+        class="mt-2 w-full mono rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+        placeholder="Descreva o que ajustar, corrigir ou detalhar..."></textarea>
       <div class="mt-3 flex justify-end gap-2">
         <button id="promptCancel" class="btn">Cancelar</button>
-        <button id="promptOk" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Aplicar</button>
+        <button id="promptOk"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Aplicar</button>
       </div>
     </div>
   </div>
 
   <!-- Modal Config -->
   <div id="configModal" class="modal">
-    <div class="modal-card card" style="max-width: 1100px; width: 95%; height: 85vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div class="modal-card card"
+      style="max-width: 1100px; width: 95%; height: 85vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
       <!-- Header -->
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
         <h3 class="text-lg font-semibold text-gray-800">Configurações</h3>
@@ -550,20 +986,42 @@
         <!-- Sidebar Menu -->
         <div class="w-48 bg-gray-50 border-r border-gray-200 overflow-y-auto">
           <nav class="p-2">
-            <button class="cfg-nav-btn active w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="llm">
-              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <button
+              class="cfg-nav-btn active w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+              data-section="llm">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
               LLM
             </button>
-            <button class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="rulesets">
-              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <button
+              class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+              data-section="rulesets">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                </path>
+              </svg>
               Rule Sets
             </button>
-            <button class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="integrations">
-              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            <button
+              class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+              data-section="integrations">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z">
+                </path>
+              </svg>
               Integrações
             </button>
-            <button class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors" data-section="pricing">
-              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <button
+              class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+              data-section="pricing">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                </path>
+              </svg>
               Precificação
             </button>
           </nav>
@@ -574,29 +1032,34 @@
           <!-- Section: LLM -->
           <div class="cfg-section active p-5" data-section="llm">
             <h4 class="text-md font-semibold text-gray-800 mb-4">Configuração de LLM</h4>
-            
+
             <div class="grid sm:grid-cols-2 gap-4">
               <div>
                 <label class="text-sm text-gray-700 font-medium">OpenAI API Key</label>
-                <input id="cfgOpenAI" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+                <input id="cfgOpenAI" type="password"
+                  class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
               </div>
               <div>
                 <label class="text-sm text-gray-700 font-medium">OpenAI Base URL (opcional)</label>
-                <input id="cfgOpenAIBase" type="text" placeholder="https://api.openai.com/v1" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+                <input id="cfgOpenAIBase" type="text" placeholder="https://api.openai.com/v1"
+                  class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
               </div>
               <div>
                 <label class="text-sm text-gray-700 font-medium">Gemini API Key</label>
-                <input id="cfgGemini" type="password" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+                <input id="cfgGemini" type="password"
+                  class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
               </div>
               <div>
                 <label class="text-sm text-gray-700 font-medium">Gemini Base URL (opcional)</label>
-                <input id="cfgGeminiBase" type="text" placeholder="https://generativelanguage.googleapis.com" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+                <input id="cfgGeminiBase" type="text" placeholder="https://generativelanguage.googleapis.com"
+                  class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
               </div>
             </div>
 
             <div class="mt-4">
               <label class="text-sm text-gray-700 font-medium">Prompt Template</label>
-              <textarea id="cfgPromptTpl" rows="18" class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              <textarea id="cfgPromptTpl" rows="18"
+                class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder='Use {product}, {marketplace} e {specs}. As demais chaves {{ }} do JSON podem ficar sem escape.'></textarea>
             </div>
           </div>
@@ -605,20 +1068,22 @@
           <div class="cfg-section p-5" data-section="rulesets" style="display: none;">
             <h4 class="text-md font-semibold text-gray-800 mb-4">Rule Sets</h4>
             <p class="text-sm text-gray-600 mb-3">Configure regras específicas por marketplace (formato JSON)</p>
-            
-            <textarea id="cfgRules" rows="25" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono" 
+
+            <textarea id="cfgRules" rows="25"
+              class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
               placeholder='{"mercadolivre":{"title_max_chars":60}}'></textarea>
           </div>
 
           <!-- Section: Integrações -->
           <div class="cfg-section p-5" data-section="integrations" style="display: none;">
             <h4 class="text-md font-semibold text-gray-800 mb-4">Integrações</h4>
-            
+
             <div class="border-b border-gray-200 pb-4 mb-4">
               <div class="flex items-center justify-between mb-3">
                 <div>
                   <label class="text-sm text-gray-700 font-medium">Tokens Tiny ERP</label>
-                  <p class="text-xs text-gray-500 mt-1">Configure as instâncias do Tiny ERP para buscar dados de produtos</p>
+                  <p class="text-xs text-gray-500 mt-1">Configure as instâncias do Tiny ERP para buscar dados de
+                    produtos</p>
                 </div>
                 <button id="cfgAddTiny" class="btn text-xs" title="Adicionar instância">+ Adicionar</button>
               </div>
@@ -631,21 +1096,27 @@
           <!-- Section: Precificação -->
           <div class="cfg-section p-5" data-section="pricing" style="display: none;">
             <h4 class="text-md font-semibold text-gray-800 mb-4">Dados de Precificação</h4>
-            <p class="text-xs text-gray-500 mb-3">Configure os percentuais de comissão, impostos e margens para cada marketplace</p>
-            
+            <p class="text-xs text-gray-500 mb-3">Configure os percentuais de comissão, impostos e margens para cada
+              marketplace</p>
+
             <div class="mb-3">
-              <button id="cfgAddPricing" class="btn text-xs" title="Adicionar marketplace">+ Adicionar Marketplace</button>
+              <button id="cfgAddPricing" class="btn text-xs" title="Adicionar marketplace">+ Adicionar
+                Marketplace</button>
             </div>
-            
+
             <div class="overflow-x-auto">
               <table class="w-full text-xs border border-gray-200 rounded-md">
                 <thead class="bg-gray-50">
                   <tr>
                     <th class="px-2 py-2 text-left font-medium text-gray-700">Marketplace</th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Min<br/><span class="font-normal text-gray-500">(Clássico)</span></th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Max<br/><span class="font-normal text-gray-500">(Premium)</span></th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% TACOS<br/><span class="font-normal text-gray-500">(Publicidade)</span></th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% M.C.<br/><span class="font-normal text-gray-500">(Margem)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Min<br /><span
+                        class="font-normal text-gray-500">(Clássico)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Max<br /><span
+                        class="font-normal text-gray-500">(Premium)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% TACOS<br /><span
+                        class="font-normal text-gray-500">(Publicidade)</span></th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">% M.C.<br /><span
+                        class="font-normal text-gray-500">(Margem)</span></th>
                     <th class="px-2 py-2 text-center font-medium text-gray-700">% Lucro</th>
                     <th class="px-2 py-2 text-center font-medium text-gray-700">% Impostos</th>
                     <th class="px-2 py-2 text-center font-medium text-gray-700 w-16">Ações</th>
@@ -653,7 +1124,8 @@
                 </thead>
                 <tbody id="cfgPricingTableBody">
                   <tr>
-                    <td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço cadastrada</td>
+                    <td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço
+                      cadastrada</td>
                   </tr>
                 </tbody>
               </table>
@@ -665,14 +1137,15 @@
       <!-- Footer -->
       <div class="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
         <button id="cfgCancel" class="btn">Cancelar</button>
-        <button id="cfgSave" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
+        <button id="cfgSave"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
       </div>
     </div>
   </div>
 
 </body>
 <script>
-  function $(q){ return document.querySelector(q); }
+  function $(q) { return document.querySelector(q); }
 
   let appConfig = {
     openai: "",
@@ -685,15 +1158,15 @@
     pricing_config: [],
   };
 
-  const productName = $("#productName"), marketplace=$("#marketplace"), llm=$("#llm");
-  const btnGenerate=$("#btnGenerate");
-  const outTitle=$("#outTitle"), outDesc=$("#outDesc");
-  const faqList=$("#faqList"), cardsList=$("#cardsList");
-  const statusArea=$("#statusArea"), statusText=$("#statusText"), loader=$("#loader");
-  const demoWarn=$("#demoWarn"), demoText=$("#demoText");
+  const productName = $("#productName"), marketplace = $("#marketplace"), llm = $("#llm");
+  const btnGenerate = $("#btnGenerate");
+  const outTitle = $("#outTitle"), outDesc = $("#outDesc");
+  const faqList = $("#faqList"), cardsList = $("#cardsList");
+  const statusArea = $("#statusArea"), statusText = $("#statusText"), loader = $("#loader");
+  const demoWarn = $("#demoWarn"), demoText = $("#demoText");
 
-  const titlePrev=$("#titlePrev"), titleNext=$("#titleNext"), titleCount=$("#titleCount");
-  const descPrev=$("#descPrev"), descNext=$("#descNext"), descCount=$("#descCount");
+  const titlePrev = $("#titlePrev"), titleNext = $("#titleNext"), titleCount = $("#titleCount");
+  const descPrev = $("#descPrev"), descNext = $("#descNext"), descCount = $("#descCount");
 
   // File Upload Management
   const fileInput = $("#fileInput");
@@ -713,7 +1186,7 @@
     gemini: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'text/plain']
   };
 
-  function updateFileAccept(){
+  function updateFileAccept() {
     const selectedLLM = llm.value;
     fileInput.accept = 'image/*,.txt';
   }
@@ -962,10 +1435,10 @@
       tinyShippingCost.value = "";
 
       [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight,
-       tinyCostPrice, tinyShippingCost].forEach(el => {
-        el.disabled = false;
-        el.classList.remove('bg-gray-50');
-      });
+        tinyCostPrice, tinyShippingCost].forEach(el => {
+          el.disabled = false;
+          el.classList.remove('bg-gray-50');
+        });
 
       // Limpar tabela de atacado
       wholesaleRows = [];
@@ -1270,7 +1743,7 @@
     const valueField = metricsGrid.querySelector('.analysis-value');
 
     if (!marginField || !multipleField || !valueField) {
-      console.error('Metric fields not found', {marginField, multipleField, valueField});
+      console.error('Metric fields not found', { marginField, multipleField, valueField });
       return;
     }
 
@@ -1331,7 +1804,27 @@
     try {
       autoPricingInProgress = true;
 
-      const totalCost = costPrice + shippingCost;
+      // Calcular Frete de Mercado Livre automaticamente se as condições baterem
+      let currentShippingCost = shippingCost;
+      const weightKg = parseFloat(document.getElementById('tinyWeight').value) || 0;
+      if (channel === 'mercadolivre' && costPrice > 0) {
+        try {
+          const shipResp = await fetch('/api/shipping/calculate_ml', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cost_price: costPrice, weight_kg: weightKg })
+          });
+          if (shipResp.ok) {
+            const shipData = await shipResp.json();
+            currentShippingCost = shipData.shipping_cost;
+            tinyShippingCost.value = currentShippingCost.toFixed(2);
+          }
+        } catch (e) {
+          console.error('Erro ao calcular frete ML dinâmico:', e);
+        }
+      }
+
+      const totalCost = costPrice + currentShippingCost;
 
       // Obter dados de precificação do marketplace selecionado
       const pricingConfigAll = getPricingConfig();
@@ -1362,7 +1855,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cost_price: costPrice,
-          shipping_cost: shippingCost,
+          shipping_cost: currentShippingCost,
           channel: channel,
           commission_percent: marketplaceConfig.comissao_min / 100,
           ctx: pricingContext
@@ -1382,7 +1875,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cost_price: costPrice,
-          shipping_cost: shippingCost,
+          shipping_cost: currentShippingCost,
           channel: channel,
           commission_percent: marketplaceConfig.comissao_max / 100,
           ctx: pricingContext
@@ -1444,16 +1937,16 @@
 
       // Feedback visual sutil
       [tinyAggressivePriceMin, tinyPromoPriceMin,
-       tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
-        field.classList.add('bg-green-50');
-        setTimeout(() => field.classList.remove('bg-green-50'), 1000);
-      });
+        tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
+          field.classList.add('bg-green-50');
+          setTimeout(() => field.classList.remove('bg-green-50'), 1000);
+        });
 
       // Validação especial para Mercado Livre
-      if (channel === 'mercadolivre' && !shippingCost && tinyPromoPriceMin.value) {
+      if (channel === 'mercadolivre' && !currentShippingCost && tinyPromoPriceMin.value) {
         const promoPrice = parseFloat(tinyPromoPriceMin.value);
         if (promoPrice > 78.99) {
-          alert('⚠️ Atenção: O preço promocional calculado é maior que R$ 78,99.\n\nPara produtos do Mercado Livre nesta faixa de preço, é importante preencher o custo do frete para obter cálculos mais precisos.');
+          console.warn('⚠️ Atenção: O preço promocional calculado é maior que R$ 78,99.\n\nPara produtos do Mercado Livre nesta faixa de preço, é importante preencher o custo do frete para obter cálculos mais precisos.');
         }
       }
 
@@ -1569,8 +2062,8 @@
     }
   }
 
-  function renderFilesTable(){
-    if(uploadedFiles.length === 0){
+  function renderFilesTable() {
+    if (uploadedFiles.length === 0) {
       filesTable.classList.add('hidden');
       filesTableBody.innerHTML = '';
       fileWarnings.classList.add('hidden');
@@ -1660,8 +2153,8 @@
       const fileType = item.file.type || 'desconhecido';
       const fileSize = (item.file.size / 1024).toFixed(1);
       const fileTypeLabel = fileType.startsWith('image/') ? '🖼️ Imagem' :
-                           fileType === 'text/plain' ? '📝 Texto' :
-                           '📎 Arquivo';
+        fileType === 'text/plain' ? '📝 Texto' :
+          '📎 Arquivo';
 
       // Status badge
       let statusBadge = '';
@@ -1774,7 +2267,7 @@
       checkbox.addEventListener('change', (e) => {
         const fileId = e.target.dataset.fileId;
         const file = uploadedFiles.find(f => f.id === fileId);
-        if(file) {
+        if (file) {
           file.enabled = e.target.checked;
           file.manuallySet = true; // Marcar que foi alterado manualmente
           renderFilesTable(); // Re-renderizar para atualizar indicadores visuais
@@ -1861,19 +2354,19 @@
   ttsRateFloat.addEventListener("click", () => $("#ttsRate").click());
 
   // Prompt Modal
-  const promptModal=$("#promptModal"); const promptTitleEl=$("#promptTitle"); const promptTextEl=$("#promptText");
-  const promptOk=$("#promptOk"); const promptCancel=$("#promptCancel"); let promptResolve=null;
-  function openPrompt(title){ promptTitleEl.textContent=title||"Instruções adicionais"; promptTextEl.value=""; promptModal.classList.add("open"); return new Promise(res=>{promptResolve=res}); }
-  promptCancel.addEventListener("click", ()=>{ promptModal.classList.remove("open"); if(promptResolve) promptResolve(null); });
-  promptOk.addEventListener("click", ()=>{ promptModal.classList.remove("open"); if(promptResolve) promptResolve(promptTextEl.value); });
+  const promptModal = $("#promptModal"); const promptTitleEl = $("#promptTitle"); const promptTextEl = $("#promptText");
+  const promptOk = $("#promptOk"); const promptCancel = $("#promptCancel"); let promptResolve = null;
+  function openPrompt(title) { promptTitleEl.textContent = title || "Instruções adicionais"; promptTextEl.value = ""; promptModal.classList.add("open"); return new Promise(res => { promptResolve = res }); }
+  promptCancel.addEventListener("click", () => { promptModal.classList.remove("open"); if (promptResolve) promptResolve(null); });
+  promptOk.addEventListener("click", () => { promptModal.classList.remove("open"); if (promptResolve) promptResolve(promptTextEl.value); });
 
   // Config Modal
   const cfgModal = $("#configModal"); const btnConfig = $("#btnConfig");
-  const cfgOpenAI=$("#cfgOpenAI"), cfgOpenAIBase=$("#cfgOpenAIBase");
-  const cfgGemini=$("#cfgGemini"), cfgGeminiBase=$("#cfgGeminiBase");
-  const cfgRules=$("#cfgRules"), cfgPromptTpl=$("#cfgPromptTpl");
-  const cfgSave=$("#cfgSave"), cfgCancel=$("#cfgCancel"), cfgClose=$("#cfgClose");
-  const cfgAddTiny=$("#cfgAddTiny"), cfgTinyTokensList=$("#cfgTinyTokensList");
+  const cfgOpenAI = $("#cfgOpenAI"), cfgOpenAIBase = $("#cfgOpenAIBase");
+  const cfgGemini = $("#cfgGemini"), cfgGeminiBase = $("#cfgGeminiBase");
+  const cfgRules = $("#cfgRules"), cfgPromptTpl = $("#cfgPromptTpl");
+  const cfgSave = $("#cfgSave"), cfgCancel = $("#cfgCancel"), cfgClose = $("#cfgClose");
+  const cfgAddTiny = $("#cfgAddTiny"), cfgTinyTokensList = $("#cfgTinyTokensList");
 
   // Funções para gerenciar tokens Tiny
   function getTinyTokens() {
@@ -1944,7 +2437,7 @@
       tinyInstance.disabled = true;
     } else {
       tinyInstance.innerHTML = '<option value="">Selecione uma instância</option>' +
-        tokens.map((t, idx) => `<option value="${idx}">${t.label || 'Instância ' + (idx+1)}</option>`).join('');
+        tokens.map((t, idx) => `<option value="${idx}">${t.label || 'Instância ' + (idx + 1)}</option>`).join('');
       tinyInstance.disabled = false;
     }
 
@@ -2070,7 +2563,7 @@
     };
   }
 
-  
+
   async function loadConfigFromServer() {
     try {
       const r = await fetch("/api/config", { method: "GET" });
@@ -2086,8 +2579,8 @@
     }
   }
 
-const DEFAULT_PROMPT_TEMPLATE =
-`Produto: "{product}"
+  const DEFAULT_PROMPT_TEMPLATE =
+    `Produto: "{product}"
 Marketplace: {marketplace}
 Especificações agregadas (parciais e possivelmente ruidosas): {specs}
 
@@ -2126,7 +2619,7 @@ Restrições:
     });
   });
 
-  btnConfig.addEventListener("click", ()=> {
+  btnConfig.addEventListener("click", () => {
     const saved = appConfig || {};
     cfgOpenAI.value = saved.openai || "";
     cfgOpenAIBase.value = saved.openai_base || "";
@@ -2139,13 +2632,13 @@ Restrições:
     switchConfigSection('llm'); // Sempre abrir na seção LLM
     cfgModal.classList.add("open");
   });
-  function closeCfg(){ cfgModal.classList.remove("open"); }
+  function closeCfg() { cfgModal.classList.remove("open"); }
   cfgCancel.addEventListener("click", closeCfg);
   cfgClose.addEventListener("click", closeCfg);
-  cfgSave.addEventListener("click", async ()=> {
+  cfgSave.addEventListener("click", async () => {
     let rules = {};
     if (cfgRules.value.trim()) {
-      try { rules = JSON.parse(cfgRules.value); } catch(e){ alert("RuleSets inválido (JSON). Corrija e tente novamente."); return; }
+      try { rules = JSON.parse(cfgRules.value); } catch (e) { alert("RuleSets inválido (JSON). Corrija e tente novamente."); return; }
     }
     const payload = {
       openai: cfgOpenAI.value.trim(),
@@ -2180,22 +2673,22 @@ Restrições:
 
   // -------- Estado / Histórico --------
   const history = {
-    title:[], titleIdx:-1,
-    description:[], descIdx:-1,
-    faq:[], cards:[], cardLines:[],
+    title: [], titleIdx: -1,
+    description: [], descIdx: -1,
+    faq: [], cards: [], cardLines: [],
     // Histórico de preços (cada item: { price, metrics: { margin_percent, value_multiple, value_amount } })
     aggressivePriceMin: [], aggressivePriceMinIdx: -1,
     promoPriceMin: [], promoPriceMinIdx: -1,
     aggressivePriceMax: [], aggressivePriceMaxIdx: -1,
     promoPriceMax: [], promoPriceMaxIdx: -1
   };
-  function persistState(){
+  function persistState() {
     // Persistência desabilitada: não usamos mais cache no navegador.
   }
-  function restoreState(){
+  function restoreState() {
     // Estado inicial já está definido em "history"; nada para restaurar do navegador.
   }
-  function resetHistory(){
+  function resetHistory() {
     // Limpar histórico
     history.title = [];
     history.titleIdx = -1;
@@ -2231,37 +2724,37 @@ Restrições:
     // Persistir estado limpo
     persistState();
   }
-  function pushHistory(key, value){
-    if(key==="title"){
-      history.title = history.title.slice(0, history.titleIdx+1);
-      history.title.push(value); history.titleIdx = history.title.length-1; outTitle.value=value;
-    }else if(key==="description"){
-      history.description = history.description.slice(0, history.descIdx+1);
-      history.description.push(value); history.descIdx = history.description.length-1; outDesc.value=value;
+  function pushHistory(key, value) {
+    if (key === "title") {
+      history.title = history.title.slice(0, history.titleIdx + 1);
+      history.title.push(value); history.titleIdx = history.title.length - 1; outTitle.value = value;
+    } else if (key === "description") {
+      history.description = history.description.slice(0, history.descIdx + 1);
+      history.description.push(value); history.descIdx = history.description.length - 1; outDesc.value = value;
     }
     persistState(); updateVersionControls(); rebuildPlaylist();
   }
-  function navHistory(key, dir){
-    if(key==="title"){
+  function navHistory(key, dir) {
+    if (key === "title") {
       const next = history.titleIdx + dir;
-      if(next>=0 && next<history.title.length){ history.titleIdx=next; outTitle.value=history.title[next]; }
-    }else if(key==="description"){
+      if (next >= 0 && next < history.title.length) { history.titleIdx = next; outTitle.value = history.title[next]; }
+    } else if (key === "description") {
       const next = history.descIdx + dir;
-      if(next>=0 && next<history.description.length){ history.descIdx=next; outDesc.value=history.description[next]; }
+      if (next >= 0 && next < history.description.length) { history.descIdx = next; outDesc.value = history.description[next]; }
     }
     persistState(); updateVersionControls(); rebuildPlaylist();
   }
-  function updateVersionControls(){
+  function updateVersionControls() {
     const tCount = history.title.length, tIdx = history.titleIdx;
     const dCount = history.description.length, dIdx = history.descIdx;
-    titlePrev.classList.toggle("hidden", !(tCount>1 && tIdx>0));
-    titleNext.classList.toggle("hidden", !(tCount>1 && tIdx<tCount-1));
-    titleCount.classList.toggle("hidden", !(tCount>1));
-    if(tCount>1) titleCount.textContent = `${tIdx+1}/${tCount}`;
-    descPrev.classList.toggle("hidden", !(dCount>1 && dIdx>0));
-    descNext.classList.toggle("hidden", !(dCount>1 && dIdx<dCount-1));
-    descCount.classList.toggle("hidden", !(dCount>1));
-    if(dCount>1) descCount.textContent = `${dIdx+1}/${dCount}`;
+    titlePrev.classList.toggle("hidden", !(tCount > 1 && tIdx > 0));
+    titleNext.classList.toggle("hidden", !(tCount > 1 && tIdx < tCount - 1));
+    titleCount.classList.toggle("hidden", !(tCount > 1));
+    if (tCount > 1) titleCount.textContent = `${tIdx + 1}/${tCount}`;
+    descPrev.classList.toggle("hidden", !(dCount > 1 && dIdx > 0));
+    descNext.classList.toggle("hidden", !(dCount > 1 && dIdx < dCount - 1));
+    descCount.classList.toggle("hidden", !(dCount > 1));
+    if (dCount > 1) descCount.textContent = `${dIdx + 1}/${dCount}`;
   }
 
   // -------- Versionamento de Preços --------
@@ -2365,29 +2858,29 @@ Restrições:
   }
 
   // -------- FAQ --------
-  function renderFAQ(items){
-    history.faq = (items||[]).map(x=>({ approved:true, versions:[{q:x.q,a:x.a}], vIdx:0 }));
+  function renderFAQ(items) {
+    history.faq = (items || []).map(x => ({ approved: true, versions: [{ q: x.q, a: x.a }], vIdx: 0 }));
     renderFAQFromState();
   }
-  function renderFAQFromState(){
+  function renderFAQFromState() {
     faqList.innerHTML = "";
-    history.faq.forEach((line, idx)=>{
+    history.faq.forEach((line, idx) => {
       const cur = line.versions[line.vIdx];
       const el = document.createElement("div");
       el.className = "relative rounded-md p-3 text-sm bg-white border " + (line.approved ? "border-gray-200" : "border-red-400");
       el.innerHTML = `
         <div class="label-row mb-1">
           <div class="toolbar">
-            <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx>0?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
-            <span class="muted" data-role="count" ${line.versions.length>1?"":"style='display:none'"}>${line.vIdx+1}/${line.versions.length}</span>
-            <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx<line.versions.length-1)?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+            <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx > 0 ? "" : "style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+            <span class="muted" data-role="count" ${line.versions.length > 1 ? "" : "style='display:none'"}>${line.vIdx + 1}/${line.versions.length}</span>
+            <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx < line.versions.length - 1) ? "" : "style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
             <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
             <button class="btn" data-action="prompt" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
             <button class="btn" data-action="approve" title="${line.approved ? 'Desabilitar FAQ' : 'Habilitar FAQ'}">
               ${line.approved
-                ? '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path d="M8 12l3 3 5-6" stroke-width="1.5"/></svg>'
-                : '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke-width="1.5"/></svg>'
-              }
+          ? '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path d="M8 12l3 3 5-6" stroke-width="1.5"/></svg>'
+          : '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke-width="1.5"/></svg>'
+        }
             </button>
           </div>
           <div class="floating-right">
@@ -2400,27 +2893,27 @@ Restrições:
       const qEl = el.querySelector(".q"), aEl = el.querySelector(".a");
       qEl.textContent = cur.q; aEl.textContent = cur.a;
 
-      function setProcessing(on){
-        if(on){ qEl.parentElement.classList.add("pulse"); aEl.parentElement.classList.add("pulse"); }
-        else{ qEl.parentElement.classList.remove("pulse"); aEl.parentElement.classList.remove("pulse"); }
+      function setProcessing(on) {
+        if (on) { qEl.parentElement.classList.add("pulse"); aEl.parentElement.classList.add("pulse"); }
+        else { qEl.parentElement.classList.remove("pulse"); aEl.parentElement.classList.remove("pulse"); }
       }
 
       const prevBtn = el.querySelector('[data-action="prev"]');
-      if(prevBtn) prevBtn.addEventListener("click", ()=>{ if(line.vIdx>0){ line.vIdx--; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
+      if (prevBtn) prevBtn.addEventListener("click", () => { if (line.vIdx > 0) { line.vIdx--; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
       const nextBtn = el.querySelector('[data-action="next"]');
-      if(nextBtn) nextBtn.addEventListener("click", ()=>{ if(line.vIdx<line.versions.length-1){ line.vIdx++; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
+      if (nextBtn) nextBtn.addEventListener("click", () => { if (line.vIdx < line.versions.length - 1) { line.vIdx++; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
 
-      el.querySelector('[data-action="copy"]').addEventListener("click", (e)=> {
+      el.querySelector('[data-action="copy"]').addEventListener("click", (e) => {
         navigator.clipboard.writeText(`P: ${cur.q}\nR: ${cur.a}`);
         showCopyFeedback(e.currentTarget);
       });
-      el.querySelector('[data-action="approve"]').addEventListener("click", ()=> {
+      el.querySelector('[data-action="approve"]').addEventListener("click", () => {
         line.approved = !line.approved;
         el.className = "relative rounded-md p-3 text-sm bg-white border " + (line.approved ? "border-gray-200" : "border-red-400");
         persistState(); rebuildPlaylist();
       });
-      el.querySelector('[data-action="regen"]').addEventListener("click", async ()=>{ setProcessing(true); await regenFAQ(idx); setProcessing(false); });
-      el.querySelector('[data-action="prompt"]').addEventListener("click", async ()=>{ const txt = await openPrompt("Instruções para regerar esta FAQ:"); if(txt!==null){ setProcessing(true); await regenFAQ(idx, txt); setProcessing(false); } });
+      el.querySelector('[data-action="regen"]').addEventListener("click", async () => { setProcessing(true); await regenFAQ(idx); setProcessing(false); });
+      el.querySelector('[data-action="prompt"]').addEventListener("click", async () => { const txt = await openPrompt("Instruções para regerar esta FAQ:"); if (txt !== null) { setProcessing(true); await regenFAQ(idx, txt); setProcessing(false); } });
 
       faqList.appendChild(el);
     });
@@ -2428,14 +2921,14 @@ Restrições:
   }
 
   // -------- Cards --------
-  function renderCards(items){
-    history.cardLines = (items||[]).map(x=>({ versions:[{title:x.title||"", text:x.text||""}], vIdx:0, copiedTitle: false, copiedText: false }));
+  function renderCards(items) {
+    history.cardLines = (items || []).map(x => ({ versions: [{ title: x.title || "", text: x.text || "" }], vIdx: 0, copiedTitle: false, copiedText: false }));
     buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
   }
-  function buildCurrentCards(){ history.cards = history.cardLines.map(l => l.versions[l.vIdx]); }
-  function renderCardsFromState(){
+  function buildCurrentCards() { history.cards = history.cardLines.map(l => l.versions[l.vIdx]); }
+  function renderCardsFromState() {
     cardsList.innerHTML = "";
-    history.cardLines.forEach((line, idx)=>{
+    history.cardLines.forEach((line, idx) => {
       const cur = line.versions[line.vIdx];
       const el = document.createElement("div");
 
@@ -2449,9 +2942,9 @@ Restrições:
       el.innerHTML = `
         <div class="label-row mb-1">
           <div class="toolbar">
-            <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx>0?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
-            <span class="muted" data-role="count" ${line.versions.length>1?"":"style='display:none'"}>${line.vIdx+1}/${line.versions.length}</span>
-            <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx<line.versions.length-1)?"":"style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
+            <button class="btn" data-action="prev" title="Versão anterior" ${line.vIdx > 0 ? "" : "style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-7 6 7 6" stroke-width="1.5"/></svg></button>
+            <span class="muted" data-role="count" ${line.versions.length > 1 ? "" : "style='display:none'"}>${line.vIdx + 1}/${line.versions.length}</span>
+            <button class="btn" data-action="next" title="Próxima versão" ${(line.vIdx < line.versions.length - 1) ? "" : "style='display:none'"}><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l7 6-7 6" stroke-width="1.5"/></svg></button>
             <button class="btn" data-action="regen" title="Regerar"><svg class="icon" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" stroke-width="1.5"/></svg></button>
             <button class="btn" data-action="prompt" title="Regerar com prompt"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4-9 9H7.5v-4z" stroke-width="1.5"/></svg></button>
           </div>
@@ -2461,32 +2954,32 @@ Restrições:
           <span><b>Título:</b> <span class="ctitle"></span></span>
           <button class="btn" data-action="copyTitle" title="Copiar título">
             ${line.copiedTitle
-              ? '<svg class="icon-fill" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>'
-              : '<svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>'
-            }
+          ? '<svg class="icon-fill" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>'
+          : '<svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>'
+        }
           </button>
         </div>
         <div class="text-gray-700 flex items-center justify-between mt-1">
           <span><b>Texto:</b> <span class="ctext"></span></span>
           <button class="btn" data-action="copyText" title="Copiar texto">
             ${line.copiedText
-              ? '<svg class="icon-fill" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>'
-              : '<svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>'
-            }
+          ? '<svg class="icon-fill" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>'
+          : '<svg class="icon" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="1.5" fill="none"/></svg>'
+        }
           </button>
         </div>
       `;
       const tEl = el.querySelector(".ctitle"), xEl = el.querySelector(".ctext");
       tEl.textContent = cur.title; xEl.textContent = cur.text;
 
-      function setProcessing(on){
-        if(on){ tEl.parentElement.classList.add("pulse"); xEl.parentElement.classList.add("pulse"); }
+      function setProcessing(on) {
+        if (on) { tEl.parentElement.classList.add("pulse"); xEl.parentElement.classList.add("pulse"); }
         else { tEl.parentElement.classList.remove("pulse"); xEl.parentElement.classList.remove("pulse"); }
       }
 
       const prevBtn = el.querySelector('[data-action="prev"]');
-      if(prevBtn) prevBtn.addEventListener("click", ()=>{
-        if(line.vIdx>0){
+      if (prevBtn) prevBtn.addEventListener("click", () => {
+        if (line.vIdx > 0) {
           line.vIdx--;
           line.copiedTitle = false;
           line.copiedText = false;
@@ -2494,26 +2987,26 @@ Restrições:
         }
       });
       const nextBtn = el.querySelector('[data-action="next"]');
-      if(nextBtn) nextBtn.addEventListener("click", ()=>{
-        if(line.vIdx<line.versions.length-1){
+      if (nextBtn) nextBtn.addEventListener("click", () => {
+        if (line.vIdx < line.versions.length - 1) {
           line.vIdx++;
           line.copiedTitle = false;
           line.copiedText = false;
           buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
         }
       });
-      el.querySelector('[data-action="regen"]').addEventListener("click", async ()=>{ setProcessing(true); await regenCard(idx); setProcessing(false); });
-      el.querySelector('[data-action="prompt"]').addEventListener("click", async ()=>{ const txt = await openPrompt("Instruções para regerar este card:"); if(txt!==null){ setProcessing(true); await regenCard(idx, txt); setProcessing(false); } });
+      el.querySelector('[data-action="regen"]').addEventListener("click", async () => { setProcessing(true); await regenCard(idx); setProcessing(false); });
+      el.querySelector('[data-action="prompt"]').addEventListener("click", async () => { const txt = await openPrompt("Instruções para regerar este card:"); if (txt !== null) { setProcessing(true); await regenCard(idx, txt); setProcessing(false); } });
 
-      el.querySelector('[data-action="copyTitle"]').addEventListener("click", (e)=> {
-        navigator.clipboard.writeText(cur.title||"");
+      el.querySelector('[data-action="copyTitle"]').addEventListener("click", (e) => {
+        navigator.clipboard.writeText(cur.title || "");
         line.copiedTitle = true;
         showCopyFeedback(e.currentTarget);
         renderCardsFromState();
         persistState();
       });
-      el.querySelector('[data-action="copyText"]').addEventListener("click", (e)=> {
-        navigator.clipboard.writeText(cur.text||"");
+      el.querySelector('[data-action="copyText"]').addEventListener("click", (e) => {
+        navigator.clipboard.writeText(cur.text || "");
         line.copiedText = true;
         showCopyFeedback(e.currentTarget);
         renderCardsFromState();
@@ -2528,25 +3021,25 @@ Restrições:
   let playlist = []; let curIdx = -1; let autoplay = true; let rate = 1;
   let isPaused = false;
   const ttsNow = $("#ttsNow"); const ttsAuto = $("#ttsAuto"); const ttsRateBtn = $("#ttsRate");
-  ttsRateBtn.textContent = rate+"x";
-  ttsRateFloat.textContent = rate+"x";
+  ttsRateBtn.textContent = rate + "x";
+  ttsRateFloat.textContent = rate + "x";
 
-  function rebuildPlaylist(){
+  function rebuildPlaylist() {
     // Salvar o item atual antes de reconstruir
     const currentItem = (curIdx >= 0 && curIdx < playlist.length) ? playlist[curIdx] : null;
 
     playlist = [];
-    if(outTitle.value.trim()) playlist.push({label:"Título", text: outTitle.value.trim(), element: outTitle, type: "field"});
-    if(outDesc.value.trim()) playlist.push({label:"Descrição", text: outDesc.value.trim(), element: outDesc, type: "field"});
+    if (outTitle.value.trim()) playlist.push({ label: "Título", text: outTitle.value.trim(), element: outTitle, type: "field" });
+    if (outDesc.value.trim()) playlist.push({ label: "Descrição", text: outDesc.value.trim(), element: outDesc, type: "field" });
 
     // Para FAQ, guardar o índice original no array history.faq (não o índice no array filtrado)
     history.faq.forEach((f, originalIdx) => {
-      if(f.approved){
+      if (f.approved) {
         const cur = f.versions[f.vIdx];
         const approvedIdx = history.faq.slice(0, originalIdx).filter(x => x.approved).length;
         playlist.push({
-          label:`FAQ ${approvedIdx+1}`,
-          text:`Pergunta: ${cur.q}. Resposta: ${cur.a}.`,
+          label: `FAQ ${approvedIdx + 1}`,
+          text: `Pergunta: ${cur.q}. Resposta: ${cur.a}.`,
           type: "faq",
           index: approvedIdx,
           originalIndex: originalIdx  // Índice real no array history.faq
@@ -2555,27 +3048,27 @@ Restrições:
     });
 
     // Para Cards, guardar o índice original também
-    (history.cards||[]).forEach((c,i)=> playlist.push({
-      label:`Card ${i+1}`,
-      text:`${c.title}. ${c.text}`,
+    (history.cards || []).forEach((c, i) => playlist.push({
+      label: `Card ${i + 1}`,
+      text: `${c.title}. ${c.text}`,
       type: "card",
       index: i,
       originalIndex: i
     }));
 
     // Tentar manter o mesmo item lógico após reconstruir usando originalIndex
-    if(currentItem){
+    if (currentItem) {
       const newIdx = playlist.findIndex(item => {
-        if(item.type !== currentItem.type) return false;
+        if (item.type !== currentItem.type) return false;
 
         // Para FAQ e Card, usar originalIndex para identificação precisa
-        if(item.type === "faq" || item.type === "card"){
+        if (item.type === "faq" || item.type === "card") {
           // Tentar por originalIndex primeiro
-          if(currentItem.originalIndex !== undefined && item.originalIndex === currentItem.originalIndex){
+          if (currentItem.originalIndex !== undefined && item.originalIndex === currentItem.originalIndex) {
             return true;
           }
           // Fallback para compatibilidade: comparar por texto se originalIndex não existe
-          if(currentItem.originalIndex === undefined){
+          if (currentItem.originalIndex === undefined) {
             return item.text === currentItem.text;
           }
           return false;
@@ -2585,7 +3078,7 @@ Restrições:
         return item.label === currentItem.label && item.text === currentItem.text;
       });
 
-      if(newIdx >= 0){
+      if (newIdx >= 0) {
         curIdx = newIdx; // Encontrou o mesmo item
       } else {
         // Item não existe mais, ajustar para o mais próximo
@@ -2593,15 +3086,15 @@ Restrições:
       }
     }
 
-    if(curIdx >= playlist.length) curIdx = playlist.length - 1;
-    if(curIdx === -1 && playlist.length) curIdx = 0;
+    if (curIdx >= playlist.length) curIdx = playlist.length - 1;
+    if (curIdx === -1 && playlist.length) curIdx = 0;
   }
   let currentHighlightElement = null;
   let originalContent = "";
 
-  function clearHighlight(){
-    if(currentHighlightElement){
-      if(currentHighlightElement.tagName === "TEXTAREA" || currentHighlightElement.tagName === "INPUT"){
+  function clearHighlight() {
+    if (currentHighlightElement) {
+      if (currentHighlightElement.tagName === "TEXTAREA" || currentHighlightElement.tagName === "INPUT") {
         // Remover seleção dos campos de texto
         currentHighlightElement.setSelectionRange(0, 0);
         currentHighlightElement.blur();
@@ -2613,8 +3106,8 @@ Restrições:
     }
   }
 
-  function speakCurrent(){
-    if(curIdx < 0 || curIdx >= playlist.length) return;
+  function speakCurrent() {
+    if (curIdx < 0 || curIdx >= playlist.length) return;
     clearHighlight();
 
     const part = playlist[curIdx];
@@ -2630,35 +3123,35 @@ Restrições:
     let currentWordIndex = 0;
 
     // Scroll para o elemento atual
-    if(part.element){
+    if (part.element) {
       part.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       currentHighlightElement = part.element;
-    } else if(part.type === "faq"){
+    } else if (part.type === "faq") {
       const faqElements = faqList.querySelectorAll('.relative');
       const faqIndex = part.originalIndex !== undefined ? part.originalIndex : part.index;
-      if(faqElements[faqIndex]){
+      if (faqElements[faqIndex]) {
         faqElements[faqIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    } else if(part.type === "card"){
+    } else if (part.type === "card") {
       const cardElements = cardsList.querySelectorAll('.relative');
       const cardIndex = part.originalIndex !== undefined ? part.originalIndex : part.index;
-      if(cardElements[cardIndex]){
+      if (cardElements[cardIndex]) {
         cardElements[cardIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
 
     utter.onboundary = (event) => {
-      if(event.name === 'word'){
+      if (event.name === 'word') {
         const wordStart = event.charIndex;
         const wordEnd = event.charIndex + event.charLength;
 
         // Aplicar highlight se for um campo de texto (usando seleção nativa)
-        if(part.element && (part.element.tagName === "TEXTAREA" || part.element.tagName === "INPUT")){
+        if (part.element && (part.element.tagName === "TEXTAREA" || part.element.tagName === "INPUT")) {
           part.element.focus();
           part.element.setSelectionRange(wordStart, wordEnd);
 
           // Auto-scroll do campo para mostrar a seleção
-          if(part.element.tagName === "TEXTAREA"){
+          if (part.element.tagName === "TEXTAREA") {
             // Usar técnica de medição real da posição do cursor
             const textareaStyle = getComputedStyle(part.element);
             const lineHeight = parseFloat(textareaStyle.lineHeight) || 20;
@@ -2693,18 +3186,18 @@ Restrições:
             // Aplicar scroll
             part.element.scrollTop = Math.max(0, idealScrollTop);
           }
-        } else if(part.type === "faq" || part.type === "card"){
+        } else if (part.type === "faq" || part.type === "card") {
           // Para FAQ e Cards, destacar a palavra no elemento de texto
           const containerList = part.type === "faq" ? faqList : cardsList;
           const items = containerList.querySelectorAll('.relative');
           // Usar originalIndex para encontrar o elemento correto (items contém todos, não só aprovados)
           const itemIndex = part.originalIndex !== undefined ? part.originalIndex : part.index;
-          if(items[itemIndex]){
+          if (items[itemIndex]) {
             let targetSpan = null;
             let localStart = wordStart;
             let localEnd = wordEnd;
 
-            if(part.type === "faq"){
+            if (part.type === "faq") {
               const qSpan = items[itemIndex].querySelector('.q');
               const aSpan = items[itemIndex].querySelector('.a');
               const qPrefix = "Pergunta: ";
@@ -2715,18 +3208,18 @@ Restrições:
               const qEnd = qPrefix.length + qText.length;
               const aStart = qEnd + aSeparator.length;
 
-              if(wordStart < qEnd){
+              if (wordStart < qEnd) {
                 // Palavra está na pergunta
                 targetSpan = qSpan;
                 localStart = wordStart - qPrefix.length;
                 localEnd = wordEnd - qPrefix.length;
-              } else if(wordStart >= aStart){
+              } else if (wordStart >= aStart) {
                 // Palavra está na resposta
                 targetSpan = aSpan;
                 localStart = wordStart - aStart;
                 localEnd = wordEnd - aStart;
               }
-            } else if(part.type === "card"){
+            } else if (part.type === "card") {
               const titleSpan = items[itemIndex].querySelector('.ctitle');
               const textSpan = items[itemIndex].querySelector('.ctext');
               const titleText = titleSpan ? titleSpan.textContent : "";
@@ -2734,12 +3227,12 @@ Restrições:
               const titleEnd = titleText.length;
               const textStart = titleEnd + separator.length;
 
-              if(wordStart < titleEnd){
+              if (wordStart < titleEnd) {
                 // Palavra está no título
                 targetSpan = titleSpan;
                 localStart = wordStart;
                 localEnd = wordEnd;
-              } else if(wordStart >= textStart){
+              } else if (wordStart >= textStart) {
                 // Palavra está no texto
                 targetSpan = textSpan;
                 localStart = wordStart - textStart;
@@ -2747,12 +3240,12 @@ Restrições:
               }
             }
 
-            if(targetSpan && localStart >= 0){
+            if (targetSpan && localStart >= 0) {
               const text = targetSpan.textContent;
-              if(localStart < text.length){
+              if (localStart < text.length) {
                 // Salvar conteúdo original apenas uma vez
-                if(currentHighlightElement !== targetSpan){
-                  if(currentHighlightElement){
+                if (currentHighlightElement !== targetSpan) {
+                  if (currentHighlightElement) {
                     currentHighlightElement.innerHTML = originalContent;
                   }
                   originalContent = targetSpan.innerHTML;
@@ -2772,9 +3265,9 @@ Restrições:
       }
     };
 
-    utter.onend = ()=> {
+    utter.onend = () => {
       clearHighlight();
-      if(autoplay && curIdx < playlist.length-1){
+      if (autoplay && curIdx < playlist.length - 1) {
         curIdx++;
         speakCurrent();
       } else {
@@ -2789,27 +3282,27 @@ Restrições:
     ttsPauseFloat.classList.remove("tts-active");
     window.speechSynthesis.speak(utter);
   }
-  $("#ttsPlay").addEventListener("click", ()=> {
-    if(curIdx<0 && playlist.length){curIdx=0;}
+  $("#ttsPlay").addEventListener("click", () => {
+    if (curIdx < 0 && playlist.length) { curIdx = 0; }
     autoplay = true;
-    ttsAuto.textContent="Autoplay ON";
+    ttsAuto.textContent = "Autoplay ON";
     $("#ttsPlay").classList.add("tts-active");
     ttsPlayFloat.classList.add("tts-active");
     $("#ttsPause").classList.remove("tts-active");
     ttsPauseFloat.classList.remove("tts-active");
 
-    if(isPaused) {
+    if (isPaused) {
       window.speechSynthesis.resume();
       isPaused = false;
     } else {
       speakCurrent();
     }
   });
-  $("#ttsPrev").addEventListener("click", ()=> { if(curIdx>0){ curIdx--; isPaused=false; speakCurrent(); } });
-  $("#ttsNext").addEventListener("click", ()=> { if(curIdx<playlist.length-1){ curIdx++; isPaused=false; speakCurrent(); } });
-  $("#ttsPause").addEventListener("click", ()=> {
-    autoplay=false;
-    ttsAuto.textContent="Autoplay OFF";
+  $("#ttsPrev").addEventListener("click", () => { if (curIdx > 0) { curIdx--; isPaused = false; speakCurrent(); } });
+  $("#ttsNext").addEventListener("click", () => { if (curIdx < playlist.length - 1) { curIdx++; isPaused = false; speakCurrent(); } });
+  $("#ttsPause").addEventListener("click", () => {
+    autoplay = false;
+    ttsAuto.textContent = "Autoplay OFF";
     $("#ttsPause").classList.add("tts-active");
     ttsPauseFloat.classList.add("tts-active");
     $("#ttsPlay").classList.remove("tts-active");
@@ -2817,9 +3310,9 @@ Restrições:
     isPaused = true;
     window.speechSynthesis.pause();
   });
-  $("#ttsStop").addEventListener("click", ()=> {
-    autoplay=false;
-    ttsAuto.textContent="Autoplay OFF";
+  $("#ttsStop").addEventListener("click", () => {
+    autoplay = false;
+    ttsAuto.textContent = "Autoplay OFF";
     $("#ttsPlay").classList.remove("tts-active");
     ttsPlayFloat.classList.remove("tts-active");
     $("#ttsPause").classList.remove("tts-active");
@@ -2827,59 +3320,59 @@ Restrições:
     isPaused = false;
     window.speechSynthesis.cancel();
     clearHighlight();
-    ttsNow.textContent="";
+    ttsNow.textContent = "";
     // Voltar ao início (título)
     curIdx = 0;
   });
-  ttsRateBtn.addEventListener("click", ()=> {
+  ttsRateBtn.addEventListener("click", () => {
     let next = 1;
-    if(rate===1) next=1.5; else if(rate===1.5) next=2; else next=1;
+    if (rate === 1) next = 1.5; else if (rate === 1.5) next = 2; else next = 1;
     rate = next;
-    ttsRateBtn.textContent = rate+"x";
-    ttsRateFloat.textContent = rate+"x";
-    if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); speakCurrent(); }
+    ttsRateBtn.textContent = rate + "x";
+    ttsRateFloat.textContent = rate + "x";
+    if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); speakCurrent(); }
   });
 
   // -------- Regenerações (backend) --------
-  async function regenTitle(withPrompt=false){
+  async function regenTitle(withPrompt = false) {
     outTitle.classList.add("pulse");
     const saved = appConfig || {}
     let promptText = "";
-    if(withPrompt){ const txt = await openPrompt("Instruções para regerar o título:"); if(txt===null){ outTitle.classList.remove("pulse"); return; } promptText = txt; }
+    if (withPrompt) { const txt = await openPrompt("Instruções para regerar o título:"); if (txt === null) { outTitle.classList.remove("pulse"); return; } promptText = txt; }
     const body = {
       product_name: productName.value.trim(),
       marketplace: marketplace.value,
       field: "title",
       prompt: promptText,
       context: { previous: outTitle.value },
-      options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
     try {
-      const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+      const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await r.json();
-      if(data.title && data.title !== outTitle.value){ pushHistory("title", data.title); }
+      if (data.title && data.title !== outTitle.value) { pushHistory("title", data.title); }
     } finally { outTitle.classList.remove("pulse"); }
   }
-  async function regenDesc(withPrompt=false){
+  async function regenDesc(withPrompt = false) {
     outDesc.classList.add("pulse");
     const saved = appConfig || {}
     let promptText = "";
-    if(withPrompt){ const txt = await openPrompt("Instruções para regerar a descrição:"); if(txt===null){ outDesc.classList.remove("pulse"); return; } promptText = txt; }
+    if (withPrompt) { const txt = await openPrompt("Instruções para regerar a descrição:"); if (txt === null) { outDesc.classList.remove("pulse"); return; } promptText = txt; }
     const body = {
       product_name: productName.value.trim(),
       marketplace: marketplace.value,
       field: "description",
       prompt: promptText,
       context: { previous: outDesc.value },
-      options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
     try {
-      const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+      const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await r.json();
-      if(data.description && data.description !== outDesc.value){ pushHistory("description", data.description); }
+      if (data.description && data.description !== outDesc.value) { pushHistory("description", data.description); }
     } finally { outDesc.classList.remove("pulse"); }
   }
-  async function regenFAQ(index, promptText=""){
+  async function regenFAQ(index, promptText = "") {
     const saved = appConfig || {}
     const body = {
       product_name: productName.value.trim(),
@@ -2888,22 +3381,22 @@ Restrições:
       index,
       prompt: promptText,
       context: { previous: history.faq[index].versions[history.faq[index].vIdx] },
-      options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
-    const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+    const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json();
     const item = (data.faq && data.faq[0]) ? data.faq[0] : null;
-    if(item){
+    if (item) {
       const line = history.faq[index];
       const curt = line.versions[line.vIdx];
       // SEMPRE adicionar nova versão ao histórico (mesmo se for igual, para transparência)
-      line.versions = line.versions.slice(0, line.vIdx+1);
-      line.versions.push({q:item.q||curt.q, a:item.a||curt.a});
-      line.vIdx = line.versions.length-1;
+      line.versions = line.versions.slice(0, line.vIdx + 1);
+      line.versions.push({ q: item.q || curt.q, a: item.a || curt.a });
+      line.vIdx = line.versions.length - 1;
       renderFAQFromState();
     }
   }
-  async function regenCard(index, promptText=""){
+  async function regenCard(index, promptText = "") {
     const saved = appConfig || {}
     const body = {
       product_name: productName.value.trim(),
@@ -2912,18 +3405,18 @@ Restrições:
       index,
       prompt: promptText,
       context: { previous: history.cardLines[index].versions[history.cardLines[index].vIdx] },
-      options: { llm: llm.value, openai_api_key:(saved.openai||"").trim(), openai_base_url:(saved.openai_base||"").trim(), gemini_api_key:(saved.gemini||"").trim(), gemini_base_url:(saved.gemini_base||"").trim() }
+      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
-    const r = await fetch("/api/regen",{method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)});
+    const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json();
     const item = (data.cards && data.cards[0]) ? data.cards[0] : null;
-    if(item){
+    if (item) {
       const line = history.cardLines[index];
       const cur = line.versions[line.vIdx];
       // SEMPRE adicionar nova versão ao histórico (mesmo se for igual, para transparência)
-      line.versions = line.versions.slice(0, line.vIdx+1);
-      line.versions.push({title:item.title||cur.title, text:item.text||cur.text});
-      line.vIdx = line.versions.length-1;
+      line.versions = line.versions.slice(0, line.vIdx + 1);
+      line.versions.push({ title: item.title || cur.title, text: item.text || cur.text });
+      line.vIdx = line.versions.length - 1;
       // Reset copy state when regenerating
       line.copiedTitle = false;
       line.copiedText = false;
@@ -2932,32 +3425,32 @@ Restrições:
   }
 
   // Copiar
-  $("#copyAll").addEventListener("click", (e)=> {
-    const approvedFAQ = history.faq.filter(f=>f.approved).map(f => {
+  $("#copyAll").addEventListener("click", (e) => {
+    const approvedFAQ = history.faq.filter(f => f.approved).map(f => {
       const cur = f.versions[f.vIdx]; return `P: ${cur.q}\nR: ${cur.a}`;
     }).join("\n\n");
-    const cardsTxt = (history.cards||[]).map(c => `• ${c.title}: ${c.text}`).join("\n");
+    const cardsTxt = (history.cards || []).map(c => `• ${c.title}: ${c.text}`).join("\n");
     const text = ["Título:", outTitle.value, "", "Descrição:", outDesc.value, "", "Cards:", cardsTxt, "", "Perguntas frequentes:", approvedFAQ].join("\n");
     navigator.clipboard.writeText(text);
     showCopyFeedback(e.currentTarget);
   });
-  $("#copyTitle").addEventListener("click", (e)=> {
+  $("#copyTitle").addEventListener("click", (e) => {
     navigator.clipboard.writeText(outTitle.value);
     showCopyFeedback(e.currentTarget);
   });
-  $("#copyDesc").addEventListener("click", (e)=> {
-    const approved = history.faq.filter(f=>f.approved).map(f=> f.versions[f.vIdx] );
+  $("#copyDesc").addEventListener("click", (e) => {
+    const approved = history.faq.filter(f => f.approved).map(f => f.versions[f.vIdx]);
     const lines = [outDesc.value];
-    if(approved.length){ lines.push("", "Perguntas frequentes"); approved.forEach(x=>{ lines.push(`P: ${x.q}`); lines.push(`R: ${x.a}`); lines.push(""); }); }
+    if (approved.length) { lines.push("", "Perguntas frequentes"); approved.forEach(x => { lines.push(`P: ${x.q}`); lines.push(`R: ${x.a}`); lines.push(""); }); }
     navigator.clipboard.writeText(lines.join("\n"));
     showCopyFeedback(e.currentTarget);
   });
-  $("#copyDescNoFAQ").addEventListener("click", (e)=> {
+  $("#copyDescNoFAQ").addEventListener("click", (e) => {
     navigator.clipboard.writeText(outDesc.value || "");
     showCopyFeedback(e.currentTarget);
   });
-  $("#copyFAQApproved").addEventListener("click", (e)=> {
-    const faqApproved = history.faq.filter(f=>f.approved).map(f => {
+  $("#copyFAQApproved").addEventListener("click", (e) => {
+    const faqApproved = history.faq.filter(f => f.approved).map(f => {
       const cur = f.versions[f.vIdx]; return `P: ${cur.q}\nR: ${cur.a}`;
     }).join("\n\n");
     navigator.clipboard.writeText(faqApproved);
@@ -2965,11 +3458,11 @@ Restrições:
   });
 
   // Geração principal
-  async function generate(){
+  async function generate() {
     // Resetar todo o histórico e interface quando gerar novo conteúdo
     resetHistory();
 
-    statusArea.classList.remove("hidden"); loader.style.display="inline-block"; statusText.textContent="Gerando…";
+    statusArea.classList.remove("hidden"); loader.style.display = "inline-block"; statusText.textContent = "Gerando…";
     demoWarn.classList.add("hidden");
     const saved = appConfig || {}
 
@@ -2991,10 +3484,10 @@ Restrições:
     // Preparar arquivos habilitados
     const enabledFiles = uploadedFiles.filter(f => f.enabled);
 
-    try{
+    try {
       let r, data;
 
-      if(enabledFiles.length > 0){
+      if (enabledFiles.length > 0) {
         // Enviar com FormData se houver arquivos
         const formData = new FormData();
         formData.append('json_data', JSON.stringify(req));
@@ -3003,10 +3496,10 @@ Restrições:
           formData.append('files', item.file);
         });
 
-        r = await fetch("/api/generate", {method:"POST", body: formData});
+        r = await fetch("/api/generate", { method: "POST", body: formData });
       } else {
         // Enviar como JSON se não houver arquivos
-        r = await fetch("/api/generate", {method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(req)});
+        r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
       }
 
       data = await r.json();
@@ -3015,22 +3508,22 @@ Restrições:
       renderFAQ(data.faq || []); renderCards(data.cards || []);
 
       // Mostrar avisos sobre arquivos se houver
-      if(data?.file_warnings && data.file_warnings.length > 0){
+      if (data?.file_warnings && data.file_warnings.length > 0) {
         demoWarn.classList.remove("hidden");
         demoText.innerHTML = `<strong>Avisos sobre arquivos:</strong><br>${data.file_warnings.join('<br>')}`;
-      } else if(data?.sources_used?.mock){
+      } else if (data?.sources_used?.mock) {
         demoWarn.classList.remove("hidden");
         demoText.textContent = data?.sources_used?.message || "Modo demonstração: cadastre uma chave.";
       }
 
       // Mostrar quantos arquivos foram processados
-      if(data?.files_processed){
+      if (data?.files_processed) {
         console.log(`✅ ${data.files_processed} arquivo(s) processado(s) com sucesso`);
       }
-    } catch(err){
+    } catch (err) {
       alert("Erro ao gerar: " + (err?.message || String(err)));
-    } finally{
-      loader.style.display="none"; setTimeout(()=> statusArea.classList.add("hidden"), 800);
+    } finally {
+      loader.style.display = "none"; setTimeout(() => statusArea.classList.add("hidden"), 800);
     }
   }
 
@@ -3044,24 +3537,24 @@ Restrições:
 
   // Listeners principais
   $("#btnGenerate").addEventListener("click", generate);
-  $("#regenTitle").addEventListener("click", ()=> regenTitle(false));
-  $("#regenTitlePrompt").addEventListener("click", ()=> regenTitle(true));
-  $("#regenDesc").addEventListener("click", ()=> regenDesc(false));
-  $("#regenDescPrompt").addEventListener("click", ()=> regenDesc(true));
-  titlePrev.addEventListener("click", ()=> navHistory("title",-1));
-  titleNext.addEventListener("click", ()=> navHistory("title",+1));
-  descPrev.addEventListener("click", ()=> navHistory("description",-1));
-  descNext.addEventListener("click", ()=> navHistory("description",+1));
+  $("#regenTitle").addEventListener("click", () => regenTitle(false));
+  $("#regenTitlePrompt").addEventListener("click", () => regenTitle(true));
+  $("#regenDesc").addEventListener("click", () => regenDesc(false));
+  $("#regenDescPrompt").addEventListener("click", () => regenDesc(true));
+  titlePrev.addEventListener("click", () => navHistory("title", -1));
+  titleNext.addEventListener("click", () => navHistory("title", +1));
+  descPrev.addEventListener("click", () => navHistory("description", -1));
+  descNext.addEventListener("click", () => navHistory("description", +1));
 
   // Event listeners para navegação de versões de preço
-  $("#aggressiveMinPrev").addEventListener("click", ()=> navPriceHistory("aggressivePriceMin", -1));
-  $("#aggressiveMinNext").addEventListener("click", ()=> navPriceHistory("aggressivePriceMin", +1));
-  $("#promoMinPrev").addEventListener("click", ()=> navPriceHistory("promoPriceMin", -1));
-  $("#promoMinNext").addEventListener("click", ()=> navPriceHistory("promoPriceMin", +1));
-  $("#aggressiveMaxPrev").addEventListener("click", ()=> navPriceHistory("aggressivePriceMax", -1));
-  $("#aggressiveMaxNext").addEventListener("click", ()=> navPriceHistory("aggressivePriceMax", +1));
-  $("#promoMaxPrev").addEventListener("click", ()=> navPriceHistory("promoPriceMax", -1));
-  $("#promoMaxNext").addEventListener("click", ()=> navPriceHistory("promoPriceMax", +1));
+  $("#aggressiveMinPrev").addEventListener("click", () => navPriceHistory("aggressivePriceMin", -1));
+  $("#aggressiveMinNext").addEventListener("click", () => navPriceHistory("aggressivePriceMin", +1));
+  $("#promoMinPrev").addEventListener("click", () => navPriceHistory("promoPriceMin", -1));
+  $("#promoMinNext").addEventListener("click", () => navPriceHistory("promoPriceMin", +1));
+  $("#aggressiveMaxPrev").addEventListener("click", () => navPriceHistory("aggressivePriceMax", -1));
+  $("#aggressiveMaxNext").addEventListener("click", () => navPriceHistory("aggressivePriceMax", +1));
+  $("#promoMaxPrev").addEventListener("click", () => navPriceHistory("promoPriceMax", -1));
+  $("#promoMaxNext").addEventListener("click", () => navPriceHistory("promoPriceMax", +1));
 
   // Event listeners para mudanças manuais em preços (salvar versão quando usuário edita)
   function setupPriceChangeListener(priceFieldId, historyKey) {
@@ -3104,7 +3597,7 @@ Restrições:
       try {
         const resp = await fetch('/pricing/calculate-metrics', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             price: price,
             cost_price: costPrice,
@@ -3138,7 +3631,7 @@ Restrições:
     }
 
     // Listener para quando usuário pressiona Enter
-    priceField.addEventListener('keypress', function(e) {
+    priceField.addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault(); // Prevenir submit de formulário
         handlePriceChange();
@@ -3158,4 +3651,5 @@ Restrições:
   renderWholesaleTable();
   loadConfigFromServer();
 </script>
+
 </html>

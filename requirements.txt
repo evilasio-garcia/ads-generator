@@ -9,3 +9,4 @@ requests
 psycopg[binary]
 python-dotenv
 starlette
+beautifulsoup4
