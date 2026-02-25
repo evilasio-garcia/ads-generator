@@ -141,8 +141,8 @@ async def get_product_by_sku(
     total_attempts = max_retries + 1  # 1 + 1 = 2 tentativas totais
     
     # Retry com backoff exponencial
-    async with httpx.AsyncClient() as client:
-        for attempt in range(total_attempts):
+    for attempt in range(total_attempts):
+        async with httpx.AsyncClient() as client:
             try:
                 if attempt > 0:
                     delay = 2 ** attempt  # 2s, 4s, 8s...
@@ -245,9 +245,17 @@ async def get_product_by_sku(
                     raise TinyTimeoutError(f"Timeout após {total_attempts} tentativas")
                 continue
                 
-            except (TinyAuthError, TinyNotFoundError) as e:
-                # Erros que não devem ter retry
+            except TinyNotFoundError as e:
+                # Erros que não devem ter retry (não importa tentar, esse SKU não existe)
                 raise e
+                
+            except TinyAuthError as e:
+                # O token falhou nesse exato momento, vamos reiniciar a conexão via loop
+                last_error = e
+                logger.warning(f"Erro de autenticação (401) na tentativa {attempt + 1}, tentando novamente: {str(e)}")
+                if attempt == total_attempts - 1:
+                    raise e
+                continue
                 
             except Exception as e:
                 last_error = e
@@ -256,8 +264,8 @@ async def get_product_by_sku(
                     raise TinyServiceError(f"Falha após {total_attempts} tentativas: {str(e)}")
                 continue
         
-        # Se chegou aqui, esgotou as tentativas
-        raise TinyServiceError(f"Falha após {total_attempts} tentativas: {str(last_error)}")
+    # Se chegou aqui, esgotou as tentativas
+    raise TinyServiceError(f"Falha após {total_attempts} tentativas: {str(last_error)}")
 
 
 def map_tiny_to_product_data(raw_product: Dict[str, Any]) -> Dict[str, Any]:
