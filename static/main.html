@@ -935,43 +935,6 @@
       tinyWidth.value = tinyProductData.width_cm || "";
       tinyLength.value = tinyProductData.length_cm || "";
       tinyWeight.value = tinyProductData.weight_kg || "";
-      tinyCostPrice.value = tinyProductData.cost_price || "";
-
-      // Desabilitar campos de cadastro
-      [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight, tinyCostPrice].forEach(el => {
-        el.disabled = true;
-        el.classList.add('bg-gray-50');
-      });
-
-      // Limpar tabela de atacado (Tiny não retorna preços de atacado)
-      wholesaleRows = [];
-      renderWholesaleTable();
-      addWholesaleRow.disabled = true;
-
-      // Esconder botão de cálculo manual (modo Tiny calcula automaticamente)
-      manualPricingButton.style.display = 'none';
-
-      // Chamar auto-pricing após preencher dados do Tiny
-      autoPricing();
-
-    } else if (hasTinyData && !isTinyMode) {
-      // Modo HÍBRIDO: Tiny retornou dados mas SEM preço de custo
-      // Preencher campos de cadastro mas deixar editáveis
-      productName.value = tinyProductData.title || "";
-      tinyGTIN.value = tinyProductData.gtin || "";
-      tinySKUDisplay.value = tinyProductData.sku || "";
-      tinyHeight.value = tinyProductData.height_cm || "";
-      tinyWidth.value = tinyProductData.width_cm || "";
-      tinyLength.value = tinyProductData.length_cm || "";
-      tinyWeight.value = tinyProductData.weight_kg || "";
-      tinyCostPrice.value = ""; // Deixar vazio para usuário preencher
-
-      // Campos do Tiny ficam read-only mas visualmente diferentes
-      [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight].forEach(el => {
-        el.disabled = true;
-        el.classList.add('bg-gray-50');
-      });
-
       // Custo e frete ficam editáveis
       [tinyCostPrice, tinyShippingCost].forEach(el => {
         el.disabled = false;
@@ -1510,9 +1473,7 @@
 
   // Listeners para validação do botão (modo manual)
   tinyCostPrice.addEventListener('input', () => {
-    if (integrationMode === "manual") {
-      validateCalculateButton();
-    }
+    validateCalculateButton();
   });
 
   // Listeners para auto-pricing (APENAS modo Tiny)

@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 TINY_API_BASE = "https://api.tiny.com.br/api2"
 TINY_SEARCH_URL = f"{TINY_API_BASE}/produtos.pesquisa.php"
 TINY_GET_URL = f"{TINY_API_BASE}/produto.obter.php"
+TINY_API_NFS_PESQUISA = f"{TINY_API_BASE}/notas.fiscais.pesquisa.php"
+TINY_API_NFS_OBTER = f"{TINY_API_BASE}/nota.fiscal.obter.php"
+
+from datetime import datetime, timedelta
+
 
 
 class TinyServiceError(Exception):
@@ -46,6 +51,143 @@ class TinyTimeoutError(TinyServiceError):
 def _log_safe_request(url: str, has_token: bool, **kwargs):
     """Log de requisição sem expor o token"""
     logger.info(f"Tiny API Request: {url}, authenticated: {has_token}, params: {list(kwargs.keys())}")
+
+
+async def _search_in_date_window(client: httpx.AsyncClient, token: str, sku: str, data_inicial: str, data_final: str, timeout: float = 15.0) -> float:
+    """Busca notas fiscais APENAS dentro de uma janela de datas específica (Assíncrono)."""
+    page_number = 1
+    candidatos = []
+    eh_o_fim = False
+
+    while not eh_o_fim:
+        payload = {
+            "token": token,
+            "formato": "JSON",
+            "tipoNota": "E",  # Entrada
+            "dataInicial": data_inicial,
+            "dataFinal": data_final,
+            "pagina": page_number
+        }
+        
+        try:
+            response = await client.post(TINY_API_NFS_PESQUISA, data=payload, timeout=timeout)
+            if response.status_code != 200:
+                break
+                
+            data = response.json()
+            retorno = data.get("retorno", {})
+            
+            if retorno.get("status") != "OK":
+                break
+                
+            total_pages = int(retorno.get('numero_paginas', 1))
+            notas = retorno.get("notas_fiscais", [])
+            
+            if not notas:
+                break
+                
+            for item in notas:
+                nota_resumo = item.get("nota_fiscal", {})
+                
+                if nota_resumo.get("cliente", {}).get("tipo_pessoa") == 'F':
+                    continue
+                    
+                id_nota = nota_resumo.get("id")
+                
+                # Busca detalhe da nota
+                detalhe_payload = {
+                    "token": token,
+                    "formato": "JSON",
+                    "id": id_nota
+                }
+                
+                detalhe_resp = await client.post(TINY_API_NFS_OBTER, data=detalhe_payload, timeout=timeout)
+                if detalhe_resp.status_code == 200:
+                    detalhe_data = detalhe_resp.json()
+                    full_nota = detalhe_data.get("retorno", {}).get("nota_fiscal", {})
+                    itens = full_nota.get("itens", [])
+                    
+                    for line in itens:
+                        prod = line.get("item", {})
+                        if prod.get("codigo") == sku:
+                            candidatos.append({
+                                "nota_numero": nota_resumo.get("numero"),
+                                "data_emissao": full_nota.get("data_emissao"),
+                                "valor_produtos": full_nota.get("valor_produtos"),
+                                "valor_faturado": full_nota.get("valor_faturado"),
+                                "custo_unitario": prod.get("valor_unitario")
+                            })
+                            break
+                            
+            page_number += 1
+            eh_o_fim = (page_number > total_pages)
+            
+        except Exception as e:
+            logger.error(f"Erro em _search_in_date_window: {e}")
+            break
+
+    if candidatos:
+        try:
+            candidatos.sort(
+                key=lambda x: datetime.strptime(x['data_emissao'], "%d/%m/%Y"),
+                reverse=True
+            )
+            vencedor = candidatos[0]
+            
+            val_prod_nf = float(str(vencedor['valor_produtos']).replace(',', '.'))
+            val_fat_nf = float(str(vencedor['valor_faturado']).replace(',', '.'))
+            
+            taxa_custos_adicionais = 0.0
+            if val_prod_nf > 0:
+                taxa_custos_adicionais = (val_fat_nf / val_prod_nf) - 1
+                
+            custo_unitario = float(str(vencedor['custo_unitario']).replace(',', '.'))
+            custo_final = custo_unitario * (1 + taxa_custos_adicionais)
+            
+            logger.info(f"[{sku}] Deep Search: Custo encontrado na NF {vencedor['nota_numero']}: R$ {custo_final:.4f}")
+            return round(custo_final, 4)
+        except Exception as e:
+            logger.error(f"[{sku}] Erro processando candidato vencedor: {e}")
+            return 0.0
+            
+    return 0.0
+
+
+async def _find_most_recent_purchase_cost(client: httpx.AsyncClient, token: str, sku: str, timeout: float = 15.0) -> float:
+    """Busca em Deep Search por notas fiscais de entrada assíncrono."""
+    initial_lookback = 90
+    deep_search_step = 30
+    max_lookback_days = 730
+
+    current_end_date = datetime.now()
+    current_start_date = current_end_date - timedelta(days=initial_lookback)
+
+    total_days_checked = initial_lookback
+    attempt = 1
+    str_inicio = current_start_date.strftime("%d/%m/%Y")
+    str_fim = current_end_date.strftime("%d/%m/%Y")
+
+    logger.info(f"[{sku}] Iniciando busca de custo (Janela {str_inicio} a {str_fim})")
+
+    while total_days_checked <= max_lookback_days:
+        custo = await _search_in_date_window(client, token, sku, str_inicio, str_fim, timeout)
+        
+        if custo > 0:
+            return custo
+            
+        current_end_date = current_start_date - timedelta(days=1)
+        current_start_date = current_end_date - timedelta(days=deep_search_step)
+        
+        total_days_checked += deep_search_step
+        attempt += 1
+        str_inicio = current_start_date.strftime("%d/%m/%Y")
+        str_fim = current_end_date.strftime("%d/%m/%Y")
+        
+        if attempt > 1:
+            logger.info(f"[{sku}] Recuando (Tentativa {attempt}: Janela {str_inicio} a {str_fim})")
+
+    return 0.0
+
 
 
 async def validate_token(token: str) -> Tuple[bool, Optional[str]]:
@@ -232,7 +374,58 @@ async def get_product_by_sku(
                 
                 produto_completo = get_data['retorno']['produto']
                 
-                # 3. Mapear dados
+                # 3. Adicionar Lógica Deep Search e Kit para 'preco_custo'
+                # --- CENÁRIO A: É UM KIT ---
+                final_cost = 0.0
+                kit_items = produto_completo.get("kit", [])
+                
+                if kit_items:
+                    logger.info(f"[{sku}] Identificado como KIT. Calculando componentes...")
+                    custo_total_kit = 0.0
+                    for component in kit_items:
+                        item_data = component.get("item", {})
+                        comp_id = item_data.get("id_produto")
+                        
+                        qty_str = item_data.get("quantidade", 0)
+                        try:
+                            comp_qty = float(str(qty_str).replace(',', '.'))
+                        except (ValueError, TypeError):
+                            comp_qty = 0.0
+                            
+                        # Buscar componente na API
+                        comp_payload = {
+                            "token": token,
+                            "formato": "JSON",
+                            "id": comp_id
+                        }
+                        comp_resp = await client.post(TINY_GET_URL, data=comp_payload, timeout=timeout)
+                        if comp_resp.status_code == 200:
+                            comp_data = comp_resp.json()
+                            comp_full = comp_data.get("retorno", {}).get("produto", {})
+                            comp_sku = comp_full.get("codigo", "")
+                            
+                            if comp_sku:
+                                custo_unit = await _find_most_recent_purchase_cost(client, token, comp_sku, timeout)
+                                if custo_unit == 0.0:
+                                    try:
+                                        custo_unit = float(str(comp_full.get("preco_custo")).replace(',', '.'))
+                                    except (ValueError, TypeError):
+                                        custo_unit = 0.0
+                                custo_total_kit += (custo_unit * comp_qty)
+                    final_cost = custo_total_kit
+                else:
+                    # --- CENÁRIO B: SIMPLES ---
+                    final_cost = await _find_most_recent_purchase_cost(client, token, sku, timeout)
+                    if final_cost == 0.0:
+                        try:
+                            final_cost = float(str(produto_completo.get("preco_custo")).replace(',', '.'))
+                            logger.info(f"[{sku}] Fallback cadastro: R$ {final_cost:.4f}")
+                        except (ValueError, TypeError):
+                            final_cost = 0.0
+
+                produto_completo['preco_custo_calculado'] = final_cost
+
+                # 4. Mapear dados
                 mapped_data = map_tiny_to_product_data(produto_completo)
                 
                 logger.info(f"Produto '{sku}' obtido com sucesso")
@@ -315,7 +508,13 @@ def map_tiny_to_product_data(raw_product: Dict[str, Any]) -> Dict[str, Any]:
     weight_kg = safe_float(raw_product.get('peso_bruto', 0))
     
     # Preços
-    cost_price = safe_float(raw_product.get('preco_custo', 0))
+    # Utilizar sempre o custo calculado (priorizando Notas Fiscais, seguindo no Kit, com fallback para o cadastro de produto)
+    calculated_cost = raw_product.get('preco_custo_calculado')
+    if calculated_cost is not None and calculated_cost > 0:
+        cost_price = safe_float(calculated_cost)
+    else:
+        cost_price = safe_float(raw_product.get('preco_custo', 0))
+        
     list_price = safe_float(raw_product.get('preco', 0))
     promo_price = safe_float(raw_product.get('preco_promocional', 0))
     
