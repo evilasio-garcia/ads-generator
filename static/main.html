@@ -383,7 +383,8 @@
         </div>
       </div>
       <p class="text-sm text-gray-600 mt-2">Ordem: <b>Título</b> → <b>Descrição</b> → <b>FAQ (aprovada)</b> →
-        <b>Cards</b>. <span class="badge muted" id="ttsAuto">Autoplay ON</span></p>
+        <b>Cards</b>. <span class="badge muted" id="ttsAuto">Autoplay ON</span>
+      </p>
       <div id="ttsNow" class="text-sm text-gray-700 mt-2"></div>
     </section>
 
@@ -627,9 +628,7 @@
 
         <!-- Botão Calcular Preços (apenas modo manual) -->
         <div id="manualPricingButton" class="mt-3" style="display: none;">
-          <button id="calculatePricesBtn"
-            class="btn w-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            disabled>
+          <button id="calculatePricesBtn" class="btn w-full bg-indigo-600 text-white hover:bg-indigo-700">
             <svg class="icon w-4 h-4 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path
                 d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
@@ -1408,6 +1407,19 @@
       tinyWidth.value = tinyProductData.width_cm || "";
       tinyLength.value = tinyProductData.length_cm || "";
       tinyWeight.value = tinyProductData.weight_kg || "";
+
+      // Auto-preencher custo
+      const costFromTiny = parseFloat(tinyProductData.cost_price) || 0;
+      if (costFromTiny > 0) {
+        tinyCostPrice.value = costFromTiny.toFixed(2);
+      }
+
+      // Auto-preencher frete (se existir do Tiny)
+      const shippingFromTiny = parseFloat(tinyProductData.shipping_cost) || 0;
+      if (shippingFromTiny > 0) {
+        tinyShippingCost.value = shippingFromTiny.toFixed(2);
+      }
+
       // Custo e frete ficam editáveis
       [tinyCostPrice, tinyShippingCost].forEach(el => {
         el.disabled = false;
@@ -1422,6 +1434,11 @@
       // Mostrar botão de cálculo manual e validar
       manualPricingButton.style.display = 'block';
       validateCalculateButton();
+
+      // Acionar Calcular Preços caso dados tenham vindo preenchidos da API
+      if (costFromTiny > 0) {
+        setTimeout(() => autoPricing(), 300);
+      }
 
     } else {
       // Modo Manual PURO: LIMPAR valores e habilitar
@@ -1943,9 +1960,9 @@
         });
 
       // Validação especial para Mercado Livre
-      if (channel === 'mercadolivre' && !currentShippingCost && tinyPromoPriceMin.value) {
+      if (channel === 'mercadolivre' && tinyPromoPriceMin.value) {
         const promoPrice = parseFloat(tinyPromoPriceMin.value);
-        if (promoPrice > 78.99) {
+        if (promoPrice > 78.99 && !currentShippingCost) {
           console.warn('⚠️ Atenção: O preço promocional calculado é maior que R$ 78,99.\n\nPara produtos do Mercado Livre nesta faixa de preço, é importante preencher o custo do frete para obter cálculos mais precisos.');
         }
       }
@@ -1959,9 +1976,8 @@
 
   // Validar e habilitar/desabilitar botão de calcular preços
   function validateCalculateButton() {
-    const costPrice = parseFloat(tinyCostPrice.value);
-    const isValid = costPrice && costPrice > 0;
-    calculatePricesBtn.disabled = !isValid;
+    // Botão permanentemente habilitado
+    calculatePricesBtn.disabled = false;
   }
 
   // Listeners para validação do botão (modo manual)
