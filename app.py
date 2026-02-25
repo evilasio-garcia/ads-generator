@@ -820,7 +820,7 @@ async def pricing_quote(
         current_user: SSO validation mechanism
     """
     try:
-        calculator = PriceCalculatorFactory.get_calculator(request.channel)
+        calculator = PriceCalculatorFactory.get(request.channel)
 
         ctx = request.ctx or {}
         if request.commission_percent is not None:

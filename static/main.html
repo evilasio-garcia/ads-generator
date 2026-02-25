@@ -1880,7 +1880,8 @@
       });
 
       if (!responseMin.ok) {
-        console.error('Erro ao calcular preços MIN');
+        const errorBody = await responseMin.text();
+        console.error('Erro ao calcular preços MIN:', responseMin.status, errorBody);
         return;
       }
 
@@ -1900,7 +1901,8 @@
       });
 
       if (!responseMax.ok) {
-        console.error('Erro ao calcular preços MAX');
+        const errorBody = await responseMax.text();
+        console.error('Erro ao calcular preços MAX:', responseMax.status, errorBody);
         return;
       }
 
