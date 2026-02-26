@@ -205,7 +205,8 @@ class IPriceCalculator(ABC):
             tier.metrics = self.calculate_metrics(tier.price, cost_price, shipping_cost, ctx)
         return tiers
 
-    def roundup(self, n, decimals=0):
+    @staticmethod
+    def roundup(n, decimals=0):
         fator = 10 ** decimals
         return math.ceil(n * fator) / fator
 
@@ -229,6 +230,7 @@ class IPriceCalculator(ABC):
 
         return float(int(price)) + 0.99
 
-    def ensure_non_negative(self, price: float) -> float:
+    @staticmethod
+    def ensure_non_negative(price: float) -> float:
         """Garante que o preço nunca seja negativo"""
         return max(0.0, price)
