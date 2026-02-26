@@ -406,7 +406,7 @@ async def _get_current_user_common(
             key="local_app_session",
             value=new_token,
             httponly=True,
-            secure=True,
+            secure=not settings.dev_mode,
             samesite="lax",
             max_age=max_age,
             path="/",
@@ -460,7 +460,7 @@ async def gateway_login_helper(request: Request, token: str, state: str = None, 
         key="local_app_session",
         value=token,
         httponly=True,
-        secure=True,
+        secure=not settings.dev_mode,
         samesite="lax",
         max_age=3600,  # 1h, igual ao exp do token
     )
