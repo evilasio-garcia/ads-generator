@@ -28,7 +28,6 @@ from pricing import ml_shipping
 
 app = FastAPI(title="Ads Generator API", version="2.2.0")
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -814,128 +813,80 @@ async def pricing_quote(
 ):
     """
     Calcula todos os preços derivados a partir do custo e canal COM MÉTRICAS.
-    
+
     Args:
         request: PriceQuoteRequest com cost_price, channel, policy_id?, ctx?
         current_user: SSO validation mechanism
+
+    Returns:
+        PriceQuoteResponse com todos os preços calculados, métricas e breakdown
+
+    Raises:
+        422: Canal não suportado ou cost_price inválido
     """
     try:
+        # Obter calculadora para o canal
         calculator = PriceCalculatorFactory.get(request.channel)
 
+        # Preparar contexto: adicionar commission_percent se fornecido
         ctx = request.ctx or {}
         if request.commission_percent is not None:
             ctx['commission_percent'] = request.commission_percent
 
-        listing_price = calculator.get_listing_price(
-            cost_price=request.cost_price,
-            shipping_cost=request.shipping_cost,
-            ctx=ctx
-        )
-        
-        listing_metrics = calculator.get_promo_price_with_metrics(
-            cost_price=request.cost_price,
-            shipping_cost=request.shipping_cost,
-            override_price=listing_price,
-            ctx=ctx
-        )
+        # Calcular todos os preços COM MÉTRICAS (incluindo shipping_cost)
+        listing_price_obj = calculator.get_listing_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
+        wholesale_tiers = calculator.get_wholesale_tiers_with_metrics(request.cost_price, request.shipping_cost, ctx)
+        aggressive_price_obj = calculator.get_aggressive_price_with_metrics(request.cost_price, request.shipping_cost,
+                                                                            ctx)
+        promo_price_obj = calculator.get_promo_price_with_metrics(request.cost_price, request.shipping_cost, ctx)
+        breakdown = calculator.get_breakdown(request.cost_price, request.shipping_cost, ctx)
 
-        wholesale_tiers = calculator.get_wholesale_tiers(
-            cost_price=request.cost_price,
-            shipping_cost=request.shipping_cost,
-            ctx=ctx
-        )
+        # Converter tiers para dict
+        tiers_dict = [tier.model_dump() for tier in wholesale_tiers]
 
-        aggressive_obj = calculator.get_promo_price_with_metrics(
-            cost_price=request.cost_price,
-            shipping_cost=request.shipping_cost,
-            override_price=calculator.get_aggressive_price(
-                cost_price=request.cost_price,
-                shipping_cost=request.shipping_cost,
-                ctx=ctx
-            ),
-            ctx=ctx
-        )
-
-        promo_obj = calculator.get_promo_price_with_metrics(
-            cost_price=request.cost_price,
-            shipping_cost=request.shipping_cost,
-            override_price=calculator.get_promo_price(
-                cost_price=request.cost_price,
-                shipping_cost=request.shipping_cost,
-                ctx=ctx
-            ),
-            ctx=ctx
-        )
-
-        breakdown = calculator.get_breakdown(
-            cost_price=request.cost_price,
-            shipping_cost=request.shipping_cost,
-            ctx=ctx
-        )
-
-        # Converter WholesaleTier dataclass para dict caso seja list of objects
-        wholesale_dicts = []
-        for tier in wholesale_tiers:
-            if hasattr(tier, '__dict__'):
-                # Incluir métricas se o tier tiver recalculado com métricas
-                tier_dict = {
-                    "tier": tier.tier,
-                    "min_quantity": tier.min_quantity,
-                    "price": tier.price
-                }
-                if hasattr(tier, 'metrics') and tier.metrics:
-                    tier_dict['metrics'] = vars(tier.metrics) if hasattr(tier.metrics, '__dict__') else tier.metrics
-                
-                # Cuidado: se tier usar dataclasses com asdict, seria asdict(tier)
-                wholesale_dicts.append(tier_dict)
-            else:
-                wholesale_dicts.append(tier)
-
-        response = PriceQuoteResponse(
-            listing_price={
-                "price": listing_price,
-                "metrics": vars(listing_metrics.metrics) if hasattr(listing_metrics.metrics, '__dict__') else listing_metrics.metrics
-            },
-            wholesale_tiers=wholesale_dicts,
-            aggressive_price={
-               "price": aggressive_obj.price,
-               "metrics": vars(aggressive_obj.metrics) if hasattr(aggressive_obj.metrics, '__dict__') else aggressive_obj.metrics
-            },
-            promo_price={
-                "price": promo_obj.price,
-                "metrics": vars(promo_obj.metrics) if hasattr(promo_obj.metrics, '__dict__') else promo_obj.metrics
-            },
-            breakdown=vars(breakdown) if hasattr(breakdown, '__dict__') else breakdown,
+        return PriceQuoteResponse(
+            listing_price=listing_price_obj.model_dump(),
+            wholesale_tiers=tiers_dict,
+            aggressive_price=aggressive_price_obj.model_dump(),
+            promo_price=promo_price_obj.model_dump(),
+            breakdown=breakdown.model_dump(),
             channel=request.channel,
             policy_id=request.policy_id
         )
 
-        return response
-
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Canal não suportado
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": str(e),
+                "supported_channels": PriceCalculatorFactory.get_supported_channels()
+            }
+        )
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Erro interno de precificação: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"message": f"Erro ao calcular preços: {str(e)}"}
+        )
 
 
 class MLShippingRequest(BaseModel):
     cost_price: float
     weight_kg: float
 
+
 @app.post("/api/shipping/calculate_ml")
 async def calculate_ml_shipping_endpoint(
-    request: MLShippingRequest,
-    current_user: CurrentUser = Depends(get_current_user_master)
+        request: MLShippingRequest,
+        current_user: CurrentUser = Depends(get_current_user_master)
 ):
     try:
         val = await ml_shipping.get_shipping_cost(request.cost_price, request.weight_kg)
         return JSONResponse(content={"shipping_cost": val})
     except ml_shipping.MLShippingError as e:
-         raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/pricing/policies")
