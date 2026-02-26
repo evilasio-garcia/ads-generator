@@ -599,6 +599,13 @@
             <div class="flex gap-1 mt-1">
               <input id="tinyCostPrice" type="number" step="0.01"
                 class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="50.00">
+              <button id="btnAutoFillCost" class="btn text-xs" title="Buscar no Tiny" style="display:none">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span class="ml-1"></span>
+              </button>
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyCostPrice" title="Copiar conteúdo">
                 <svg class="icon w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -614,6 +621,13 @@
             <div class="flex gap-1 mt-1">
               <input id="tinyShippingCost" type="number" step="0.01"
                 class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="0.00">
+              <button id="btnAutoFillShipping" class="btn text-xs" title="Buscar no Marketplace">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span class="ml-1"></span>
+              </button>
               <button class="btn text-xs copy-field-btn" data-copy-field="tinyShippingCost" title="Copiar conteúdo">
                 <svg class="icon w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -1212,6 +1226,10 @@
   const manualPricingButton = $("#manualPricingButton");
   const calculatePricesBtn = $("#calculatePricesBtn");
 
+  // Botões de auto-preenchimento
+  const btnAutoFillCost = $("#btnAutoFillCost");
+  const btnAutoFillShipping = $("#btnAutoFillShipping");
+
   // Campos de preço % Min
   const tinyAggressivePriceMin = $("#tinyAggressivePriceMin");
   const tinyPromoPriceMin = $("#tinyPromoPriceMin");
@@ -1225,6 +1243,21 @@
   let wholesaleRows = [];
   let pricingDataMin = null; // Dados de precificação % min
   let pricingDataMax = null; // Dados de precificação % max
+
+  // Cache de dados por SKU (evita chamadas redundantes à API)
+  let costPriceCache = {}; // { 'SKU123': 12.50 }
+  let shippingCostCache = {}; // { 'SKU123:mercadolivre': 8.90 }
+
+  // Marketplaces com automação de frete implementada
+  const SHIPPING_AUTO_MARKETPLACES = ['mercadolivre'];
+
+  // Nomes legíveis dos marketplaces (para mensagens)
+  const MARKETPLACE_LABELS = {
+    mercadolivre: 'Mercado Livre',
+    shopee: 'Shopee',
+    amazon: 'Amazon',
+    magalu: 'Magalu',
+  };
 
   // Função auxiliar para feedback visual de cópia
   function showCopyFeedback(button, options = {}) {
@@ -1319,6 +1352,10 @@
         // Mostrar loading visual
         tinySKU.classList.add('bg-blue-50', 'animate-pulse');
 
+        // Limpar campos de custo ao iniciar fetch de novo SKU
+        tinyCostPrice.value = '';
+        tinyShippingCost.value = '';
+
         try {
           const tokens = getTinyTokens();
           const instanceIndex = parseInt(requestedInstance);
@@ -1394,7 +1431,7 @@
   }
 
   // Aplicar estado aos campos (habilitar/desabilitar e preencher com dados reais)
-  function applyTinyState() {
+  async function applyTinyState() {
     const isTinyMode = integrationMode === "tiny";
     const hasTinyData = tinyProductData !== null;
 
@@ -1408,23 +1445,27 @@
       tinyLength.value = tinyProductData.length_cm || "";
       tinyWeight.value = tinyProductData.weight_kg || "";
 
-      // Auto-preencher custo
+      // Armazenar custo no cache (preenchimento via botão ou automático abaixo)
       const costFromTiny = parseFloat(tinyProductData.cost_price) || 0;
       if (costFromTiny > 0) {
-        tinyCostPrice.value = costFromTiny.toFixed(2);
+        costPriceCache[tinyProductData.sku] = costFromTiny;
       }
 
-      // Auto-preencher frete (se existir do Tiny)
+      // Armazenar frete do Tiny no cache (se houver)
       const shippingFromTiny = parseFloat(tinyProductData.shipping_cost) || 0;
       if (shippingFromTiny > 0) {
-        tinyShippingCost.value = shippingFromTiny.toFixed(2);
+        const cacheKey = `${tinyProductData.sku}:${marketplace.value}`;
+        shippingCostCache[cacheKey] = shippingFromTiny;
       }
 
-      // Custo e frete ficam editáveis
+      // Campos sempre editáveis
       [tinyCostPrice, tinyShippingCost].forEach(el => {
         el.disabled = false;
         el.classList.remove('bg-gray-50');
       });
+
+      // Mostrar botão Buscar no Tiny (há instância válida)
+      btnAutoFillCost.style.display = '';
 
       // Limpar tabela de atacado
       wholesaleRows = [];
@@ -1435,8 +1476,9 @@
       manualPricingButton.style.display = 'block';
       validateCalculateButton();
 
-      // Acionar Calcular Preços caso dados tenham vindo preenchidos da API
+      // Auto-preencher custo via cache e acionar cálculo de preços
       if (costFromTiny > 0) {
+        await autoFillCostPrice();
         setTimeout(() => autoPricing(), 300);
       }
 
@@ -1456,6 +1498,9 @@
           el.disabled = false;
           el.classList.remove('bg-gray-50');
         });
+
+      // Ocultar botão Buscar no Tiny (sem instância válida)
+      btnAutoFillCost.style.display = 'none';
 
       // Limpar tabela de atacado
       wholesaleRows = [];
@@ -1821,25 +1866,8 @@
     try {
       autoPricingInProgress = true;
 
-      // Calcular Frete de Mercado Livre automaticamente se as condições baterem
-      let currentShippingCost = shippingCost;
-      const weightKg = parseFloat(document.getElementById('tinyWeight').value) || 0;
-      if (channel === 'mercadolivre' && costPrice > 0) {
-        try {
-          const shipResp = await fetch('/api/shipping/calculate_ml', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cost_price: costPrice, weight_kg: weightKg })
-          });
-          if (shipResp.ok) {
-            const shipData = await shipResp.json();
-            currentShippingCost = shipData.shipping_cost;
-            tinyShippingCost.value = currentShippingCost.toFixed(2);
-          }
-        } catch (e) {
-          console.error('Erro ao calcular frete ML dinâmico:', e);
-        }
-      }
+      // Usar o valor de frete que está no campo — preenchido manualmente ou via botão de auto-preenchimento
+      const currentShippingCost = shippingCost;
 
       const totalCost = costPrice + currentShippingCost;
 
@@ -2010,6 +2038,166 @@
   calculatePricesBtn.addEventListener('click', () => {
     autoPricing();
   });
+
+  // ============================================================================
+  // TOAST: Feedback visual não-bloqueante
+  // ============================================================================
+
+  function showToast(message, duration = 3500) {
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'toastContainer';
+      toastContainer.style.cssText = [
+        'position:fixed', 'bottom:1.5rem', 'right:1.5rem',
+        'display:flex', 'flex-direction:column', 'gap:0.5rem',
+        'z-index:9999', 'pointer-events:none'
+      ].join(';');
+      document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = [
+      'background:#1e293b', 'color:#f1f5f9',
+      'padding:0.625rem 1rem', 'border-radius:0.5rem',
+      'font-size:0.875rem', 'line-height:1.4',
+      'box-shadow:0 4px 12px rgba(0,0,0,0.2)',
+      'opacity:0', 'transition:opacity 0.2s ease',
+      'max-width:22rem'
+    ].join(';');
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+
+    // Animar entrada
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { toast.style.opacity = '1'; });
+    });
+
+    // Remover após duração
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 200);
+    }, duration);
+  }
+
+  // ============================================================================
+  // AUTO-PREENCHIMENTO: Custo base via Tiny
+  // ============================================================================
+
+  async function autoFillCostPrice() {
+    const sku = tinySKU.value.trim();
+
+    if (!sku) {
+      showToast('Nenhum SKU selecionado.');
+      return;
+    }
+
+    // Verificar se há instância Tiny configurada
+    if (!tinyInstance.value) {
+      showToast('Nenhuma instância Tiny selecionada em "Origem de dados".');
+      return;
+    }
+
+    // Consultar cache primeiro
+    if (costPriceCache[sku] !== undefined) {
+      tinyCostPrice.value = costPriceCache[sku] > 0 ? costPriceCache[sku].toFixed(2) : '';
+      showToast(`Custo base preenchido com dado em cache: R$ ${costPriceCache[sku].toFixed(2)}`);
+      return;
+    }
+
+    // Usar tinyProductData já carregado em memória
+    if (tinyProductData && tinyProductData.sku === sku) {
+      const cost = parseFloat(tinyProductData.cost_price) || 0;
+      costPriceCache[sku] = cost;
+      if (cost > 0) {
+        tinyCostPrice.value = cost.toFixed(2);
+        showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`);
+      } else {
+        showToast('O produto não possui custo base cadastrado no Tiny.');
+      }
+      return;
+    }
+
+    // Fallback: fazer fetch do produto (edge case — dados não estão em memória)
+    try {
+      const tokens = getTinyTokens();
+      const instanceIndex = parseInt(tinyInstance.value);
+      const selectedToken = tokens[instanceIndex]?.token;
+      if (!selectedToken) {
+        showToast('Token Tiny não encontrado para a instância selecionada.');
+        return;
+      }
+      const data = await fetchTinyProductData(selectedToken, sku);
+      const cost = parseFloat(data.cost_price) || 0;
+      costPriceCache[sku] = cost;
+      if (cost > 0) {
+        tinyCostPrice.value = cost.toFixed(2);
+        showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`);
+      } else {
+        showToast('O produto não possui custo base cadastrado no Tiny.');
+      }
+    } catch (err) {
+      showToast(`Erro ao buscar custo no Tiny: ${err.message}`);
+    }
+  }
+
+  // ============================================================================
+  // AUTO-PREENCHIMENTO: Custo de frete via marketplace
+  // ============================================================================
+
+  async function autoFillShippingCost() {
+    const channel = marketplace.value;
+    const sku = tinySKU.value.trim();
+    const channelLabel = MARKETPLACE_LABELS[channel] || channel;
+
+    // Verificar suporte de automação de frete para o marketplace
+    if (!SHIPPING_AUTO_MARKETPLACES.includes(channel)) {
+      showToast(`O marketplace ${channelLabel} não possui integração automática de frete. Preencha o valor manualmente.`);
+      return;
+    }
+
+    const cacheKey = `${sku}:${channel}`;
+
+    // Consultar cache primeiro
+    if (shippingCostCache[cacheKey] !== undefined) {
+      tinyShippingCost.value = shippingCostCache[cacheKey].toFixed(2);
+      showToast(`Frete preenchido com dado em cache: R$ ${shippingCostCache[cacheKey].toFixed(2)}`);
+      return;
+    }
+
+    const costPrice = parseFloat(tinyCostPrice.value) || 0;
+    const weightKg = parseFloat(tinyWeight.value) || 0;
+
+    if (costPrice <= 0) {
+      showToast('Preencha o Custo base antes de buscar o frete.');
+      return;
+    }
+
+    if (channel === 'mercadolivre') {
+      try {
+        const shipResp = await fetch('/api/shipping/calculate_ml', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cost_price: costPrice, weight_kg: weightKg }),
+        });
+        if (shipResp.ok) {
+          const shipData = await shipResp.json();
+          shippingCostCache[cacheKey] = shipData.shipping_cost;
+          tinyShippingCost.value = shipData.shipping_cost.toFixed(2);
+          showToast(`Frete Mercado Livre calculado: R$ ${shipData.shipping_cost.toFixed(2)}`);
+        } else {
+          const errBody = await shipResp.json().catch(() => ({}));
+          showToast(`Erro ao calcular frete ML: ${errBody.detail || shipResp.status}`);
+        }
+      } catch (err) {
+        showToast(`Erro ao buscar frete do Mercado Livre: ${err.message}`);
+      }
+    }
+  }
+
+  // Listeners dos botões de auto-preenchimento
+  btnAutoFillCost.addEventListener('click', () => autoFillCostPrice());
+  btnAutoFillShipping.addEventListener('click', () => autoFillShippingCost());
 
   // NOTA: Edição manual de preços agora usa métricas do backend
   // Quando o usuário edita um preço, as métricas não são recalculadas localmente
