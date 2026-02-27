@@ -3,10 +3,12 @@ uvicorn
 httpx
 PyJWT
 pydantic
+pydantic-settings
 pytest
 sqlalchemy
-requests
 psycopg[binary]
+psycopg2-binary
+requests
 python-dotenv
 starlette
 beautifulsoup4
