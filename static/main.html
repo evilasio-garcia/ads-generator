@@ -1239,10 +1239,6 @@
   const btnAutoFillCost = $("#btnAutoFillCost");
   const btnAutoFillShipping = $("#btnAutoFillShipping");
 
-  // Botões de auto-preenchimento
-  const btnAutoFillCost = $("#btnAutoFillCost");
-  const btnAutoFillShipping = $("#btnAutoFillShipping");
-
   // Campos de preço % Min
   const tinyAggressivePriceMin = $("#tinyAggressivePriceMin");
   const tinyPromoPriceMin = $("#tinyPromoPriceMin");
@@ -1519,9 +1515,7 @@
         validateCalculateButton();
 
         // Auto-preencher custo via cache e acionar cálculo de preços
-        // Auto-preencher custo via cache e acionar cálculo de preços
         if (costFromTiny > 0) {
-          await autoFillCostPrice();
           await autoFillCostPrice();
           setTimeout(() => autoPricing(), 300);
         }
@@ -2288,130 +2282,6 @@
         setTimeout(() => toast.remove(), 200);
       }, duration);
     }
-
-    // ============================================================================
-    // AUTO-PREENCHIMENTO: Custo base via Tiny
-    // ============================================================================
-
-    async function autoFillCostPrice() {
-      const sku = tinySKU.value.trim();
-
-      if (!sku) {
-        showToast('Nenhum SKU selecionado.');
-        return;
-      }
-
-      // Verificar se há instância Tiny configurada
-      if (!tinyInstance.value) {
-        showToast('Nenhuma instância Tiny selecionada em "Origem de dados".');
-        return;
-      }
-
-      // Consultar cache primeiro
-      if (costPriceCache[sku] !== undefined) {
-        tinyCostPrice.value = costPriceCache[sku] > 0 ? costPriceCache[sku].toFixed(2) : '';
-        showToast(`Custo base preenchido com dado em cache: R$ ${costPriceCache[sku].toFixed(2)}`);
-        return;
-      }
-
-      // Usar tinyProductData já carregado em memória
-      if (tinyProductData && tinyProductData.sku === sku) {
-        const cost = parseFloat(tinyProductData.cost_price) || 0;
-        costPriceCache[sku] = cost;
-        if (cost > 0) {
-          tinyCostPrice.value = cost.toFixed(2);
-          showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`);
-        } else {
-          showToast('O produto não possui custo base cadastrado no Tiny.');
-        }
-        return;
-      }
-
-      // Fallback: fazer fetch do produto (edge case — dados não estão em memória)
-      try {
-        const tokens = getTinyTokens();
-        const instanceIndex = parseInt(tinyInstance.value);
-        const selectedToken = tokens[instanceIndex]?.token;
-        if (!selectedToken) {
-          showToast('Token Tiny não encontrado para a instância selecionada.');
-          return;
-        }
-        const data = await fetchTinyProductData(selectedToken, sku);
-        const cost = parseFloat(data.cost_price) || 0;
-        costPriceCache[sku] = cost;
-        if (cost > 0) {
-          tinyCostPrice.value = cost.toFixed(2);
-          showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`);
-        } else {
-          showToast('O produto não possui custo base cadastrado no Tiny.');
-        }
-      } catch (err) {
-        showToast(`Erro ao buscar custo no Tiny: ${err.message}`);
-      }
-    }
-
-    // ============================================================================
-    // AUTO-PREENCHIMENTO: Custo de frete via marketplace
-    // ============================================================================
-
-    async function autoFillShippingCost() {
-      const channel = marketplace.value;
-      const sku = tinySKU.value.trim();
-      const channelLabel = MARKETPLACE_LABELS[channel] || channel;
-
-      // Verificar suporte de automação de frete para o marketplace
-      if (!SHIPPING_AUTO_MARKETPLACES.includes(channel)) {
-        showToast(`O marketplace ${channelLabel} não possui integração automática de frete. Preencha o valor manualmente.`);
-        return;
-      }
-
-      const cacheKey = `${sku}:${channel}`;
-
-      // Consultar cache primeiro
-      if (shippingCostCache[cacheKey] !== undefined) {
-        tinyShippingCost.value = shippingCostCache[cacheKey].toFixed(2);
-        showToast(`Frete preenchido com dado em cache: R$ ${shippingCostCache[cacheKey].toFixed(2)}`);
-        return;
-      }
-
-      const costPrice = parseFloat(tinyCostPrice.value) || 0;
-      const weightKg = parseFloat(tinyWeight.value) || 0;
-
-      if (costPrice <= 0) {
-        showToast('Preencha o Custo base antes de buscar o frete.');
-        return;
-      }
-
-      if (channel === 'mercadolivre') {
-        try {
-          const shipResp = await fetch('/api/shipping/calculate_ml', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cost_price: costPrice, weight_kg: weightKg }),
-          });
-          if (shipResp.ok) {
-            const shipData = await shipResp.json();
-            shippingCostCache[cacheKey] = shipData.shipping_cost;
-            tinyShippingCost.value = shipData.shipping_cost.toFixed(2);
-            showToast(`Frete Mercado Livre calculado: R$ ${shipData.shipping_cost.toFixed(2)}`);
-          } else {
-            const errBody = await shipResp.json().catch(() => ({}));
-            showToast(`Erro ao calcular frete ML: ${errBody.detail || shipResp.status}`);
-          }
-        } catch (err) {
-          showToast(`Erro ao buscar frete do Mercado Livre: ${err.message}`);
-        }
-      }
-    }
-
-    // Listeners dos botões de auto-preenchimento
-    btnAutoFillCost.addEventListener('click', () => autoFillCostPrice());
-    btnAutoFillShipping.addEventListener('click', () => autoFillShippingCost());
-
-    // NOTA: Edição manual de preços agora usa métricas do backend
-    // Quando o usuário edita um preço, as métricas não são recalculadas localmente
-    // Para recalcular, deve usar o botão "Calcular Preços" novamente
-    // TODO: Implementar recálculo automático via API quando usuário edita preços
 
     // Botões de copiar conteúdo
     document.addEventListener('click', (e) => {
