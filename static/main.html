@@ -3674,10 +3674,9 @@ Restrições:
 
   $("#copyCardsAll").addEventListener("click", (e) => {
     const parts = [];
-    (history.cardLines || []).forEach((line, idx) => {
+    (history.cardLines || []).forEach((line) => {
       const cur = line.versions[line.vIdx];
-      parts.push(`T CARD${idx + 1}`, cur.title || "");
-      parts.push(`M CARD${idx + 1}`, cur.text || "");
+      parts.push(cur.title || "", cur.text || "");
     });
     navigator.clipboard.writeText(parts.join("\t"));
     showCopyFeedback(e.currentTarget);
