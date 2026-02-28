@@ -1444,8 +1444,8 @@
     const isTinyMode = integrationMode === "tiny";
     const hasTinyData = tinyProductData !== null;
 
-    if (isTinyMode && hasTinyData) {
-      // Modo Tiny COMPLETO: preencher com dados REAIS da API e desabilitar
+    if (hasTinyData) {
+      // Modo Tiny ou Híbrido: preencher campos do produto com dados reais da API
       productName.value = tinyProductData.title || "";
       tinyGTIN.value = tinyProductData.gtin || "";
       tinySKUDisplay.value = tinyProductData.sku || "";
