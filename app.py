@@ -4,6 +4,7 @@ import json
 import os
 import random
 import re
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -303,10 +304,19 @@ def call_openai(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
     else:
         payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}], "temperature": 0.7}
 
-    r = requests.post(url, headers=headers, json=payload, timeout=90)
-    r.raise_for_status()
-    data = r.json()
-    return data["choices"][0]["message"]["content"]
+    last_error = None
+    for attempt in range(3):
+        if attempt > 0:
+            time.sleep(attempt)
+        try:
+            with requests.Session() as session:
+                r = session.post(url, headers=headers, json=payload, timeout=90)
+                r.raise_for_status()
+                data = r.json()
+                return data["choices"][0]["message"]["content"]
+        except requests.exceptions.RequestException as e:
+            last_error = e
+    raise HTTPException(status_code=502, detail=f"LLM gateway indisponível após 3 tentativas: {last_error}")
 
 
 def call_gemini(prompt: str, opts: Options, files_data: Optional[List[Dict[str, Any]]] = None) -> str:
@@ -332,13 +342,22 @@ def call_gemini(prompt: str, opts: Options, files_data: Optional[List[Dict[str, 
                 })
 
     payload = {"contents": [{"parts": parts}]}
-    r = requests.post(url, json=payload, timeout=90)
-    r.raise_for_status()
-    data = r.json()
-    try:
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        return json.dumps(data)
+    last_error = None
+    for attempt in range(3):
+        if attempt > 0:
+            time.sleep(attempt)
+        try:
+            with requests.Session() as session:
+                r = session.post(url, json=payload, timeout=90)
+                r.raise_for_status()
+                data = r.json()
+                try:
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                except Exception:
+                    return json.dumps(data)
+        except requests.exceptions.RequestException as e:
+            last_error = e
+    raise HTTPException(status_code=502, detail=f"LLM gateway indisponível após 3 tentativas: {last_error}")
 
 
 def parse_json_loose(s: str) -> Dict[str, Any]:
