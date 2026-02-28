@@ -1268,21 +1268,6 @@
     magalu: 'Magalu',
   };
 
-  // Cache de dados por SKU (evita chamadas redundantes à API)
-  let costPriceCache = {}; // { 'SKU123': 12.50 }
-  let shippingCostCache = {}; // { 'SKU123:mercadolivre': 8.90 }
-
-  // Marketplaces com automação de frete implementada
-  const SHIPPING_AUTO_MARKETPLACES = ['mercadolivre'];
-
-  // Nomes legíveis dos marketplaces (para mensagens)
-  const MARKETPLACE_LABELS = {
-    mercadolivre: 'Mercado Livre',
-    shopee: 'Shopee',
-    amazon: 'Amazon',
-    magalu: 'Magalu',
-  };
-
   // Função auxiliar para feedback visual de cópia
   function showCopyFeedback(button, options = {}) {
     const { duration = 1500, showText = false } = options;
