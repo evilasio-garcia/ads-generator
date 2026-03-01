@@ -1489,28 +1489,55 @@ async def load_sku_files(
     # Se existir RAW_IMG, carregamos de lá. Caso contrário, mantemos compatibility carregando da raiz da pasta SKU.
     target_folder_id = raw_img_folder_id if raw_img_folder_id else subfolder_id
 
-    # 3. Listar todos os arquivos da pasta alvo
-    query_files = f"'{target_folder_id}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'"
-    results_files = service.files().list(
-        q=query_files,
-        fields="files(id, name, mimeType)",
+    # 3. Listar imagens da pasta alvo (RAW_IMG ou raiz)
+    query_imgs = f"'{target_folder_id}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'"
+    res_imgs = service.files().list(
+        q=query_imgs,
+        fields="files(id, name, mimeType, createdTime)",
         supportsAllDrives=True,
         includeItemsFromAllDrives=True,
         pageSize=100
     ).execute()
     
-    all_files = results_files.get("files", [])
+    img_files = res_imgs.get("files", [])
     
-    # 4. Ordenar os arquivos: {SKU}NNN.ext primeiro de forma crescente
-    def sort_key(f):
-        m = re.match(rf"^{re.escape(sku_nome)}(\d+)\.[a-zA-Z0-9]+$", f["name"], re.IGNORECASE)
+    # Ordenar imagens: {SKU}NNN.ext primeiro de forma crescente
+    # Suportando o padrão SKU[-_]?(CB\d+)?[-_]?\d+
+    def sort_img_key(f):
+        # Regex captura o número do combo (opcional) e o número da imagem (obrigatório)
+        pattern = rf"^{re.escape(sku_nome)}[-_]?(?:CB(\d+))?[-_]?(\d+)\.[a-zA-Z0-9]+$"
+        m = re.match(pattern, f["name"], re.IGNORECASE)
         if m:
-            return (0, int(m.group(1)), f["name"])
-        return (1, 0, f["name"])
+            cb_num = int(m.group(1)) if m.group(1) else 0
+            img_num = int(m.group(2))
+            return (0, cb_num, img_num, f["name"])
+        return (1, 0, 0, f["name"])
         
-    all_files = sorted(all_files, key=sort_key)
+    img_files = sorted(img_files, key=sort_img_key)
+
+    # 4. Listar arquivos da pasta RAW_KDB
+    kdb_files = []
+    raw_kdb_folder_id = _find_file_in_folder(service, subfolder_id, "RAW_KDB")
+    if raw_kdb_folder_id:
+        query_kdb = f"'{raw_kdb_folder_id}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'"
+        res_kdb = service.files().list(
+            q=query_kdb,
+            # Pedindo createdTime para ordenação
+            fields="files(id, name, mimeType, createdTime)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+            pageSize=100
+        ).execute()
+        kdb_files = res_kdb.get("files", [])
+        
+        # Ordenar KDB: do mais novo para o mais velho (createdTime desc)
+        # createdTime no Drive é ISO 8601 string: "2023-10-27T10:00:00.000Z"
+        kdb_files = sorted(kdb_files, key=lambda x: x.get("createdTime", ""), reverse=True)
+
+    # 5. Combinar listas: Imagens primeiro, depois KDB
+    all_files = img_files + kdb_files
     
-    # 5. Baixar conteúdos
+    # 6. Baixar conteúdos
     out_files = []
     
     for f in all_files:
