@@ -1362,9 +1362,11 @@ async def save_to_drive(
     folder_name = (payload.sku or payload.product_name).strip().replace("/", "-").replace("\\", "-")
 
     try:
-        subfolder_id = _get_or_create_subfolder(service, folder_id, folder_name)
+        sku_folder_id = _get_or_create_subfolder(service, folder_id, folder_name)
+        # Cria ou obtém a subpasta RAW_IMG dentro da pasta do SKU
+        subfolder_id = _get_or_create_subfolder(service, sku_folder_id, "RAW_IMG")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao criar subpasta no Drive: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao criar estrutura de pastas no Drive: {str(e)}")
 
     saved_count = 0
     errors = []
@@ -1481,8 +1483,14 @@ async def load_sku_files(
         
     subfolder_id = folders[0]["id"]
     
-    # 2. Listar todos os arquivos da pasta
-    query_files = f"'{subfolder_id}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'"
+    # 2. Verificar se existe a subpasta RAW_IMG
+    raw_img_folder_id = _find_file_in_folder(service, subfolder_id, "RAW_IMG")
+    
+    # Se existir RAW_IMG, carregamos de lá. Caso contrário, mantemos compatibility carregando da raiz da pasta SKU.
+    target_folder_id = raw_img_folder_id if raw_img_folder_id else subfolder_id
+
+    # 3. Listar todos os arquivos da pasta alvo
+    query_files = f"'{target_folder_id}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'"
     results_files = service.files().list(
         q=query_files,
         fields="files(id, name, mimeType)",
@@ -1493,7 +1501,7 @@ async def load_sku_files(
     
     all_files = results_files.get("files", [])
     
-    # 3. Ordenar os arquivos: {SKU}NNN.ext primeiro de forma crescente
+    # 4. Ordenar os arquivos: {SKU}NNN.ext primeiro de forma crescente
     def sort_key(f):
         m = re.match(rf"^{re.escape(sku_nome)}(\d+)\.[a-zA-Z0-9]+$", f["name"], re.IGNORECASE)
         if m:
@@ -1502,7 +1510,7 @@ async def load_sku_files(
         
     all_files = sorted(all_files, key=sort_key)
     
-    # 4. Baixar conteúdos
+    # 5. Baixar conteúdos
     out_files = []
     
     for f in all_files:
