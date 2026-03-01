@@ -170,6 +170,7 @@ async def _refresh_and_decode_via_gateway(request: Request) -> Optional[Dict[str
         )
 
     if resp.status_code != 200:
+        print(f"DEBUG: Gateway refresh failed with status {resp.status_code}. Response: {resp.text}")
         return None
 
     body = resp.json()
@@ -177,7 +178,6 @@ async def _refresh_and_decode_via_gateway(request: Request) -> Optional[Dict[str
     if not new_token:
         return None
 
-    # Decodifica o novo token localmente
     try:
         payload = _decode_access_token_local(new_token)
     except jwt.InvalidTokenError:
@@ -186,6 +186,9 @@ async def _refresh_and_decode_via_gateway(request: Request) -> Optional[Dict[str
     app_slug = payload.get("app_slug")
     if app_slug != settings.app_slug:
         return None
+
+    # Captura novos cookies (especialmente refresh_token rotacionado)
+    new_refresh_token = resp.cookies.get("refresh_token")
 
     data: Dict[str, Any] = {
         "active": True,
@@ -197,6 +200,7 @@ async def _refresh_and_decode_via_gateway(request: Request) -> Optional[Dict[str
         "exp": payload.get("exp"),
         "raw": payload,
         "_new_token": new_token,
+        "_new_refresh": new_refresh_token
     }
 
     return data
@@ -391,16 +395,17 @@ async def _get_current_user_common(
             headers={"X-Redirect-Login": login_url},
         )
 
-    # Se o Gateway renovou o token, atualiza o cookie pg_session
+    # Se o Gateway renovou o token, atualiza o cookie de sessão local
     new_token = data.pop("_new_token", None)
+    new_refresh = data.pop("_new_refresh", None)
+
     if new_token:
-        # tenta calcular max_age a partir do exp, senão cai pra 3600
-        max_age = 3600
+        max_age = 86400 # 24h fallback
         exp_value = data.get("exp")
         if isinstance(exp_value, (int, float)):
+            # Se exp do token for maior que 24h, usamos 24h. Se for menor, usamos o tempo original.
             remaining = int(exp_value - time.time())
-            if remaining > 0:
-                max_age = remaining
+            max_age = min(86400, remaining) if remaining > 0 else 86400
 
         response.set_cookie(
             key="local_app_session",
@@ -409,6 +414,18 @@ async def _get_current_user_common(
             secure=not settings.dev_mode,
             samesite="lax",
             max_age=max_age,
+            path="/",
+        )
+    
+    # Fundamental: Se houver um novo refresh_token (rotação), precisamos passá-lo ao browser
+    if new_refresh:
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh,
+            httponly=True,
+            secure=not settings.dev_mode,
+            samesite="lax",
+            max_age=30 * 24 * 3600, # 30 dias padrão
             path="/",
         )
 
@@ -462,7 +479,7 @@ async def gateway_login_helper(request: Request, token: str, state: str = None, 
         httponly=True,
         secure=not settings.dev_mode,
         samesite="lax",
-        max_age=3600,  # 1h, igual ao exp do token
+        max_age=86400,  # 24h
     )
 
     response.delete_cookie("local_app_state")

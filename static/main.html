@@ -240,6 +240,120 @@
     .price-tab-content.active {
       display: block;
     }
+
+    /* Estilos Galeria de Imagens */
+    .image-gallery-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (min-width: 640px) {
+      .image-gallery-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .image-item {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border: 2px solid transparent;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .image-item.selected {
+      border-color: #10b981;
+    }
+
+    .image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .selection-badge {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #374151;
+      z-index: 10;
+      transition: all 0.2s;
+    }
+
+    .image-item.selected .selection-badge {
+      background: #10b981;
+      border-color: #10b981;
+      color: white;
+    }
+
+    .gallery-container {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease-out;
+    }
+
+    .gallery-container.expanded {
+      max-height: 2000px;
+    }
+
+    /* Zoom / Lightbox */
+    .zoom-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      cursor: zoom-out;
+    }
+
+    .zoom-overlay.open {
+      display: flex;
+    }
+
+    .zoom-image {
+      max-width: 95%;
+      max-height: 95%;
+      object-fit: contain;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      cursor: default;
+    }
+
+    .zoom-btn {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.5rem;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 0.5rem;
+      padding: 0.25rem;
+      z-index: 15;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .image-item:hover .zoom-btn {
+      opacity: 1;
+    }
+
+    .zoom-btn:hover {
+      background: white;
+      transform: scale(1.1);
+    }
   </style>
 </head>
 
@@ -297,24 +411,82 @@
             <option value="shein">Shein</option>
           </select>
         </div>
-        <div class="sm:col-span-2">
-          <label class="text-sm text-gray-700 font-medium">LLM</label>
-          <select id="llm"
-            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="openai">OpenAI</option>
-            <option value="gemini">Google Gemini</option>
-          </select>
+      </div>
+
+      <!-- Novo Botão de Busca de Imagens -->
+      <div class="mt-4">
+        <button id="btnSearchImages"
+          class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full flex items-center justify-center gap-2">
+          <svg class="w-5 h-5 stroke-white fill-none" viewBox="0 0 24 24">
+            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Buscar imagens do produto na internet
+        </button>
+      </div>
+
+      <!-- Seção da Galeria (Expansível) -->
+      <div id="galleryContainer" class="gallery-container">
+        <div class="card p-5 mt-4 border-indigo-100 bg-indigo-50/30">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-gray-800">Galeria de Imagens Encontradas</h3>
+            <button id="btnCloseGallery" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18L18 6M6 6l12 12" stroke-width="2" />
+              </svg>
+            </button>
+          </div>
+
+          <div id="imageGallery" class="image-gallery-grid">
+            <!-- Imagens injetadas aqui -->
+          </div>
+
+          <div id="galleryStatus" class="mt-4 text-center text-sm text-gray-500 hidden">
+            Nenhuma imagem encontrada para este termo.
+          </div>
+
+          <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button id="btnLoadMoreImages" class="btn text-sm px-6 py-2 bg-white border-gray-200">
+              Carregar mais imagens
+            </button>
+
+            <button id="btnSaveToDrive"
+              class="hidden px-6 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 flex items-center gap-2">
+              <svg class="w-5 h-5 fill-white" viewBox="0 0 24 24">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+              </svg>
+              Salvar imagens no Drive
+            </button>
+          </div>
         </div>
       </div>
+
+      <div class="mt-4">
+        <label class="text-sm text-gray-700 font-medium">LLM (Inteligência Artificial)</label>
+        <select id="llm"
+          class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+        </select>
+      </div>
+
 
       <!-- Upload de arquivos -->
       <div class="mt-4">
         <label class="text-sm text-gray-700 font-medium">Arquivos de referência (opcional)</label>
         <p class="text-xs text-gray-500 mt-1">Imagens e arquivos de texto para gerar anúncios baseados em dados reais do
           produto (máx. 5MB por arquivo)</p>
-        <div class="mt-2">
+        <div class="mt-2 flex items-center justify-between gap-2">
           <input type="file" id="fileInput" multiple accept="image/*,.txt"
-            class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+            class="flex-1 w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+
+          <button id="btnLoadFromDrive" type="button"
+            class="btn text-sm px-4 py-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 flex items-center gap-2 shrink-0"
+            title="Procurar pasta com o SKU no Drive e carregar tudo (Imagens 001.png primeiro)">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            </svg> Carregar do Drive (SKU)
+          </button>
         </div>
 
         <!-- Tabela de arquivos carregados -->
@@ -490,7 +662,8 @@
         <div class="label-row">
           <h3 class="font-medium text-gray-700">Cards</h3>
           <div class="toolbar">
-            <button id="copyCardsAll" class="btn" title="Copiar todos os cards (planilha)"><svg class="icon" viewBox="0 0 24 24">
+            <button id="copyCardsAll" class="btn" title="Copiar todos os cards (planilha)"><svg class="icon"
+                viewBox="0 0 24 24">
                 <path
                   d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                   stroke-width="1.5" fill="none" />
@@ -971,11 +1144,18 @@
       <button id="ttsPauseFloat" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24">
           <path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5" />
         </svg></button>
-      <button id="ttsStopFloat" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24">
-          <path d="M6 6h12v12H6z" stroke-width="1.5" />
-        </svg></button>
-      <button id="ttsRateFloat" class="btn" title="Velocidade">1x</button>
     </div>
+  </div>
+
+  <!-- Zoom Overlay -->
+  <div id="zoomOverlay" class="zoom-overlay">
+    <img id="zoomImage" src="" alt="Zoom" class="zoom-image">
+  </div>
+  <button id="ttsStopFloat" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24">
+      <path d="M6 6h12v12H6z" stroke-width="1.5" />
+    </svg></button>
+  <button id="ttsRateFloat" class="btn" title="Velocidade">1x</button>
+  </div>
   </div>
 
   <!-- Modal Prompt -->
@@ -1113,6 +1293,69 @@
                 <p class="text-xs text-gray-500 italic">Nenhum token configurado</p>
               </div>
             </div>
+
+            <!-- Google APIs Sub-group -->
+            <div class="pt-2">
+              <h5 class="text-sm font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                Google Search & Drive
+              </h5>
+
+              <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h6 class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Serper.dev (Busca de Imagens)
+                </h6>
+                <div class="space-y-4">
+                  <div>
+                    <label class="text-xs text-gray-600 font-medium tracking-tight">Serper API Key</label>
+                    <div class="flex gap-2 mt-1">
+                      <input id="cfgImageSearchApiKey" type="password"
+                        class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                        placeholder="Cole sua API Key do buscador aqui...">
+                      <button id="btnValidateImageSearch"
+                        class="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-medium hover:bg-indigo-100 transition-colors">Validar
+                        Buscador</button>
+                    </div>
+                    <span id="statusImageSearch" class="text-xs font-medium mt-1 block"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h6 class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Google Drive (Salvamento
+                  Automatizado)</h6>
+                <div class="space-y-4">
+                  <div>
+                    <label class="text-xs text-gray-600 font-medium">Credenciais JSON (Service Account)</label>
+                    <textarea id="cfgDriveCredentials" rows="5"
+                      class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-mono"
+                      placeholder='Cole o JSON da Service Account aqui...'></textarea>
+                    <div class="mt-2 flex items-center gap-2">
+                      <button id="btnValidateDriveCreds"
+                        class="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-medium hover:bg-indigo-100 transition-colors">Validar
+                        Credenciais</button>
+                      <span id="statusDriveCreds" class="text-xs font-medium"></span>
+                    </div>
+                  </div>
+
+                  <div id="folderIdWrapper" class="opacity-50 pointer-events-none transition-opacity">
+                    <label class="text-xs text-gray-600 font-medium tracking-tight">ID da Pasta no Drive (Folder
+                      ID)</label>
+                    <div class="flex gap-2 mt-1">
+                      <input id="cfgDriveFolderId" type="text" disabled
+                        class="flex-1 rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm"
+                        placeholder="Primeiro valide as credenciais...">
+                      <button id="btnValidateDriveFolder" disabled
+                        class="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-medium hover:bg-indigo-100 transition-colors">Validar
+                        Pasta</button>
+                    </div>
+                    <span id="statusDriveFolder" class="text-xs font-medium mt-1 block"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Section: Precificação -->
@@ -1169,6 +1412,31 @@
 <script>
   function $(q) { return document.querySelector(q); }
 
+  /**
+   * Wrapper robusto para fetch que lida com 401 (Unauthorized)
+   * Se o backend renovar o token no fundo, este wrapper pode tentar novamente
+   */
+  async function fetchWithAuth(url, options = {}) {
+    const response = await fetch(url, options);
+
+    if (response.status === 401) {
+      console.warn(`Sessão expirada ou inválida na URL: ${url}`);
+
+      // Se o backend enviou uma URL de login no header, redirecionamos
+      const redirectUrl = response.headers.get("X-Redirect-Login");
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+        return response;
+      }
+
+      // Caso contrário, tentamos um refresh forçado recarregando a página ou alertando o usuário
+      showToast("Sessão expirada. Redirecionando para login...");
+      setTimeout(() => window.location.reload(), 1500);
+    }
+
+    return response;
+  }
+
   let appConfig = {
     openai: "",
     openai_base: "",
@@ -1178,6 +1446,8 @@
     prompt_template: "",
     tiny_tokens: [],
     pricing_config: [],
+    image_search: { api_key: "", cx: "" },
+    google_drive: { folder_id: "", credentials_json: "" }
   };
 
   const productName = $("#productName"), marketplace = $("#marketplace"), llm = $("#llm");
@@ -1190,8 +1460,22 @@
   const titlePrev = $("#titlePrev"), titleNext = $("#titleNext"), titleCount = $("#titleCount");
   const descPrev = $("#descPrev"), descNext = $("#descNext"), descCount = $("#descCount");
 
+  // Image Gallery Elements
+  const btnSearchImages = $("#btnSearchImages");
+  const galleryContainer = $("#galleryContainer");
+  const imageGallery = $("#imageGallery");
+  const galleryStatus = $("#galleryStatus");
+  const btnLoadMoreImages = $("#btnLoadMoreImages");
+  const btnCloseGallery = $("#btnCloseGallery");
+  const btnSaveToDrive = $("#btnSaveToDrive");
+
+  let galleryImages = []; // {url, thumbnail, selected: boolean, order: number}
+  let selectedImages = []; // Array de URLs na ordem de seleção
+  let searchStartIndex = 1;
+
   // File Upload Management
   const fileInput = $("#fileInput");
+  const btnLoadFromDrive = $("#btnLoadFromDrive");
   const filesTable = $("#filesTable");
   const filesTableBody = $("#filesTableBody");
   const fileWarnings = $("#fileWarnings");
@@ -1851,8 +2135,201 @@
     }
   }
 
+
+  function updateSearchButtonStatus() {
+    const hasSearch = appConfig.image_search?.api_key;
+    const hasDrive = appConfig.google_drive?.folder_id && appConfig.google_drive?.credentials_json;
+
+    if (hasSearch && hasDrive) {
+      btnSearchImages.disabled = false;
+      btnSearchImages.classList.remove('opacity-50', 'cursor-not-allowed');
+      btnSearchImages.title = "";
+    } else {
+      btnSearchImages.disabled = true;
+      btnSearchImages.classList.add('opacity-50', 'cursor-not-allowed');
+      btnSearchImages.title = "Configure o Serper.dev e o Google Drive no Admin para usar esta função.";
+    }
+  }
+
+  btnSearchImages.onclick = async () => {
+    const query = productName.value.trim();
+    if (!query) {
+      showToast("Por favor, informe o nome do produto para buscar imagens.");
+      return;
+    }
+
+    if (btnSearchImages.disabled) return;
+
+    // Resetar busca se for novo termo
+    searchStartIndex = 1;
+    galleryImages = [];
+    selectedImages = [];
+    renderGallery();
+
+    await searchImages(query);
+  };
+
+  async function searchImages(query) {
+    try {
+      btnSearchImages.disabled = true;
+      btnSearchImages.textContent = "Buscando...";
+      galleryStatus.classList.add("hidden");
+
+      const response = await fetchWithAuth("/api/images/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, start: searchStartIndex })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Erro ao buscar imagens.");
+      }
+
+      if (!data.images || data.images.length === 0) {
+        galleryStatus.innerText = searchStartIndex === 1 ? "Nenhuma imagem encontrada." : "Não há mais imagens.";
+        galleryStatus.classList.remove("hidden");
+      } else {
+        // Combinar com as existentes (lazy load)
+        const newImages = data.images.map(img => ({
+          url: img.url,
+          thumbnail: img.thumbnail || img.url,
+          selected: false
+        }));
+
+        galleryImages = [...galleryImages, ...newImages];
+        searchStartIndex += 12;
+
+        galleryContainer.classList.add("expanded");
+        renderGallery();
+      }
+    } catch (err) {
+      showToast(`Erro na busca: ${err.message}`);
+    } finally {
+      btnSearchImages.disabled = false;
+      btnSearchImages.innerHTML = `<svg class="w-5 h-5 stroke-white fill-none" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg> Buscar imagens do produto na internet`;
+    }
+  }
+
+  function renderGallery() {
+    imageGallery.innerHTML = "";
+
+    galleryImages.forEach((img, idx) => {
+      // Verificar se está selecionada e qual a ordem
+      const selIdx = selectedImages.indexOf(img.url);
+      const isSelected = selIdx !== -1;
+
+      const div = document.createElement("div");
+      div.className = `image-item ${isSelected ? "selected" : ""}`;
+      div.onclick = () => toggleImageSelection(img.url);
+
+      div.innerHTML = `
+        <img src="${img.thumbnail}" alt="Resultado ${idx + 1}" loading="lazy" onerror="this.src='/static/placeholder.png'">
+        <div class="selection-badge">${isSelected ? (selIdx + 1) : ""}</div>
+        <button class="zoom-btn" title="Ver imagem completa">
+          <svg class="w-4 h-4 stroke-gray-700" viewBox="0 0 24 24" fill="none">
+             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      `;
+
+      // Impedir que o clique no zoom ative a seleção
+      div.querySelector('.zoom-btn').onclick = (e) => {
+        e.stopPropagation();
+        openZoom(img.url);
+      };
+
+      imageGallery.appendChild(div);
+    });
+
+    // Mostrar ou ocultar botão de salvar
+    if (selectedImages.length > 0) {
+      btnSaveToDrive.classList.remove("hidden");
+    } else {
+      btnSaveToDrive.classList.add("hidden");
+    }
+  }
+
+  function toggleImageSelection(url) {
+    const idx = selectedImages.indexOf(url);
+    if (idx === -1) {
+      // Adicionar
+      selectedImages.push(url);
+    } else {
+      // Remover
+      selectedImages.splice(idx, 1);
+    }
+    renderGallery();
+    updateSearchButtonStatus();
+  }
+
+  // Lógica de Zoom
+  const zoomOverlay = $("#zoomOverlay"), zoomImage = $("#zoomImage");
+
+  function openZoom(url) {
+    zoomImage.src = url;
+    zoomOverlay.classList.add("open");
+  }
+
+  function closeZoom() {
+    zoomOverlay.classList.remove("open");
+    zoomImage.src = "";
+  }
+
+  zoomOverlay.onclick = closeZoom;
+  zoomImage.onclick = (e) => e.stopPropagation();
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeZoom();
+  });
+
+  btnLoadMoreImages.onclick = () => {
+    const query = productName.value.trim();
+    if (query) searchImages(query);
+  };
+
+  btnCloseGallery.onclick = () => {
+    galleryContainer.classList.remove("expanded");
+  };
+
+  btnSaveToDrive.onclick = async () => {
+    if (selectedImages.length === 0) return;
+
+    try {
+      btnSaveToDrive.disabled = true;
+      btnSaveToDrive.textContent = "Salvando...";
+
+      const response = await fetchWithAuth("/api/images/save-to-drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_urls: selectedImages,
+          product_name: productName.value,
+          sku: tinySKU.value.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showToast(`Sucesso! ${data.saved} imagens salvas no Drive.`);
+        // Limpar seleção
+        selectedImages = [];
+        renderGallery();
+      } else {
+        throw new Error(data.detail || "Erro ao salvar.");
+      }
+    } catch (err) {
+      showToast(`Erro ao salvar: ${err.message}`);
+    } finally {
+      btnSaveToDrive.disabled = false;
+      btnSaveToDrive.innerHTML = `<svg class="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg> Salvar imagens no Drive`;
+    }
+  };
+
   // ============================================================================
-  // AUTO-PRICING: Calcula preços automaticamente via endpoint /pricing/quote
+  // FIM LÓGICA GALERIA
   // ============================================================================
 
   let autoPricingInProgress = false;
@@ -1904,7 +2381,7 @@
       };
 
       // Calcular preços para % MIN (Clássico) - passar commission_percent diretamente
-      const responseMin = await fetch('/pricing/quote', {
+      const responseMin = await fetchWithAuth('/pricing/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1925,7 +2402,7 @@
       const dataMin = await responseMin.json();
 
       // Calcular preços para % MAX (Premium) - passar commission_percent diretamente
-      const responseMax = await fetch('/pricing/quote', {
+      const responseMax = await fetchWithAuth('/pricing/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2520,6 +2997,79 @@
     e.target.value = '';
   });
 
+  btnLoadFromDrive.addEventListener('click', async () => {
+    // Pegando o elemento do DOM diretamente por segurança
+    const skuField = document.getElementById('tinySKU');
+    const sku = skuField ? skuField.value.trim() : null;
+
+    if (!sku) {
+      showToast("Por favor, cole um SKU válido do Tiny ERP para carregar os arquivos do Drive.", "error");
+      return;
+    }
+
+    btnLoadFromDrive.disabled = true;
+    const originalContent = btnLoadFromDrive.innerHTML;
+    btnLoadFromDrive.innerHTML = '<div class="loader-small mr-2" style="border-width:2px; width:16px; height:16px;"></div> Buscando...';
+
+    try {
+      const res = await fetchWithAuth("/api/drive/load-sku-files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sku: sku })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Erro ao buscar a pasta do produto no Google Drive.");
+      }
+
+      const files = data.files || [];
+
+      if (files.length === 0) {
+        showToast("A pasta foi encontrada, mas nenhum arquivo suportado estava dentro dela.", "info");
+      } else {
+        let loadedCount = 0;
+        files.forEach(f => {
+          try {
+            // Converter Data URI (Base64) para Arquivo Binário Nativo nativo JS
+            const arr = f.data_uri.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            const fileObj = new File([u8arr], f.name, { type: mime });
+
+            const id = `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+            const validation = validateFile(fileObj);
+
+            uploadedFiles.push({
+              file: fileObj,
+              enabled: validation.valid,
+              id: id,
+              valid: validation.valid,
+              error: validation.error
+            });
+            loadedCount++;
+          } catch (e) {
+            console.error("Erro ao converter arquivo do drive para File:", f.name, e);
+          }
+        });
+
+        renderFilesTable();
+        showToast(`${loadedCount} arquivos carregados remotamente do Drive com sucesso!`);
+      }
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      btnLoadFromDrive.disabled = false;
+      btnLoadFromDrive.innerHTML = originalContent;
+    }
+  });
+
   // Revalidar arquivos ao trocar de LLM
   llm.addEventListener('change', () => {
     updateFileAccept();
@@ -2582,6 +3132,15 @@
   const cfgRules = $("#cfgRules"), cfgPromptTpl = $("#cfgPromptTpl");
   const cfgSave = $("#cfgSave"), cfgCancel = $("#cfgCancel"), cfgClose = $("#cfgClose");
   const cfgAddTiny = $("#cfgAddTiny"), cfgTinyTokensList = $("#cfgTinyTokensList");
+
+  // API Fields
+  const cfgImageSearchApiKey = $("#cfgImageSearchApiKey");
+  const btnValidateImageSearch = $("#btnValidateImageSearch"), statusImageSearch = $("#statusImageSearch");
+  const cfgDriveFolderId = $("#cfgDriveFolderId"), cfgDriveCredentials = $("#cfgDriveCredentials");
+  const btnValidateDriveCreds = $("#btnValidateDriveCreds"), statusDriveCreds = $("#statusDriveCreds");
+  const btnValidateDriveFolder = $("#btnValidateDriveFolder"), statusDriveFolder = $("#statusDriveFolder");
+  const folderIdWrapper = $("#folderIdWrapper");
+  let isImageSearchValid = false;
 
   // Funções para gerenciar tokens Tiny
   function getTinyTokens() {
@@ -2789,10 +3348,158 @@
       const data = await r.json();
       appConfig = data || {};
       updateTinyInstanceSelect();
+      updateSearchButtonStatus();
     } catch (e) {
       console.warn("Erro ao carregar config do servidor:", e);
     }
   }
+
+  // --- Image Search Validation Logic ---
+  async function validateImageSearchConfig() {
+    const apiKey = cfgImageSearchApiKey.value.trim();
+
+    if (!apiKey) {
+      statusImageSearch.innerText = "✖ Informe a API Key primeiro";
+      statusImageSearch.className = "text-xs font-medium text-red-600";
+      return;
+    }
+
+    try {
+      btnValidateImageSearch.disabled = true;
+      statusImageSearch.innerText = "⌛ Validando...";
+      statusImageSearch.className = "text-xs font-medium text-gray-500";
+
+      const r = await fetchWithAuth("/api/images/validate-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: apiKey })
+      });
+
+      const data = await r.json();
+      if (r.ok && data.valid) {
+        statusImageSearch.innerText = "✔ Válido!";
+        statusImageSearch.className = "text-xs font-medium text-green-600";
+        isImageSearchValid = true;
+      } else {
+        throw new Error(data.detail || "Configuração inválida");
+      }
+    } catch (e) {
+      statusImageSearch.innerText = "✖ " + e.message;
+      statusImageSearch.className = "text-xs font-medium text-red-600";
+      isImageSearchValid = false;
+    } finally {
+      btnValidateImageSearch.disabled = false;
+    }
+  }
+
+  btnValidateImageSearch.onclick = (e) => { e.preventDefault(); validateImageSearchConfig(); };
+
+  cfgImageSearchApiKey.oninput = () => { isImageSearchValid = false; statusImageSearch.innerText = ""; };
+
+  // --- Google Drive Validation Logic ---
+  let isCredsValid = false;
+  let isFolderValid = false;
+
+  async function validateDriveCreds() {
+    const jsonStr = cfgDriveCredentials.value.trim();
+    if (!jsonStr) {
+      statusDriveCreds.innerText = "✖ Cole o JSON primeiro";
+      statusDriveCreds.className = "text-xs font-medium text-red-600";
+      return;
+    }
+
+    try {
+      btnValidateDriveCreds.disabled = true;
+      statusDriveCreds.innerText = "⌛ Validando...";
+      statusDriveCreds.className = "text-xs font-medium text-gray-500";
+
+      const r = await fetch("/api/drive/validate-credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credentials_json: jsonStr })
+      });
+
+      const data = await r.json();
+      if (r.ok && data.valid) {
+        statusDriveCreds.innerText = "✔ Válido!";
+        statusDriveCreds.className = "text-xs font-medium text-green-600";
+        isCredsValid = true;
+        folderIdWrapper.classList.remove('opacity-50', 'pointer-events-none');
+        cfgDriveFolderId.disabled = false;
+        cfgDriveFolderId.classList.remove('bg-gray-100');
+        btnValidateDriveFolder.disabled = false;
+      } else {
+        throw new Error(data.detail || "Credenciais inválidas");
+      }
+    } catch (e) {
+      statusDriveCreds.innerText = "✖ " + e.message;
+      statusDriveCreds.className = "text-xs font-medium text-red-600";
+      isCredsValid = false;
+      disableFolderValidation();
+    } finally {
+      btnValidateDriveCreds.disabled = false;
+    }
+  }
+
+  async function validateDriveFolder() {
+    const folderId = cfgDriveFolderId.value.trim();
+    const jsonStr = cfgDriveCredentials.value.trim();
+    if (!folderId) {
+      statusDriveFolder.innerText = "✖ Informe o ID da pasta";
+      statusDriveFolder.className = "text-xs font-medium text-red-600";
+      return;
+    }
+
+    try {
+      btnValidateDriveFolder.disabled = true;
+      statusDriveFolder.innerText = "⌛ Validando...";
+      statusDriveFolder.className = "text-xs font-medium text-gray-500";
+
+      const r = await fetch("/api/drive/validate-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credentials_json: jsonStr, folder_id: folderId })
+      });
+
+      const data = await r.json();
+      if (r.ok && data.valid) {
+        statusDriveFolder.innerText = `✔ ${data.folder_name}`;
+        statusDriveFolder.className = "text-xs font-medium text-green-600";
+        isFolderValid = true;
+      } else {
+        throw new Error(data.detail || "Pasta não acessível");
+      }
+    } catch (e) {
+      statusDriveFolder.innerText = "✖ " + e.message;
+      statusDriveFolder.className = "text-xs font-medium text-red-600";
+      isFolderValid = false;
+    } finally {
+      btnValidateDriveFolder.disabled = false;
+    }
+  }
+
+  function disableFolderValidation() {
+    folderIdWrapper.classList.add('opacity-50', 'pointer-events-none');
+    cfgDriveFolderId.disabled = true;
+    cfgDriveFolderId.classList.add('bg-gray-100');
+    btnValidateDriveFolder.disabled = true;
+    isFolderValid = false;
+    statusDriveFolder.innerText = "";
+  }
+
+  btnValidateDriveCreds.onclick = (e) => { e.preventDefault(); validateDriveCreds(); };
+  btnValidateDriveFolder.onclick = (e) => { e.preventDefault(); validateDriveFolder(); };
+
+  cfgDriveCredentials.oninput = () => {
+    isCredsValid = false;
+    statusDriveCreds.innerText = "";
+    disableFolderValidation();
+  };
+
+  cfgDriveFolderId.oninput = () => {
+    isFolderValid = false;
+    statusDriveFolder.innerText = "";
+  };
 
   const DEFAULT_PROMPT_TEMPLATE =
     `Produto: "{product}"
@@ -2842,15 +3549,52 @@ Restrições:
     cfgGeminiBase.value = saved.gemini_base || "";
     cfgRules.value = saved.rules ? JSON.stringify(saved.rules, null, 2) : "";
     cfgPromptTpl.value = saved.prompt_template || DEFAULT_PROMPT_TEMPLATE;
+
+    // Search Fields
+    cfgImageSearchApiKey.value = (saved.image_search && saved.image_search.api_key) || "";
+    cfgDriveFolderId.value = (saved.google_drive && saved.google_drive.folder_id) || "";
+    cfgDriveCredentials.value = (saved.google_drive && saved.google_drive.credentials_json) || "";
+
+    // Reset validation states
+    statusImageSearch.innerText = "";
+    statusDriveCreds.innerText = "";
+    statusDriveFolder.innerText = "";
+    isImageSearchValid = !!cfgImageSearchApiKey.value;
+    isCredsValid = !!cfgDriveCredentials.value;
+    isFolderValid = !!cfgDriveFolderId.value;
+
+    if (isCredsValid) {
+      folderIdWrapper.classList.remove('opacity-50', 'pointer-events-none');
+      cfgDriveFolderId.disabled = false;
+      cfgDriveFolderId.classList.remove('bg-gray-100');
+      btnValidateDriveFolder.disabled = false;
+    } else {
+      disableFolderValidation();
+    }
+
     renderTinyTokensList();
     renderPricingTable(); // Renderizar tabela de precificação
     switchConfigSection('llm'); // Sempre abrir na seção LLM
     cfgModal.classList.add("open");
   });
-  function closeCfg() { cfgModal.classList.remove("open"); }
+  function closeCfg() { cfgModal.classList.remove("open"); updateSearchButtonStatus(); }
   cfgCancel.addEventListener("click", closeCfg);
   cfgClose.addEventListener("click", closeCfg);
   cfgSave.addEventListener("click", async () => {
+    // If fields are filled but not validated, stop
+    if (cfgImageSearchApiKey.value.trim() && !isImageSearchValid) {
+      alert("Por favor, valide a configuração do buscador antes de salvar.");
+      return;
+    }
+    if (cfgDriveCredentials.value.trim() && !isCredsValid) {
+      alert("Por favor, valide as credenciais do Google Drive antes de salvar.");
+      return;
+    }
+    if (cfgDriveFolderId.value.trim() && !isFolderValid) {
+      alert("Por favor, valide o ID da pasta do Google Drive antes de salvar.");
+      return;
+    }
+
     let rules = {};
     if (cfgRules.value.trim()) {
       try { rules = JSON.parse(cfgRules.value); } catch (e) { alert("RuleSets inválido (JSON). Corrija e tente novamente."); return; }
@@ -2863,7 +3607,14 @@ Restrições:
       rules,
       prompt_template: cfgPromptTpl.value,
       tiny_tokens: getTinyTokens(),
-      pricing_config: getPricingConfig() // Salvar dados de precificação
+      pricing_config: getPricingConfig(), // Salvar dados de precificação
+      image_search: {
+        api_key: cfgImageSearchApiKey.value.trim()
+      },
+      google_drive: {
+        folder_id: cfgDriveFolderId.value.trim(),
+        credentials_json: cfgDriveCredentials.value.trim()
+      }
     };
 
     try {

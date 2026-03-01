@@ -143,6 +143,8 @@ class ConfigPayload(BaseModel):
     prompt_template: Optional[str] = None
     tiny_tokens: List[Dict[str, Any]] = Field(default_factory=list)
     pricing_config: List[Dict[str, Any]] = Field(default_factory=list)
+    image_search: Dict[str, Any] = Field(default_factory=dict)
+    google_drive: Dict[str, Any] = Field(default_factory=dict)
 
 
 def _default_config_payload() -> Dict[str, Any]:
@@ -155,6 +157,8 @@ def _default_config_payload() -> Dict[str, Any]:
         "prompt_template": DEFAULT_PROMPT_TEMPLATE,
         "tiny_tokens": [],
         "pricing_config": [],
+        "image_search": {"api_key": "", "cx": ""},
+        "google_drive": {"folder_id": "", "credentials_json": "", "auth_type": "service_account"},
     }
 
 
@@ -1093,6 +1097,437 @@ async def gateway_info():
     }
 
     return JSONResponse(content=data)
+
+
+# ============================================================================
+# IMAGE SEARCH & GOOGLE DRIVE ENDPOINTS
+# ============================================================================
+
+from io import BytesIO
+import json as _json
+import PIL.Image
+
+try:
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
+    from google.oauth2 import service_account
+    GOOGLE_DRIVE_AVAILABLE = True
+except ImportError:
+    GOOGLE_DRIVE_AVAILABLE = False
+
+
+def _build_drive_service(credentials_json_str: str):
+    """Build an authenticated Google Drive service from a service account JSON string."""
+    if not GOOGLE_DRIVE_AVAILABLE:
+        raise RuntimeError("google-api-python-client não está instalado.")
+    creds_dict = _json.loads(credentials_json_str)
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict,
+        scopes=["https://www.googleapis.com/auth/drive"]
+    )
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+
+def _escape_q(s: str) -> str:
+    """Escapa aspas simples para queries do Google Drive."""
+    return s.replace("'", "\\'")
+
+def _get_or_create_subfolder(service, parent_folder_id: str, folder_name: str) -> str:
+    """Get or create a subfolder inside parent_folder_id. Returns the subfolder ID."""
+    safe_name = _escape_q(folder_name)
+    query = (
+        f"name='{safe_name}' and "
+        f"'{parent_folder_id}' in parents and "
+        "mimeType='application/vnd.google-apps.folder' and trashed=false"
+    )
+    results = service.files().list(
+        q=query, 
+        fields="files(id, name)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
+    ).execute()
+    files = results.get("files", [])
+    if files:
+        return files[0]["id"]
+
+    metadata = {
+        "name": folder_name,
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": [parent_folder_id]
+    }
+    folder = service.files().create(
+        body=metadata, 
+        fields="id",
+        supportsAllDrives=True
+    ).execute()
+    return folder["id"]
+
+
+def _find_file_in_folder(service, folder_id: str, filename: str) -> Optional[str]:
+    """Find a file by name in a folder. Returns file ID or None."""
+    safe_filename = _escape_q(filename)
+    query = f"name='{safe_filename}' and '{folder_id}' in parents and trashed=false"
+    results = service.files().list(
+        q=query, 
+        fields="files(id)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
+    ).execute()
+    files = results.get("files", [])
+    return files[0]["id"] if files else None
+
+
+# ---- Validation Endpoints ----
+
+class ValidateCredentialsIn(BaseModel):
+    credentials_json: str
+
+
+@app.post("/api/drive/validate-credentials")
+async def validate_drive_credentials(
+    payload: ValidateCredentialsIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+):
+    if not GOOGLE_DRIVE_AVAILABLE:
+        raise HTTPException(status_code=500, detail="Bibliotecas do Google Drive não instaladas no servidor.")
+    try:
+        service = _build_drive_service(payload.credentials_json)
+        # Test: list 1 file to confirm access
+        service.files().list(pageSize=1, fields="files(id)").execute()
+        return JSONResponse(content={"valid": True, "message": "Credenciais válidas."})
+    except _json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="JSON de credenciais inválido. Verifique o formato.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Credenciais inválidas: {str(e)}")
+
+
+class ValidateFolderIn(BaseModel):
+    credentials_json: str
+    folder_id: str
+
+
+@app.post("/api/drive/validate-folder")
+async def validate_drive_folder(
+    payload: ValidateFolderIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+):
+    if not GOOGLE_DRIVE_AVAILABLE:
+        raise HTTPException(status_code=500, detail="Bibliotecas do Google Drive não instaladas no servidor.")
+    try:
+        service = _build_drive_service(payload.credentials_json)
+        result = service.files().get(
+            fileId=payload.folder_id,
+            fields="id, name, mimeType",
+            supportsAllDrives=True
+        ).execute()
+        
+        # MimeType de pasta comum ou de drive compartilhado
+        is_folder = result.get("mimeType") == "application/vnd.google-apps.folder"
+        
+        if not is_folder:
+            raise HTTPException(status_code=400, detail="O ID fornecido não é uma pasta válida ou Drive Compartilhado.")
+            
+        return JSONResponse(content={
+            "valid": True,
+            "folder_name": result.get("name"),
+            "message": f"Pasta encontrada: {result.get('name')}"
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Pasta não encontrada ou sem acesso: {str(e)}")
+
+
+class ValidateImageSearchIn(BaseModel):
+    api_key: str
+
+
+@app.post("/api/images/validate-search")
+async def validate_image_search_config(
+        payload: ValidateImageSearchIn,
+        current_user: CurrentUser = Depends(get_current_user_master),
+):
+    """Testa se a API Key do Serper.dev está correta e ativa."""
+    url = "https://google.serper.dev/images"
+    headers = {
+        'X-API-KEY': payload.api_key,
+        'Content-Type': 'application/json'
+    }
+    data = {"q": "teste", "num": 1}
+
+    try:
+        r = requests.post(url, headers=headers, json=data, timeout=10)
+        if r.status_code == 200:
+            return JSONResponse(content={"valid": True, "message": "Conectado ao Serper com sucesso!"})
+        else:
+            error_msg = r.json().get("message", "Chave inválida ou erro no serviço")
+            raise HTTPException(status_code=r.status_code, detail=f"Erro no Serper: {error_msg}")
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Erro na conexão: {str(e)}")
+
+
+# ---- Search Images ----
+
+class SearchImagesIn(BaseModel):
+    query: str
+    start: int = 1
+
+
+@app.post("/api/images/search")
+async def search_images(
+    payload: SearchImagesIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db)
+):
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+
+    if not cfg or not cfg.data.get("image_search", {}).get("api_key"):
+        raise HTTPException(status_code=400, detail="Serper API Key não configurada no Admin.")
+
+    api_key = cfg.data["image_search"].get("api_key")
+
+    url = "https://google.serper.dev/images"
+    headers = {
+        'X-API-KEY': api_key,
+        'Content-Type': 'application/json'
+    }
+    # Calculando a página baseada no 'start' do frontend (1, 13, 25...)
+    page = (payload.start // 12) + 1
+    
+    data = {
+        "q": payload.query,
+        "page": page,
+        "num": 12
+    }
+
+    try:
+        r = requests.post(url, headers=headers, json=data, timeout=10)
+        r.raise_for_status()
+        res_data = r.json()
+
+        # O Serper retorna os resultados em 'images'
+        items = res_data.get("images", [])
+        images = [
+            {
+                "url": item.get("imageUrl"),
+                "thumbnail": item.get("thumbnailUrl") or item.get("imageUrl"),
+                "title": item.get("title"),
+                "mime": None # Serper não retorna mime diretamente de forma fácil
+            }
+            for item in items
+        ]
+
+        return JSONResponse(content={
+            "images": images,
+            "total": 100 # Serper não envia total exato facilmente, fixamos um valor alto
+        })
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Erro na API Serper: {str(e)}")
+
+
+# ---- Save Images to Drive ----
+
+class SaveToDriveIn(BaseModel):
+    image_urls: List[str]
+    product_name: str
+    sku: Optional[str] = None
+
+
+@app.post("/api/images/save-to-drive")
+async def save_to_drive(
+    payload: SaveToDriveIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db)
+):
+    if not GOOGLE_DRIVE_AVAILABLE:
+        raise HTTPException(status_code=500, detail="Bibliotecas do Google Drive não instaladas no servidor.")
+
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+
+    drive_cfg = cfg.data.get("google_drive", {}) if cfg else {}
+    folder_id = drive_cfg.get("folder_id", "")
+    credentials_json = drive_cfg.get("credentials_json", "")
+
+    if not folder_id or not credentials_json:
+        raise HTTPException(status_code=400, detail="Google Drive não configurado completamente no Admin.")
+
+    try:
+        service = _build_drive_service(credentials_json)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao autenticar no Drive: {str(e)}")
+
+    # Use SKU if provided, otherwise fall back to sanitized product name
+    folder_name = (payload.sku or payload.product_name).strip().replace("/", "-").replace("\\", "-")
+
+    try:
+        subfolder_id = _get_or_create_subfolder(service, folder_id, folder_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao criar subpasta no Drive: {str(e)}")
+
+    saved_count = 0
+    errors = []
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+
+    print(f"DEBUG: Iniciando salvamento de {len(payload.image_urls)} imagens na pasta '{folder_name}'")
+
+    for idx, url in enumerate(payload.image_urls):
+        filename = f"{folder_name}{idx + 1:03d}.png"
+        try:
+            # Download image with headers to avoid bot protection
+            resp = requests.get(url, timeout=15, headers=headers)
+            resp.raise_for_status()
+
+            # Convert to PNG
+            img = PIL.Image.open(BytesIO(resp.content)).convert("RGBA")
+            out_buffer = BytesIO()
+            img.save(out_buffer, format="PNG")
+            out_buffer.seek(0)
+
+            media = MediaIoBaseUpload(out_buffer, mimetype="image/png", resumable=False)
+
+            # Check if file already exists → overwrite
+            existing_id = _find_file_in_folder(service, subfolder_id, filename)
+            if existing_id:
+                service.files().update(
+                    fileId=existing_id,
+                    media_body=media,
+                    supportsAllDrives=True
+                ).execute()
+                print(f"DEBUG: Arquivo atualizado: {filename}")
+            else:
+                service.files().create(
+                    body={"name": filename, "parents": [subfolder_id]},
+                    media_body=media,
+                    fields="id",
+                    supportsAllDrives=True
+                ).execute()
+                print(f"DEBUG: Arquivo criado: {filename}")
+
+            saved_count += 1
+
+        except Exception as e:
+            error_msg = f"Erro na imagem {idx + 1} ({filename}): {str(e)}"
+            print(f"ERROR: {error_msg}")
+            errors.append(error_msg)
+
+    print(f"DEBUG: Fim do processo. Salvas: {saved_count}, Erros: {len(errors)}")
+
+    return JSONResponse(content={
+        "status": "partial" if errors else "success",
+        "saved": saved_count,
+        "folder_name": folder_name,
+        "errors": errors
+    })
+
+
+class LoadSkuFilesIn(BaseModel):
+    sku: str
+
+@app.post("/api/drive/load-sku-files")
+async def load_sku_files(
+    payload: LoadSkuFilesIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db)
+):
+    """
+    Localiza a pasta com o nome do SKU no Drive, baixa todos os arquivos, 
+    ordena ({SKU}001 primeiro) e retorna como base64 (Data URI).
+    """
+    if not GOOGLE_DRIVE_AVAILABLE:
+        raise HTTPException(status_code=500, detail="Bibliotecas do Google Drive não instaladas no servidor.")
+
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    drive_cfg = cfg.data.get("google_drive", {}) if cfg else {}
+    folder_id = drive_cfg.get("folder_id", "")
+    credentials_json = drive_cfg.get("credentials_json", "")
+
+    if not folder_id or not credentials_json:
+        raise HTTPException(status_code=400, detail="Google Drive não configurado no Admin.")
+
+    try:
+        service = _build_drive_service(credentials_json)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao autenticar no Drive: {str(e)}")
+
+    sku_nome = payload.sku.strip().replace('/', '-').replace('\\', '-')
+    safe_name = _escape_q(sku_nome)
+    
+    # 1. Encontrar a pasta do SKU
+    query = (
+        f"name='{safe_name}' and "
+        f"'{folder_id}' in parents and "
+        "mimeType='application/vnd.google-apps.folder' and trashed=false"
+    )
+    
+    try:
+        results = service.files().list(
+            q=query, 
+            fields="files(id, name)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
+        ).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar pasta: {str(e)}")
+        
+    folders = results.get("files", [])
+    if not folders:
+        raise HTTPException(status_code=404, detail=f"Pasta não encontrada para o SKU: {sku_nome}")
+        
+    subfolder_id = folders[0]["id"]
+    
+    # 2. Listar todos os arquivos da pasta
+    query_files = f"'{subfolder_id}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'"
+    results_files = service.files().list(
+        q=query_files,
+        fields="files(id, name, mimeType)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+        pageSize=100
+    ).execute()
+    
+    all_files = results_files.get("files", [])
+    
+    # 3. Ordenar os arquivos: {SKU}NNN.ext primeiro de forma crescente
+    def sort_key(f):
+        m = re.match(rf"^{re.escape(sku_nome)}(\d+)\.[a-zA-Z0-9]+$", f["name"], re.IGNORECASE)
+        if m:
+            return (0, int(m.group(1)), f["name"])
+        return (1, 0, f["name"])
+        
+    all_files = sorted(all_files, key=sort_key)
+    
+    # 4. Baixar conteúdos
+    out_files = []
+    
+    for f in all_files:
+        try:
+            req = service.files().get_media(fileId=f["id"])
+            fh = BytesIO()
+            downloader = MediaIoBaseDownload(fh, req)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            
+            b64_content = base64.b64encode(fh.getvalue()).decode("utf-8")
+            data_uri = f"data:{f['mimeType']};base64,{b64_content}"
+            
+            out_files.append({
+                "name": f["name"],
+                "type": f["mimeType"],
+                "data_uri": data_uri
+            })
+        except Exception as e:
+            print(f"ERROR: Falha ao baixar arquivo {f['name']} (ID: {f['id']}): {e}")
+            continue
+            
+    return JSONResponse(content={"files": out_files})
+
 
 
 # ========= MAIN PARA RODAR DEBUGANDO =========

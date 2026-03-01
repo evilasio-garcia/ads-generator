@@ -12,3 +12,7 @@ requests
 python-dotenv
 starlette
 beautifulsoup4
+Pillow
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
