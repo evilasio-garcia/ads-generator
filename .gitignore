@@ -36,3 +36,4 @@ logs/
 *.sqlite*
 *.db
 attached_assets/
+.agent/

@@ -26,6 +26,55 @@ TINY_API_NFS_OBTER = f"{TINY_API_BASE}/nota.fiscal.obter.php"
 
 from datetime import datetime, timedelta
 
+async def _call_tiny_api(url: str, payload: Dict[str, Any], timeout: float = 15.0, max_retries: int = 2) -> Dict[str, Any]:
+    """
+    Realiza uma chamada para a API Tiny garantindo uma nova conexão e retentativas silenciosas.
+    Implementa o requisito de 'matar a conexão ao fim e sempre usar uma nova'.
+    """
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            # Sempre usamos um novo cliente para garantir uma conexão fresca
+            async with httpx.AsyncClient() as client:
+                if attempt > 0:
+                    await asyncio.sleep(attempt * 1.5) # backoff simples
+                
+                response = await client.post(url, data=payload, timeout=timeout)
+                
+                # Se o status code for 502, 503 ou 504 (erros de gateway/timeout do servidor), podemos retentar
+                if response.status_code in [502, 503, 504] and attempt < max_retries:
+                    continue
+                    
+                if response.status_code != 200:
+                    raise TinyServiceError(f"Status HTTP {response.status_code}")
+                
+                data = response.json()
+                retorno = data.get("retorno", {})
+                
+                # Alguns erros do Tiny indicam instabilidades que podem ser sanadas com retry
+                if retorno.get("status") == "Erro":
+                    errors = retorno.get("erros", [])
+                    if errors:
+                        msg = errors[0].get("erro", "")
+                        # Se for erro de limite de requisições ou instabilidade temporária, retenta
+                        if "limite" in msg.lower() or "temporariamente" in msg.lower() or "overload" in msg.lower():
+                            if attempt < max_retries:
+                                continue
+                
+                return data
+                
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as e:
+            last_error = e
+            logger.warning(f"Conexão Tiny falhou na tentativa {attempt+1}: {e}. Retentando com nova conexão...")
+            if attempt < max_retries:
+                continue
+        except Exception as e:
+            last_error = e
+            # Erros de aplicação não precisam de retry imediato de conexão
+            raise TinyServiceError(f"Erro inesperado na API Tiny: {str(e)}")
+            
+    raise TinyServiceError(f"Falha ao conectar com Tiny ERP após {max_retries+1} tentativas: {str(last_error)}")
+
 
 
 class TinyServiceError(Exception):
@@ -53,7 +102,7 @@ def _log_safe_request(url: str, has_token: bool, **kwargs):
     logger.info(f"Tiny API Request: {url}, authenticated: {has_token}, params: {list(kwargs.keys())}")
 
 
-async def _search_in_date_window(client: httpx.AsyncClient, token: str, sku: str, data_inicial: str, data_final: str, timeout: float = 15.0) -> float:
+async def _search_in_date_window(token: str, sku: str, data_inicial: str, data_final: str, timeout: float = 15.0) -> float:
     """Busca notas fiscais APENAS dentro de uma janela de datas específica (Assíncrono)."""
     page_number = 1
     candidatos = []
@@ -70,11 +119,7 @@ async def _search_in_date_window(client: httpx.AsyncClient, token: str, sku: str
         }
         
         try:
-            response = await client.post(TINY_API_NFS_PESQUISA, data=payload, timeout=timeout)
-            if response.status_code != 200:
-                break
-                
-            data = response.json()
+            data = await _call_tiny_api(TINY_API_NFS_PESQUISA, payload, timeout=timeout)
             retorno = data.get("retorno", {})
             
             if retorno.get("status") != "OK":
@@ -101,23 +146,21 @@ async def _search_in_date_window(client: httpx.AsyncClient, token: str, sku: str
                     "id": id_nota
                 }
                 
-                detalhe_resp = await client.post(TINY_API_NFS_OBTER, data=detalhe_payload, timeout=timeout)
-                if detalhe_resp.status_code == 200:
-                    detalhe_data = detalhe_resp.json()
-                    full_nota = detalhe_data.get("retorno", {}).get("nota_fiscal", {})
-                    itens = full_nota.get("itens", [])
-                    
-                    for line in itens:
-                        prod = line.get("item", {})
-                        if prod.get("codigo") == sku:
-                            candidatos.append({
-                                "nota_numero": nota_resumo.get("numero"),
-                                "data_emissao": full_nota.get("data_emissao"),
-                                "valor_produtos": full_nota.get("valor_produtos"),
-                                "valor_faturado": full_nota.get("valor_faturado"),
-                                "custo_unitario": prod.get("valor_unitario")
-                            })
-                            break
+                detalhe_data = await _call_tiny_api(TINY_API_NFS_OBTER, detalhe_payload, timeout=timeout)
+                full_nota = detalhe_data.get("retorno", {}).get("nota_fiscal", {})
+                itens = full_nota.get("itens", [])
+                
+                for line in itens:
+                    prod = line.get("item", {})
+                    if prod.get("codigo") == sku:
+                        candidatos.append({
+                            "nota_numero": nota_resumo.get("numero"),
+                            "data_emissao": full_nota.get("data_emissao"),
+                            "valor_produtos": full_nota.get("valor_produtos"),
+                            "valor_faturado": full_nota.get("valor_faturado"),
+                            "custo_unitario": prod.get("valor_unitario")
+                        })
+                        break
                             
             page_number += 1
             eh_o_fim = (page_number > total_pages)
@@ -153,7 +196,7 @@ async def _search_in_date_window(client: httpx.AsyncClient, token: str, sku: str
     return 0.0
 
 
-async def _find_most_recent_purchase_cost(client: httpx.AsyncClient, token: str, sku: str, timeout: float = 15.0) -> float:
+async def _find_most_recent_purchase_cost(token: str, sku: str, timeout: float = 15.0) -> float:
     """Busca em Deep Search por notas fiscais de entrada assíncrono."""
     initial_lookback = 90
     deep_search_step = 30
@@ -170,7 +213,7 @@ async def _find_most_recent_purchase_cost(client: httpx.AsyncClient, token: str,
     logger.info(f"[{sku}] Iniciando busca de custo (Janela {str_inicio} a {str_fim})")
 
     while total_days_checked <= max_lookback_days:
-        custo = await _search_in_date_window(client, token, sku, str_inicio, str_fim, timeout)
+        custo = await _search_in_date_window(token, sku, str_inicio, str_fim, timeout)
         
         if custo > 0:
             return custo
@@ -212,33 +255,22 @@ async def validate_token(token: str) -> Tuple[bool, Optional[str]]:
         
         _log_safe_request(TINY_SEARCH_URL, has_token=True, pesquisa='empty')
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                TINY_SEARCH_URL,
-                data=payload,
-                timeout=10.0
-            )
-            
-            if response.status_code != 200:
-                logger.warning(f"Tiny API validation failed: HTTP {response.status_code}")
-                return False, f"Erro HTTP {response.status_code}"
-            
-            data = response.json()
-            
-            if 'retorno' not in data:
-                logger.warning("Tiny API validation: resposta inválida")
-                return False, "Resposta inválida da API"
-            
-            status = data['retorno'].get('status', '')
-            status_processamento = data['retorno'].get('status_processamento', '')
-            
-            if status == 'OK' or status_processamento == '3':
-                logger.info("Token validado com sucesso")
-                return True, None
-            
-            erro_msg = data['retorno'].get('erros', [{}])[0].get('erro', 'Token inválido')
-            logger.warning(f"Tiny API validation failed: {erro_msg}")
-            return False, erro_msg
+        data = await _call_tiny_api(TINY_SEARCH_URL, payload, timeout=10.0)
+        
+        if 'retorno' not in data:
+            logger.warning("Tiny API validation: resposta inválida")
+            return False, "Resposta inválida da API"
+        
+        status = data['retorno'].get('status', '')
+        status_processamento = data['retorno'].get('status_processamento', '')
+        
+        if status == 'OK' or status_processamento == '3':
+            logger.info("Token validado com sucesso")
+            return True, None
+        
+        erro_msg = data['retorno'].get('erros', [{}])[0].get('erro', 'Token inválido')
+        logger.warning(f"Tiny API validation failed: {erro_msg}")
+        return False, erro_msg
         
     except httpx.TimeoutException:
         logger.error("Timeout ao validar token Tiny")
@@ -279,183 +311,132 @@ async def get_product_by_sku(
         raise TinyNotFoundError("SKU não fornecido")
     
     sku = sku.strip()
-    last_error = None
-    total_attempts = max_retries + 1  # 1 + 1 = 2 tentativas totais
     
-    # Retry com backoff exponencial
-    for attempt in range(total_attempts):
-        async with httpx.AsyncClient() as client:
-            try:
-                if attempt > 0:
-                    delay = 2 ** attempt  # 2s, 4s, 8s...
-                    logger.info(f"Tentativa {attempt + 1}/{total_attempts} após {delay}s")
-                    await asyncio.sleep(delay)
-            
-                # 1. Pesquisar produto por SKU
-                search_payload = {
-                    'token': token,
-                    'formato': 'JSON',
-                    'pesquisa': sku
-                }
-                
-                _log_safe_request(TINY_SEARCH_URL, has_token=True, pesquisa=sku)
-                
-                search_response = await client.post(
-                    TINY_SEARCH_URL,
-                    data=search_payload,
-                    timeout=timeout
-                )
-                
-                if search_response.status_code != 200:
-                    raise TinyServiceError(f"Erro HTTP {search_response.status_code}")
-                
-                search_data = search_response.json()
-            
-                # Verificar resposta da busca
-                if 'retorno' not in search_data:
-                    raise TinyServiceError("Resposta inválida da API")
-                
-                retorno = search_data['retorno']
-                status = retorno.get('status', '')
-                
-                # Verificar erros de autenticação
-                if status == 'Erro':
-                    erros = retorno.get('erros', [])
-                    if erros:
-                        erro_msg = erros[0].get('erro', 'Erro desconhecido')
-                        if 'token' in erro_msg.lower() or 'autentica' in erro_msg.lower():
-                            raise TinyAuthError(f"Token inválido: {erro_msg}")
-                        raise TinyServiceError(erro_msg)
-                
-                # Verificar se encontrou produtos
-                produtos = retorno.get('produtos', [])
-                if not produtos:
-                    raise TinyNotFoundError(f"SKU '{sku}' não encontrado no Tiny ERP")
-                
-                # Procurar produto com código exato (SKU pode retornar vários resultados parciais)
-                produto_info = None
-                for p in produtos:
-                    prod = p.get('produto', {})
-                    if prod.get('codigo', '').strip().upper() == sku.upper():
-                        produto_info = prod
-                        break
-                
-                # Se não encontrou match exato, usar o primeiro resultado
-                if not produto_info:
-                    produto_info = produtos[0].get('produto', {})
-                    logger.warning(f"SKU '{sku}' não encontrado exato, usando melhor match")
-                
-                # 2. Obter detalhes completos do produto
-                produto_id = produto_info.get('id')
-                if not produto_id:
-                    raise TinyServiceError("ID do produto não encontrado")
-                
-                get_payload = {
-                    'token': token,
-                    'formato': 'JSON',
-                    'id': produto_id
-                }
-                
-                _log_safe_request(TINY_GET_URL, has_token=True, id=produto_id)
-                
-                get_response = await client.post(
-                    TINY_GET_URL,
-                    data=get_payload,
-                    timeout=timeout
-                )
-                
-                if get_response.status_code != 200:
-                    raise TinyServiceError(f"Erro HTTP {get_response.status_code} ao obter produto")
-                
-                get_data = get_response.json()
-                
-                if 'retorno' not in get_data or 'produto' not in get_data['retorno']:
-                    raise TinyServiceError("Dados do produto não encontrados")
-                
-                produto_completo = get_data['retorno']['produto']
-                
-                # 3. Adicionar Lógica Deep Search e Kit para 'preco_custo'
-                # --- CENÁRIO A: É UM KIT ---
-                final_cost = 0.0
-                kit_items = produto_completo.get("kit", [])
-                
-                if kit_items:
-                    logger.info(f"[{sku}] Identificado como KIT. Calculando componentes...")
-                    custo_total_kit = 0.0
-                    for component in kit_items:
-                        item_data = component.get("item", {})
-                        comp_id = item_data.get("id_produto")
-                        
-                        qty_str = item_data.get("quantidade", 0)
-                        try:
-                            comp_qty = float(str(qty_str).replace(',', '.'))
-                        except (ValueError, TypeError):
-                            comp_qty = 0.0
-                            
-                        # Buscar componente na API
-                        comp_payload = {
-                            "token": token,
-                            "formato": "JSON",
-                            "id": comp_id
-                        }
-                        comp_resp = await client.post(TINY_GET_URL, data=comp_payload, timeout=timeout)
-                        if comp_resp.status_code == 200:
-                            comp_data = comp_resp.json()
-                            comp_full = comp_data.get("retorno", {}).get("produto", {})
-                            comp_sku = comp_full.get("codigo", "")
-                            
-                            if comp_sku:
-                                custo_unit = await _find_most_recent_purchase_cost(client, token, comp_sku, timeout)
-                                if custo_unit == 0.0:
-                                    try:
-                                        custo_unit = float(str(comp_full.get("preco_custo")).replace(',', '.'))
-                                    except (ValueError, TypeError):
-                                        custo_unit = 0.0
-                                custo_total_kit += (custo_unit * comp_qty)
-                    final_cost = custo_total_kit
-                else:
-                    # --- CENÁRIO B: SIMPLES ---
-                    final_cost = await _find_most_recent_purchase_cost(client, token, sku, timeout)
-                    if final_cost == 0.0:
-                        try:
-                            final_cost = float(str(produto_completo.get("preco_custo")).replace(',', '.'))
-                            logger.info(f"[{sku}] Fallback cadastro: R$ {final_cost:.4f}")
-                        except (ValueError, TypeError):
-                            final_cost = 0.0
+    # 1. Sanity Check Inicial (Válida Token e Conexão antes de começar)
+    # Atende ao requisito de "fazer uma primeira verificação de sanidade"
+    is_ok, error = await validate_token(token)
+    if not is_ok:
+        raise TinyAuthError(f"Falha na sanidade da conexão/token: {error}")
 
-                produto_completo['preco_custo_calculado'] = final_cost
+    try:
+        # 1. Pesquisar produto por SKU
+        search_payload = {
+            'token': token,
+            'formato': 'JSON',
+            'pesquisa': sku
+        }
+        
+        _log_safe_request(TINY_SEARCH_URL, has_token=True, pesquisa=sku)
+        search_data = await _call_tiny_api(TINY_SEARCH_URL, search_payload, timeout=timeout)
+    
+        # Verificar resposta da busca
+        if 'retorno' not in search_data:
+            raise TinyServiceError("Resposta inválida da API")
+        
+        retorno = search_data['retorno']
+        status = retorno.get('status', '')
+        
+        # Verificar erros de autenticação (mesmo após sanity check, por segurança)
+        if status == 'Erro':
+            erros = retorno.get('erros', [])
+            if erros:
+                erro_msg = erros[0].get('erro', 'Erro desconhecido')
+                if 'token' in erro_msg.lower() or 'autentica' in erro_msg.lower():
+                    raise TinyAuthError(f"Token inválido: {erro_msg}")
+                raise TinyServiceError(erro_msg)
+        
+        # Verificar se encontrou produtos
+        produtos = retorno.get('produtos', [])
+        if not produtos:
+            raise TinyNotFoundError(f"SKU '{sku}' não encontrado no Tiny ERP")
+        
+        # Procurar produto com código exato
+        produto_info = None
+        for p in produtos:
+            prod = p.get('produto', {})
+            if prod.get('codigo', '').strip().upper() == sku.upper():
+                produto_info = prod
+                break
+        
+        if not produto_info:
+            produto_info = produtos[0].get('produto', {})
+            logger.warning(f"SKU '{sku}' não encontrado exato, usando melhor match")
+        
+        # 2. Obter detalhes completos do produto
+        produto_id = produto_info.get('id')
+        if not produto_id:
+            raise TinyServiceError("ID do produto não encontrado")
+        
+        get_payload = {
+            'token': token,
+            'formato': 'JSON',
+            'id': produto_id
+        }
+        
+        _log_safe_request(TINY_GET_URL, has_token=True, id=produto_id)
+        get_data = await _call_tiny_api(TINY_GET_URL, get_payload, timeout=timeout)
+        
+        if 'retorno' not in get_data or 'produto' not in get_data['retorno']:
+            raise TinyServiceError("Dados do produto não encontrados")
+        
+        produto_completo = get_data['retorno']['produto']
+        
+        # 3. Adicionar Lógica Deep Search e Kit
+        final_cost = 0.0
+        kit_items = produto_completo.get("kit", [])
+        
+        if kit_items:
+            logger.info(f"[{sku}] Identificado como KIT. Calculando componentes...")
+            custo_total_kit = 0.0
+            for component in kit_items:
+                item_data = component.get("item", {})
+                comp_id = item_data.get("id_produto")
+                
+                qty_str = item_data.get("quantidade", 0)
+                try:
+                    comp_qty = float(str(qty_str).replace(',', '.'))
+                except (ValueError, TypeError):
+                    comp_qty = 0.0
+                    
+                # Buscar componente
+                comp_payload = {
+                    "token": token,
+                    "formato": "JSON",
+                    "id": comp_id
+                }
+                comp_data = await _call_tiny_api(TINY_GET_URL, comp_payload, timeout=timeout)
+                comp_full = comp_data.get("retorno", {}).get("produto", {})
+                comp_sku = comp_full.get("codigo", "")
+                
+                if comp_sku:
+                    custo_unit = await _find_most_recent_purchase_cost(token, comp_sku, timeout)
+                    if custo_unit == 0.0:
+                        try:
+                            custo_unit = float(str(comp_full.get("preco_custo")).replace(',', '.'))
+                        except (ValueError, TypeError):
+                            custo_unit = 0.0
+                    custo_total_kit += (custo_unit * comp_qty)
+            final_cost = custo_total_kit
+        else:
+            final_cost = await _find_most_recent_purchase_cost(token, sku, timeout)
+            if final_cost == 0.0:
+                try:
+                    final_cost = float(str(produto_completo.get("preco_custo")).replace(',', '.'))
+                    logger.info(f"[{sku}] Fallback cadastro: R$ {final_cost:.4f}")
+                except (ValueError, TypeError):
+                    final_cost = 0.0
 
-                # 4. Mapear dados
-                mapped_data = map_tiny_to_product_data(produto_completo)
-                
-                logger.info(f"Produto '{sku}' obtido com sucesso")
-                return mapped_data
-                
-            except httpx.TimeoutException as e:
-                last_error = e
-                logger.warning(f"Timeout na tentativa {attempt + 1}")
-                if attempt == total_attempts - 1:
-                    raise TinyTimeoutError(f"Timeout após {total_attempts} tentativas")
-                continue
-                
-            except TinyNotFoundError as e:
-                # Erros que não devem ter retry (não importa tentar, esse SKU não existe)
-                raise e
-                
-            except TinyAuthError as e:
-                # O token falhou nesse exato momento, vamos reiniciar a conexão via loop
-                last_error = e
-                logger.warning(f"Erro de autenticação (401) na tentativa {attempt + 1}, tentando novamente: {str(e)}")
-                if attempt == total_attempts - 1:
-                    raise e
-                continue
-                
-            except Exception as e:
-                last_error = e
-                logger.error(f"Erro na tentativa {attempt + 1}: {str(e)}")
-                if attempt == total_attempts - 1:
-                    raise TinyServiceError(f"Falha após {total_attempts} tentativas: {str(e)}")
-                continue
+        produto_completo['preco_custo_calculado'] = final_cost
+        mapped_data = map_tiny_to_product_data(produto_completo)
+        
+        logger.info(f"Produto '{sku}' obtido com sucesso")
+        return mapped_data
+        
+    except (TinyAuthError, TinyNotFoundError):
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao obter produto Tiny: {str(e)}")
+        raise TinyServiceError(f"Falha na comunicação com Tiny ERP: {str(e)}")
         
     # Se chegou aqui, esgotou as tentativas
     raise TinyServiceError(f"Falha após {total_attempts} tentativas: {str(last_error)}")
