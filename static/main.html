@@ -512,12 +512,41 @@
         </div>
       </div>
 
+      <!-- Container Canva (Aparece se houver design) -->
+      <div id="canvaExportContainer" class="mt-4 hidden">
+        <div
+          class="rounded-lg border border-purple-200 bg-purple-50 p-4 transition-all hover:bg-purple-100 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 stroke-purple-600 fill-none" viewBox="0 0 24 24">
+              <path
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div>
+              <p class="text-sm font-semibold text-purple-900" id="canvaDesignTitle">Canva Design Encontrado</p>
+              <p class="text-xs text-purple-700" id="canvaDesignSubtitle">Com o nome referente ao SKU. Deseja exportar e sincronizar?</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btnReauthCanvaInline"
+              class="hidden px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-sm disabled:opacity-50">
+              Reautorizar Canva
+            </button>
+            <button id="btnExportCanva"
+              class="px-3 py-1.5 rounded-md text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow-sm disabled:opacity-50">
+              Exportar para /Drive
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Botão Gerar -->
       <div class="mt-4">
         <button id="btnGenerate"
           class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full"><span
             class="mr-2">⚡</span>Gerar conteúdo</button>
       </div>
+
 
       <div id="statusArea" class="mt-4 hidden">
         <div class="flex items-center gap-3 text-sm text-gray-700">
@@ -1355,49 +1384,95 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Canva Integration Sub-group -->
+              <div class="pt-2 border-t border-gray-100 mt-4">
+                <h5 class="text-sm font-semibold text-gray-800 mb-4 flex items-center">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                    </path>
+                  </svg>
+                  Canva Integration
+                </h5>
+
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h6 class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Canva API (Connect)</h6>
+                  <div class="space-y-4">
+                    <div>
+                      <label class="text-xs text-gray-600 font-medium tracking-tight">Client ID</label>
+                      <input id="cfgCanvaClientId" type="text"
+                        class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                        placeholder="Identificador do cliente Canva...">
+                    </div>
+                    <div>
+                      <label class="text-xs text-gray-600 font-medium tracking-tight">Client Secret</label>
+                      <input id="cfgCanvaClientSecret" type="password"
+                        class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                        placeholder="Segredo do cliente (mantenha em sigilo)...">
+                    </div>
+
+                    <div class="pt-2">
+                      <p class="text-[10px] text-gray-500 mb-2 leading-relaxed">
+                        <strong>Redirect URI:</strong> <code class="bg-gray-200 px-1 rounded"
+                          id="canvaRedirectUriDisplay">carregando...</code><br>
+                        (Copie e cole este endereço no console do Canva em "Authorized redirects")
+                      </p>
+                      <button id="btnAuthCanva"
+                        class="w-full py-2 bg-purple-600 text-white rounded-md text-xs font-bold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z" />
+                        </svg>
+                        Autorizar Canva
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <!-- Section: Precificação -->
-          <div class="cfg-section p-5" data-section="pricing" style="display: none;">
-            <h4 class="text-md font-semibold text-gray-800 mb-4">Dados de Precificação</h4>
-            <p class="text-xs text-gray-500 mb-3">Configure os percentuais de comissão, impostos e margens para cada
-              marketplace</p>
+            <!-- Section: Precificação -->
+            <div class="cfg-section p-5" data-section="pricing" style="display: none;">
+              <h4 class="text-md font-semibold text-gray-800 mb-4">Dados de Precificação</h4>
+              <p class="text-xs text-gray-500 mb-3">Configure os percentuais de comissão, impostos e margens para cada
+                marketplace</p>
 
-            <div class="mb-3">
-              <button id="cfgAddPricing" class="btn text-xs" title="Adicionar marketplace">+ Adicionar
-                Marketplace</button>
-            </div>
+              <div class="mb-3">
+                <button id="cfgAddPricing" class="btn text-xs" title="Adicionar marketplace">+ Adicionar
+                  Marketplace</button>
+              </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs border border-gray-200 rounded-md">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-2 py-2 text-left font-medium text-gray-700">Marketplace</th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Min<br /><span
-                        class="font-normal text-gray-500">(Clássico)</span></th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Max<br /><span
-                        class="font-normal text-gray-500">(Premium)</span></th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% TACOS<br /><span
-                        class="font-normal text-gray-500">(Publicidade)</span></th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% M.C.<br /><span
-                        class="font-normal text-gray-500">(Margem)</span></th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Lucro</th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700">% Impostos</th>
-                    <th class="px-2 py-2 text-center font-medium text-gray-700 w-16">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="cfgPricingTableBody">
-                  <tr>
-                    <td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço
-                      cadastrada</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs border border-gray-200 rounded-md">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-2 py-2 text-left font-medium text-gray-700">Marketplace</th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700">% Min<br /><span
+                          class="font-normal text-gray-500">(Clássico)</span></th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700">% Max<br /><span
+                          class="font-normal text-gray-500">(Premium)</span></th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700">% TACOS<br /><span
+                          class="font-normal text-gray-500">(Publicidade)</span></th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700">% M.C.<br /><span
+                          class="font-normal text-gray-500">(Margem)</span></th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700">% Lucro</th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700">% Impostos</th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700 w-16">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cfgPricingTableBody">
+                    <tr>
+                      <td colspan="8" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma configuração de preço
+                        cadastrada</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </div> <!-- /Body with Sidebar + Content -->
 
       <!-- Footer -->
       <div class="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
@@ -1429,9 +1504,12 @@
         return response;
       }
 
-      // Caso contrário, tentamos um refresh forçado recarregando a página ou alertando o usuário
-      showToast("Sessão expirada. Redirecionando para login...");
-      setTimeout(() => window.location.reload(), 1500);
+      const isCanvaEndpoint = typeof url === "string" && url.startsWith("/api/canva/");
+      // Em endpoints Canva, 401 pode significar apenas expiração da conexão com Canva.
+      if (!isCanvaEndpoint) {
+        showToast("Sessão expirada. Redirecionando para login...", "warning");
+        setTimeout(() => window.location.reload(), 1500);
+      }
     }
 
     return response;
@@ -1723,6 +1801,167 @@
     applyTinyState();
   }
 
+  // ============================================================================
+  // CANVA INTEGRATION LOGIC
+  // ============================================================================
+  const canvaExportContainer = $("#canvaExportContainer");
+  const btnExportCanva = $("#btnExportCanva");
+  const canvaDesignTitle = $("#canvaDesignTitle");
+  const canvaDesignSubtitle = $("#canvaDesignSubtitle");
+  const btnReauthCanvaInline = $("#btnReauthCanvaInline");
+  let currentCanvaDesign = null;
+
+  function extractApiErrorMessage(payload, fallback = "Erro inesperado.") {
+    if (!payload || typeof payload !== "object") return fallback;
+    const detail = payload.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (detail && typeof detail === "object") {
+      if (typeof detail.message === "string" && detail.message.trim()) return detail.message;
+      if (typeof detail.error === "string" && detail.error.trim()) return detail.error;
+      if (typeof detail.code === "string" && detail.code.trim()) return detail.code;
+    }
+    if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+    return fallback;
+  }
+
+  function isCanvaReauthRequired(payload, statusCode = 0) {
+    const detail = payload && payload.detail;
+    if (detail && typeof detail === "object" && detail.code === "canva_reauth_required") return true;
+    if (statusCode === 401) return true;
+    const msg = extractApiErrorMessage(payload, "").toLowerCase();
+    return msg.includes("reauthor") || msg.includes("reautor");
+  }
+
+  function showCanvaReauthRequest(message = "Sessao do Canva expirada. Reautorize para continuar exportando.") {
+    currentCanvaDesign = null;
+    canvaDesignTitle.textContent = "Conexao com Canva expirada";
+    if (canvaDesignSubtitle) canvaDesignSubtitle.textContent = message;
+    btnExportCanva.classList.add("hidden");
+    btnReauthCanvaInline.classList.remove("hidden");
+    canvaExportContainer.classList.remove("hidden");
+  }
+
+  function showCanvaExportReady(design) {
+    currentCanvaDesign = design;
+    canvaDesignTitle.textContent = `Design "${design.title}" encontrado no canva`;
+    if (canvaDesignSubtitle) canvaDesignSubtitle.textContent = "Com o nome referente ao SKU. Deseja exportar e sincronizar?";
+    btnReauthCanvaInline.classList.add("hidden");
+    btnExportCanva.classList.remove("hidden");
+    canvaExportContainer.classList.remove("hidden");
+  }
+
+  async function checkCanvaDesign(sku) {
+    canvaExportContainer.classList.add('hidden');
+    currentCanvaDesign = null;
+    try {
+      const res = await fetchWithAuth("/api/canva/list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sku })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        if (data.design) {
+          showCanvaExportReady(data.design);
+        }
+        return;
+      }
+
+      if (isCanvaReauthRequired(data, res.status)) {
+        showCanvaReauthRequest(
+          extractApiErrorMessage(data, "Sessao do Canva expirada. Reautorize para continuar exportando.")
+        );
+      } else if (res.status === 401) {
+        showCanvaReauthRequest("Canva nao autenticado. Clique em Reautorizar Canva.");
+      } else {
+        console.warn("Falha ao verificar design no Canva:", extractApiErrorMessage(data, "erro desconhecido"));
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar design no Canva:", err);
+    }
+  }
+
+  btnReauthCanvaInline.addEventListener("click", () => {
+    window.open("/api/canva/auth", "_blank");
+  });
+
+  async function pollCanvaExportProgress(taskId, toastId) {
+    const POLL_MS = 700;
+    const TIMEOUT_MS = 10 * 60 * 1000;
+    const started = Date.now();
+
+    while ((Date.now() - started) < TIMEOUT_MS) {
+      const res = await fetchWithAuth(`/api/canva/export-to-drive/status/${encodeURIComponent(taskId)}`, {
+        method: "GET"
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(extractApiErrorMessage(data, "Erro ao consultar progresso da exportacao."));
+
+      const total = Number(data.total || 0);
+      const saved = Number(data.saved || 0);
+      const progress = Number.isFinite(data.progress) ? Number(data.progress) : (total > 0 ? Math.round((saved / total) * 100) : 0);
+      const fallbackMessage = total > 0
+        ? `Baixando arquivos do Canva ${saved}/${total}`
+        : "Preparando exportação do Canva...";
+
+      updateToast(toastId, {
+        message: data.message || fallbackMessage,
+        progress
+      });
+
+      if (data.status === "success") return data;
+      if (data.status === "error") throw new Error(data.error || data.message || "Falha na exportacao do Canva.");
+
+      await new Promise(resolve => setTimeout(resolve, POLL_MS));
+    }
+
+    throw new Error("Timeout ao aguardar finalizacao da exportacao do Canva.");
+  }
+
+  btnExportCanva.addEventListener('click', async () => {
+    if (!currentCanvaDesign || !tinyProductData) return;
+
+    btnExportCanva.disabled = true;
+    const oldText = btnExportCanva.innerHTML;
+    btnExportCanva.innerHTML = '<div class="loader-small mr-2" style="border-width:2px; height:12px; width:12px; border-color:#fff; border-bottom-color:transparent; display:inline-block; vertical-align:middle;"></div> Exportando...';
+    const progressToastId = showProgressToast("Preparando exportação do Canva...", 0);
+
+    try {
+      const startRes = await fetchWithAuth("/api/canva/export-to-drive/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sku: tinyProductData.sku, design_id: currentCanvaDesign.id })
+      });
+      const startData = await startRes.json();
+      if (!startRes.ok) throw new Error(extractApiErrorMessage(startData, "Falha ao iniciar exportacao."));
+      if (!startData.task_id) throw new Error("Backend nao retornou task_id da exportacao.");
+
+      const result = await pollCanvaExportProgress(startData.task_id, progressToastId);
+      updateToast(progressToastId, {
+        variant: "success",
+        message: result.message || `Sucesso! ${result.saved || result.total || 0} arquivos sincronizados.`,
+        progress: 100,
+        duration: 2600
+      });
+    } catch (err) {
+      const errMsg = String(err?.message || "Erro desconhecido");
+      if (errMsg.toLowerCase().includes("canva_reauth_required") || errMsg.toLowerCase().includes("reautor")) {
+        showCanvaReauthRequest("Sessao do Canva expirada. Clique em Reautorizar Canva.");
+      }
+      updateToast(progressToastId, {
+        variant: "error",
+        message: `Erro na exportacao (Canva): ${errMsg}`,
+        progress: 0,
+        duration: 9000
+      });
+    } finally {
+      btnExportCanva.disabled = false;
+      btnExportCanva.innerHTML = oldText;
+    }
+  });
+
+
   // Aplicar estado aos campos (habilitar/desabilitar e preencher com dados reais)
   async function applyTinyState() {
     const isTinyMode = integrationMode === "tiny";
@@ -1773,6 +2012,11 @@
       if (costFromTiny > 0) {
         await autoFillCostPrice();
         setTimeout(() => autoPricing(), 300);
+      }
+
+      // Validar design no Canva para este SKU (modo paralelo, sem blocking)
+      if (tinyProductData.sku) {
+        checkCanvaDesign(tinyProductData.sku);
       }
 
     } else {
@@ -2154,7 +2398,7 @@
   btnSearchImages.onclick = async () => {
     const query = productName.value.trim();
     if (!query) {
-      showToast("Por favor, informe o nome do produto para buscar imagens.");
+      showToast("Por favor, informe o nome do produto para buscar imagens.", "warning");
       return;
     }
 
@@ -2205,7 +2449,7 @@
         renderGallery();
       }
     } catch (err) {
-      showToast(`Erro na busca: ${err.message}`);
+      showToast(`Erro na busca: ${err.message}`, "error");
     } finally {
       btnSearchImages.disabled = false;
       btnSearchImages.innerHTML = `<svg class="w-5 h-5 stroke-white fill-none" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg> Buscar imagens do produto na internet`;
@@ -2313,7 +2557,7 @@
       const data = await response.json();
 
       if (response.ok) {
-        showToast(`Sucesso! ${data.saved} imagens salvas no Drive.`);
+        showToast(`Sucesso! ${data.saved} imagens salvas no Drive.`, "success");
         // Limpar seleção
         selectedImages = [];
         renderGallery();
@@ -2321,7 +2565,7 @@
         throw new Error(data.detail || "Erro ao salvar.");
       }
     } catch (err) {
-      showToast(`Erro ao salvar: ${err.message}`);
+      showToast(`Erro ao salvar: ${err.message}`, "error");
     } finally {
       btnSaveToDrive.disabled = false;
       btnSaveToDrive.innerHTML = `<svg class="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg> Salvar imagens no Drive`;
@@ -2529,7 +2773,19 @@
   // TOAST: Feedback visual não-bloqueante
   // ============================================================================
 
-  function showToast(message, duration = 3500) {
+  const TOAST_VARIANTS = {
+    info: { bg: '#eff6ff', text: '#1e3a8a', border: '#93c5fd', progress: '#2563eb' },
+    progress: { bg: '#eff6ff', text: '#1e3a8a', border: '#60a5fa', progress: '#2563eb' },
+    success: { bg: '#ecfdf5', text: '#065f46', border: '#34d399', progress: '#10b981' },
+    warning: { bg: '#fffbeb', text: '#92400e', border: '#fbbf24', progress: '#d97706' },
+    error: { bg: '#fef2f2', text: '#991b1b', border: '#f87171', progress: '#dc2626' }
+  };
+
+  let toastSeq = 0;
+  const toastRefs = new Map();
+  const toastTimers = new Map();
+
+  function ensureToastContainer() {
     let toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
       toastContainer = document.createElement('div');
@@ -2541,29 +2797,169 @@
       ].join(';');
       document.body.appendChild(toastContainer);
     }
+    return toastContainer;
+  }
 
+  function applyToastVariant(toastEl, variant) {
+    const cfg = TOAST_VARIANTS[variant] || TOAST_VARIANTS.info;
+    toastEl.dataset.variant = variant;
+    toastEl.style.background = cfg.bg;
+    toastEl.style.color = cfg.text;
+    toastEl.style.borderColor = cfg.border;
+    const bar = toastEl.querySelector('[data-toast-progress-bar]');
+    if (bar) bar.style.background = cfg.progress;
+  }
+
+  function scheduleToastClose(toastId, duration) {
+    if (toastTimers.has(toastId)) {
+      clearTimeout(toastTimers.get(toastId));
+      toastTimers.delete(toastId);
+    }
+    if (!(duration > 0)) return;
+    const timer = setTimeout(() => closeToast(toastId), duration);
+    toastTimers.set(toastId, timer);
+  }
+
+  function closeToast(toastId) {
+    const toast = toastRefs.get(toastId);
+    if (!toast) return;
+    if (toastTimers.has(toastId)) {
+      clearTimeout(toastTimers.get(toastId));
+      toastTimers.delete(toastId);
+    }
+    toast.style.opacity = '0';
+    setTimeout(() => {
+      toast.remove();
+      toastRefs.delete(toastId);
+    }, 220);
+  }
+
+  function updateToast(toastId, updates = {}) {
+    const toast = toastRefs.get(toastId);
+    if (!toast) return false;
+
+    if (typeof updates.message === 'string') {
+      const msgNode = toast.querySelector('[data-toast-message]');
+      if (msgNode) msgNode.textContent = updates.message;
+    }
+
+    if (updates.variant) {
+      applyToastVariant(toast, updates.variant);
+    }
+
+    if (typeof updates.progress === 'number') {
+      let wrap = toast.querySelector('[data-toast-progress-wrap]');
+      let bar = toast.querySelector('[data-toast-progress-bar]');
+      if (!wrap || !bar) {
+        wrap = document.createElement('div');
+        wrap.dataset.toastProgressWrap = '1';
+        wrap.style.cssText = 'margin-top:0.5rem;height:0.35rem;background:rgba(255,255,255,0.55);border-radius:9999px;overflow:hidden';
+        bar = document.createElement('div');
+        bar.dataset.toastProgressBar = '1';
+        bar.style.cssText = 'height:100%;width:0%;transition:width 0.2s ease';
+        wrap.appendChild(bar);
+        toast.appendChild(wrap);
+        applyToastVariant(toast, toast.dataset.variant || 'info');
+      }
+      const clamped = Math.max(0, Math.min(100, updates.progress));
+      bar.style.width = `${clamped}%`;
+    }
+
+    if (updates.persistent === true) {
+      scheduleToastClose(toastId, 0);
+    } else if (typeof updates.duration === 'number') {
+      scheduleToastClose(toastId, updates.duration);
+    }
+
+    return true;
+  }
+
+  function showToast(message, variant = 'info', duration = 3500, options = {}) {
+    if (typeof variant === 'number') {
+      options = duration || {};
+      duration = variant;
+      variant = 'info';
+    } else if (typeof duration === 'object' && duration !== null) {
+      options = duration;
+      duration = 3500;
+    }
+
+    const toastId = options.id || `toast-${++toastSeq}`;
+    if (toastRefs.has(toastId)) {
+      updateToast(toastId, {
+        message,
+        variant,
+        progress: options.progress,
+        duration: options.persistent ? 0 : duration,
+        persistent: options.persistent === true
+      });
+      return toastId;
+    }
+
+    const toastContainer = ensureToastContainer();
     const toast = document.createElement('div');
+    toast.dataset.toastId = toastId;
     toast.style.cssText = [
-      'background:#1e293b', 'color:#f1f5f9',
-      'padding:0.625rem 1rem', 'border-radius:0.5rem',
-      'font-size:0.875rem', 'line-height:1.4',
-      'box-shadow:0 4px 12px rgba(0,0,0,0.2)',
-      'opacity:0', 'transition:opacity 0.2s ease',
-      'max-width:22rem'
+      'padding:0.65rem 0.85rem', 'border-radius:0.6rem',
+      'font-size:0.875rem', 'line-height:1.4', 'font-weight:500',
+      'border:1px solid transparent', 'max-width:24rem',
+      'box-shadow:0 8px 22px rgba(15,23,42,0.15)',
+      'opacity:0', 'transform:translateY(6px)',
+      'transition:opacity 0.2s ease, transform 0.2s ease',
+      'pointer-events:auto'
     ].join(';');
-    toast.textContent = message;
-    toastContainer.appendChild(toast);
 
-    // Animar entrada
+    const msg = document.createElement('div');
+    msg.dataset.toastMessage = '1';
+    msg.textContent = message;
+    toast.appendChild(msg);
+
+    if (typeof options.progress === 'number') {
+      const wrap = document.createElement('div');
+      wrap.dataset.toastProgressWrap = '1';
+      wrap.style.cssText = 'margin-top:0.5rem;height:0.35rem;background:rgba(255,255,255,0.55);border-radius:9999px;overflow:hidden';
+      const bar = document.createElement('div');
+      bar.dataset.toastProgressBar = '1';
+      bar.style.cssText = 'height:100%;width:0%;transition:width 0.2s ease';
+      wrap.appendChild(bar);
+      toast.appendChild(wrap);
+    }
+
+    toastRefs.set(toastId, toast);
+    toastContainer.appendChild(toast);
+    applyToastVariant(toast, variant);
+
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => { toast.style.opacity = '1'; });
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
     });
 
-    // Remover após duração
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 200);
-    }, duration);
+    if (typeof options.progress === 'number') {
+      updateToast(toastId, { progress: options.progress, persistent: options.persistent === true, duration });
+    } else {
+      scheduleToastClose(toastId, options.persistent ? 0 : duration);
+    }
+
+    return toastId;
+  }
+
+  function showProgressToast(message, progress = 0) {
+    return showToast(message, 'progress', 0, { persistent: true, progress });
+  }
+
+  function handleCanvaOAuthReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const canvaAuth = params.get("canva_auth");
+    if (!canvaAuth) return;
+
+    if (canvaAuth === "success") {
+      showToast("Canva autenticado com sucesso.", "success");
+    }
+
+    params.delete("canva_auth");
+    const qs = params.toString();
+    const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, document.title, newUrl);
   }
 
   // ============================================================================
@@ -2574,20 +2970,20 @@
     const sku = tinySKU.value.trim();
 
     if (!sku) {
-      showToast('Nenhum SKU selecionado.');
+      showToast('Nenhum SKU selecionado.', 'warning');
       return;
     }
 
     // Verificar se há instância Tiny configurada
     if (!tinyInstance.value) {
-      showToast('Nenhuma instância Tiny selecionada em "Origem de dados".');
+      showToast('Nenhuma instância Tiny selecionada em "Origem de dados".', 'warning');
       return;
     }
 
     // Consultar cache primeiro
     if (costPriceCache[sku] !== undefined) {
       tinyCostPrice.value = costPriceCache[sku] > 0 ? costPriceCache[sku].toFixed(2) : '';
-      showToast(`Custo base preenchido com dado em cache: R$ ${costPriceCache[sku].toFixed(2)}`);
+      showToast(`Custo base preenchido com dado em cache: R$ ${costPriceCache[sku].toFixed(2)}`, 'info');
       return;
     }
 
@@ -2597,9 +2993,9 @@
       costPriceCache[sku] = cost;
       if (cost > 0) {
         tinyCostPrice.value = cost.toFixed(2);
-        showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`);
+        showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`, 'success');
       } else {
-        showToast('O produto não possui custo base cadastrado no Tiny.');
+        showToast('O produto não possui custo base cadastrado no Tiny.', 'warning');
       }
       return;
     }
@@ -2610,7 +3006,7 @@
       const instanceIndex = parseInt(tinyInstance.value);
       const selectedToken = tokens[instanceIndex]?.token;
       if (!selectedToken) {
-        showToast('Token Tiny não encontrado para a instância selecionada.');
+        showToast('Token Tiny não encontrado para a instância selecionada.', 'error');
         return;
       }
       const data = await fetchTinyProductData(selectedToken, sku);
@@ -2618,12 +3014,12 @@
       costPriceCache[sku] = cost;
       if (cost > 0) {
         tinyCostPrice.value = cost.toFixed(2);
-        showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`);
+        showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`, 'success');
       } else {
-        showToast('O produto não possui custo base cadastrado no Tiny.');
+        showToast('O produto não possui custo base cadastrado no Tiny.', 'warning');
       }
     } catch (err) {
-      showToast(`Erro ao buscar custo no Tiny: ${err.message}`);
+      showToast(`Erro ao buscar custo no Tiny: ${err.message}`, 'error');
     }
   }
 
@@ -2638,7 +3034,7 @@
 
     // Verificar suporte de automação de frete para o marketplace
     if (!SHIPPING_AUTO_MARKETPLACES.includes(channel)) {
-      showToast(`O marketplace ${channelLabel} não possui integração automática de frete. Preencha o valor manualmente.`);
+      showToast(`O marketplace ${channelLabel} não possui integração automática de frete. Preencha o valor manualmente.`, 'warning');
       return;
     }
 
@@ -2647,7 +3043,7 @@
     // Consultar cache primeiro
     if (shippingCostCache[cacheKey] !== undefined) {
       tinyShippingCost.value = shippingCostCache[cacheKey].toFixed(2);
-      showToast(`Frete preenchido com dado em cache: R$ ${shippingCostCache[cacheKey].toFixed(2)}`);
+      showToast(`Frete preenchido com dado em cache: R$ ${shippingCostCache[cacheKey].toFixed(2)}`, 'info');
       return;
     }
 
@@ -2655,7 +3051,7 @@
     const weightKg = parseFloat(tinyWeight.value) || 0;
 
     if (costPrice <= 0) {
-      showToast('Preencha o Custo base antes de buscar o frete.');
+      showToast('Preencha o Custo base antes de buscar o frete.', 'warning');
       return;
     }
 
@@ -2670,13 +3066,13 @@
           const shipData = await shipResp.json();
           shippingCostCache[cacheKey] = shipData.shipping_cost;
           tinyShippingCost.value = shipData.shipping_cost.toFixed(2);
-          showToast(`Frete Mercado Livre calculado: R$ ${shipData.shipping_cost.toFixed(2)}`);
+          showToast(`Frete Mercado Livre calculado: R$ ${shipData.shipping_cost.toFixed(2)}`, 'success');
         } else {
           const errBody = await shipResp.json().catch(() => ({}));
-          showToast(`Erro ao calcular frete ML: ${errBody.detail || shipResp.status}`);
+          showToast(`Erro ao calcular frete ML: ${errBody.detail || shipResp.status}`, 'error');
         }
       } catch (err) {
-        showToast(`Erro ao buscar frete do Mercado Livre: ${err.message}`);
+        showToast(`Erro ao buscar frete do Mercado Livre: ${err.message}`, 'error');
       }
     }
   }
@@ -3003,7 +3399,7 @@
     const sku = skuField ? skuField.value.trim() : null;
 
     if (!sku) {
-      showToast("Por favor, cole um SKU válido do Tiny ERP para carregar os arquivos do Drive.", "error");
+      showToast("Por favor, cole um SKU válido do Tiny ERP para carregar os arquivos do Drive.", "warning");
       return;
     }
 
@@ -3027,7 +3423,7 @@
       const files = data.files || [];
 
       if (files.length === 0) {
-        showToast("A pasta foi encontrada, mas nenhum arquivo suportado estava dentro dela.", "info");
+        showToast("A pasta foi encontrada, mas nenhum arquivo suportado estava dentro dela.", "warning");
       } else {
         let loadedCount = 0;
         files.forEach(f => {
@@ -3060,7 +3456,7 @@
         });
 
         renderFilesTable();
-        showToast(`${loadedCount} arquivos carregados remotamente do Drive com sucesso!`);
+        showToast(`${loadedCount} arquivos carregados remotamente do Drive com sucesso!`, "success");
       }
     } catch (error) {
       showToast(error.message, "error");
@@ -3140,6 +3536,7 @@
   const btnValidateDriveCreds = $("#btnValidateDriveCreds"), statusDriveCreds = $("#statusDriveCreds");
   const btnValidateDriveFolder = $("#btnValidateDriveFolder"), statusDriveFolder = $("#statusDriveFolder");
   const folderIdWrapper = $("#folderIdWrapper");
+  const btnAuthCanva = $("#btnAuthCanva"), canvaRedirectUriDisplay = $("#canvaRedirectUriDisplay");
   let isImageSearchValid = false;
 
   // Funções para gerenciar tokens Tiny
@@ -3555,6 +3952,16 @@ Restrições:
     cfgDriveFolderId.value = (saved.google_drive && saved.google_drive.folder_id) || "";
     cfgDriveCredentials.value = (saved.google_drive && saved.google_drive.credentials_json) || "";
 
+    // Canva Fields
+    cfgCanvaClientId.value = (saved.canva && saved.canva.client_id) || "";
+    cfgCanvaClientSecret.value = (saved.canva && saved.canva.client_secret) || "";
+
+    // Atualizar Display do Redirect URI dinamicamente
+    if (canvaRedirectUriDisplay) {
+      const base = window.location.origin;
+      canvaRedirectUriDisplay.textContent = `${base}/api/canva/callback`;
+    }
+
     // Reset validation states
     statusImageSearch.innerText = "";
     statusDriveCreds.innerText = "";
@@ -3576,6 +3983,56 @@ Restrições:
     renderPricingTable(); // Renderizar tabela de precificação
     switchConfigSection('llm'); // Sempre abrir na seção LLM
     cfgModal.classList.add("open");
+  });
+
+  // Lógica do botão de autorização do Canva nas configurações
+  btnAuthCanva.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    const clientId = cfgCanvaClientId.value.trim();
+    const clientSecret = cfgCanvaClientSecret.value.trim();
+
+    if (!clientId || !clientSecret) {
+      alert("Por favor, preencha o Client ID e Client Secret antes de autorizar.");
+      return;
+    }
+
+    // Salva apenas credenciais do Canva de forma síncrona antes de abrir o OAuth.
+    // Evita corrida com cfgSave.click() + setTimeout e não depende de validações não relacionadas.
+    try {
+      const currentCfgRes = await fetch("/api/config", { method: "GET" });
+      if (!currentCfgRes.ok) {
+        alert("Não foi possível carregar a configuração atual antes da autorização do Canva.");
+        return;
+      }
+      const currentCfg = await currentCfgRes.json();
+      const payload = {
+        ...(currentCfg || {}),
+        canva: {
+          client_id: clientId,
+          client_secret: clientSecret
+        }
+      };
+
+      const saveRes = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!saveRes.ok) {
+        alert("Erro ao salvar credenciais do Canva no servidor.");
+        return;
+      }
+
+      const saved = await saveRes.json();
+      appConfig = saved || {};
+      updateTinyInstanceSelect();
+
+      window.open("/api/canva/auth", "_blank");
+    } catch (err) {
+      console.error("Erro ao preparar autorização do Canva:", err);
+      alert("Erro ao preparar autorização do Canva.");
+    }
   });
   function closeCfg() { cfgModal.classList.remove("open"); updateSearchButtonStatus(); }
   cfgCancel.addEventListener("click", closeCfg);
@@ -3614,6 +4071,10 @@ Restrições:
       google_drive: {
         folder_id: cfgDriveFolderId.value.trim(),
         credentials_json: cfgDriveCredentials.value.trim()
+      },
+      canva: {
+        client_id: cfgCanvaClientId.value.trim(),
+        client_secret: cfgCanvaClientSecret.value.trim()
       }
     };
 
@@ -4647,6 +5108,8 @@ Restrições:
   updateTinyInstanceSelect();
   renderWholesaleTable();
   loadConfigFromServer();
+  handleCanvaOAuthReturn();
 </script>
 
 </html>
+

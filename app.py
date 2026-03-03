@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import base64
+import asyncio
 import json
 import os
 import random
@@ -7,11 +8,12 @@ import re
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 import requests
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, Integer, String, create_engine
@@ -21,6 +23,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # Importar serviço Tiny
 import tiny_service
+import canva_service
 from auth_helpers import gateway_login_helper, CurrentUser, get_current_user_master
 from config import settings
 # Importar pricing module
@@ -145,6 +148,7 @@ class ConfigPayload(BaseModel):
     pricing_config: List[Dict[str, Any]] = Field(default_factory=list)
     image_search: Dict[str, Any] = Field(default_factory=dict)
     google_drive: Dict[str, Any] = Field(default_factory=dict)
+    canva: Dict[str, Any] = Field(default_factory=dict)
 
 
 def _default_config_payload() -> Dict[str, Any]:
@@ -159,6 +163,7 @@ def _default_config_payload() -> Dict[str, Any]:
         "pricing_config": [],
         "image_search": {"api_key": "", "cx": ""},
         "google_drive": {"folder_id": "", "credentials_json": "", "auth_type": "service_account"},
+        "canva": {"client_id": "", "client_secret": ""},
     }
 
 
@@ -1109,11 +1114,13 @@ import PIL.Image
 
 try:
     from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
     from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
     from google.oauth2 import service_account
     GOOGLE_DRIVE_AVAILABLE = True
 except ImportError:
     GOOGLE_DRIVE_AVAILABLE = False
+    HttpError = Exception
 
 
 def _build_drive_service(credentials_json_str: str):
@@ -1564,6 +1571,579 @@ async def load_sku_files(
     return JSONResponse(content={"files": out_files})
 
 
+# =============================================================================
+# Canva Integration Endpoints
+# =============================================================================
+
+@app.get("/api/canva/auth")
+async def canva_auth(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db)
+):
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    if not cfg:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Configuração não encontrada. Salve Client ID e Client Secret do Canva antes de autorizar."}
+        )
+
+    current_data = dict(cfg.data or {})
+    canva_cfg = dict(current_data.get("canva", {}))
+    client_id = canva_cfg.get("client_id")
+    client_secret = canva_cfg.get("client_secret")
+    if not client_id or not client_secret:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Canva não configurado. Preencha e salve Client ID e Client Secret antes de autorizar."}
+        )
+
+    # Se estivermos atrás de um proxy, o FastAPI deve estar configurado para lidar, 
+    # mas para garantir local ou produçao usamos request.base_url:
+    base_url = str(request.base_url).rstrip('/')
+    redirect_uri = f"{base_url}/api/canva/callback"
+    
+    # Gerar PKCE
+    code_verifier, code_challenge = canva_service.generate_pkce()
+    
+    # Salvar code_verifier temporariamente no config do usuário.
+    # Reatribui cfg.data inteiro para garantir persistência em coluna JSONB.
+    canva_cfg["code_verifier"] = code_verifier
+    current_data["canva"] = canva_cfg
+    cfg.data = current_data
+    db.commit()
+    
+    auth_url = canva_service.get_auth_url(client_id, redirect_uri, code_challenge, state=user_id)
+    return RedirectResponse(url=auth_url)
+
+
+@app.get("/api/canva/callback")
+async def canva_callback(
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    error_description: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # Canva pode redirecionar com erro OAuth sem `code`.
+    if error:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": f"OAuth Canva retornou erro: {error}",
+                "error_description": error_description or "Sem detalhes adicionais."
+            }
+        )
+
+    if not code:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Callback do Canva sem parâmetro `code`.",
+                "hint": "Verifique se a autorização foi concluída no Canva e se o Redirect URI configurado é exatamente este endpoint."
+            }
+        )
+
+    if not state:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Callback do Canva sem parâmetro `state`."
+            }
+        )
+
+    # State = user_id
+    user_id = state
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    if not cfg:
+        return JSONResponse(content={"error": "Usuário não encontrado."})
+        
+    canva_cfg = cfg.data.get("canva", {})
+    client_id = canva_cfg.get("client_id")
+    client_secret = canva_cfg.get("client_secret")
+    code_verifier = canva_cfg.get("code_verifier")
+    
+    if not client_id or not client_secret or not code_verifier:
+        missing = []
+        if not client_id:
+            missing.append("client_id")
+        if not client_secret:
+            missing.append("client_secret")
+        if not code_verifier:
+            missing.append("code_verifier")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Canva não configurado ou sessão de auth inválida.",
+                "missing": missing
+            }
+        )
+        
+    base_url = str(request.base_url).rstrip('/')
+    redirect_uri = f"{base_url}/api/canva/callback"
+    
+    try:
+        token_data = await canva_service.exchange_code(client_id, client_secret, code, redirect_uri, code_verifier)
+    except canva_service.CanvaAuthError as e:
+        return JSONResponse(content={"error": str(e)})
+        
+    # Salva os tokens no banco, incluindo metadata para refresh automatico.
+    canva_cfg = _apply_canva_token_data(canva_cfg, token_data)
+    canva_cfg.pop("code_verifier", None)
+
+    current_data = dict(cfg.data or {})
+    current_data["canva"] = canva_cfg
+    cfg.data = current_data
+    db.commit()
+    
+    success_url = "/?canva_auth=success"
+    return HTMLResponse(
+        content=f"""<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Canva autorizado</title>
+  </head>
+  <body>
+    <script>
+      (function () {{
+        var target = "{success_url}";
+        try {{
+          if (window.opener && !window.opener.closed) {{
+            window.opener.location.href = target;
+            window.close();
+            return;
+          }}
+        }} catch (e) {{}}
+        window.location.href = target;
+      }})();
+    </script>
+    <p>Autorização concluída. Redirecionando...</p>
+  </body>
+</html>"""
+    )
+
+
+class CanvaSearchIn(BaseModel):
+    sku: str
+
+@app.post("/api/canva/list")
+async def canva_list(
+    payload: CanvaSearchIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db)
+):
+    user_id = str(current_user.user_id)
+    try:
+        access_token, _, _ = await _get_valid_canva_access_token(db, user_id)
+        designs = await canva_service.get_designs(access_token)
+    except canva_service.CanvaAuthError:
+        access_token, _, _ = await _get_valid_canva_access_token(db, user_id, force_refresh=True)
+        try:
+            designs = await canva_service.get_designs(access_token)
+        except canva_service.CanvaAuthError:
+            raise HTTPException(status_code=401, detail=_canva_reauth_detail())
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        found = canva_service.check_design_exists(designs, payload.sku)
+        return JSONResponse(content={"design": found})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CanvaExportIn(BaseModel):
+    sku: str
+    design_id: str
+
+
+# Estado em memória para tarefas de exportação Canva -> Drive
+CANVA_EXPORT_TASKS: Dict[str, Dict[str, Any]] = {}
+CANVA_EXPORT_TASK_TTL_SECONDS = 3600
+
+
+def _cleanup_canva_export_tasks():
+    now = time.time()
+    stale = []
+    for task_id, task in CANVA_EXPORT_TASKS.items():
+        status = task.get("status")
+        updated_at = float(task.get("updated_at", now))
+        if status in {"success", "error"} and (now - updated_at) > CANVA_EXPORT_TASK_TTL_SECONDS:
+            stale.append(task_id)
+    for task_id in stale:
+        CANVA_EXPORT_TASKS.pop(task_id, None)
+
+
+def _set_canva_export_task(task_id: str, **updates):
+    task = CANVA_EXPORT_TASKS.get(task_id, {})
+    task.update(updates)
+    task["updated_at"] = time.time()
+    CANVA_EXPORT_TASKS[task_id] = task
+
+
+def _canva_reauth_detail(message: str = "Sessao do Canva expirada. Reautorize o Canva.") -> Dict[str, str]:
+    return {"code": "canva_reauth_required", "message": message}
+
+
+def _apply_canva_token_data(canva_cfg: Dict[str, Any], token_data: Dict[str, Any]) -> Dict[str, Any]:
+    updated = dict(canva_cfg or {})
+    now_ts = int(time.time())
+    expires_in_raw = token_data.get("expires_in")
+    try:
+        expires_in = int(expires_in_raw) if expires_in_raw is not None else None
+    except (TypeError, ValueError):
+        expires_in = None
+
+    access_token = token_data.get("access_token")
+    if access_token:
+        updated["access_token"] = access_token
+    refresh_token = token_data.get("refresh_token")
+    if refresh_token:
+        updated["refresh_token"] = refresh_token
+    if token_data.get("scope") is not None:
+        updated["scope"] = token_data.get("scope")
+    updated["expires_in"] = expires_in_raw
+    updated["token_obtained_at"] = now_ts
+    if expires_in:
+        updated["expires_at"] = now_ts + expires_in
+    else:
+        updated.pop("expires_at", None)
+    return updated
+
+
+async def _get_valid_canva_access_token(
+    db: Session,
+    user_id: str,
+    force_refresh: bool = False
+) -> tuple[str, UserConfig, Dict[str, Any]]:
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    if not cfg:
+        raise HTTPException(status_code=401, detail=_canva_reauth_detail("Configuracao do Canva nao encontrada. Reautorize o Canva."))
+
+    current_data = dict(cfg.data or {})
+    canva_cfg = dict(current_data.get("canva", {}))
+    client_id = canva_cfg.get("client_id")
+    client_secret = canva_cfg.get("client_secret")
+    access_token = canva_cfg.get("access_token")
+    refresh_token = canva_cfg.get("refresh_token")
+
+    expires_at_raw = canva_cfg.get("expires_at")
+    try:
+        expires_at = float(expires_at_raw) if expires_at_raw is not None else None
+    except (TypeError, ValueError):
+        expires_at = None
+
+    now_ts = time.time()
+    should_refresh = force_refresh or not access_token
+    if expires_at is not None and now_ts >= (expires_at - 120):
+        should_refresh = True
+    # Migração de tokens antigos sem expires_at salvo.
+    if expires_at is None and access_token and refresh_token:
+        should_refresh = True
+
+    if should_refresh:
+        if not client_id or not client_secret or not refresh_token:
+            raise HTTPException(status_code=401, detail=_canva_reauth_detail())
+        try:
+            refreshed = await canva_service.refresh_access_token(client_id, client_secret, refresh_token)
+        except canva_service.CanvaAuthError:
+            raise HTTPException(status_code=401, detail=_canva_reauth_detail())
+
+        canva_cfg = _apply_canva_token_data(canva_cfg, refreshed)
+        current_data["canva"] = canva_cfg
+        cfg.data = current_data
+        db.commit()
+        access_token = canva_cfg.get("access_token")
+
+    if not access_token:
+        raise HTTPException(status_code=401, detail=_canva_reauth_detail())
+
+    return access_token, cfg, canva_cfg
+
+
+async def _get_canva_and_drive_context(
+    db: Session,
+    user_id: str,
+    force_token_refresh: bool = False
+) -> tuple[str, str, str]:
+    access_token, cfg, _ = await _get_valid_canva_access_token(
+        db=db,
+        user_id=user_id,
+        force_refresh=force_token_refresh
+    )
+
+    drive_cfg = cfg.data.get("google_drive", {}) if cfg else {}
+    folder_id = drive_cfg.get("folder_id", "")
+    credentials_json = drive_cfg.get("credentials_json", "")
+    if not folder_id or not credentials_json:
+        raise HTTPException(status_code=400, detail="Google Drive nao configurado no Admin.")
+
+    return access_token, folder_id, credentials_json
+
+
+async def _run_canva_export_flow(
+    access_token: str,
+    folder_id: str,
+    credentials_json: str,
+    sku: str,
+    design_id: str,
+    progress_hook=None
+) -> Dict[str, Any]:
+    print(f"DEBUG: Iniciando exportação do design {design_id} para SKU {sku}")
+
+    job_id = await canva_service.start_export(access_token, design_id)
+    print("DEBUG: Job ID exportação", job_id)
+
+    export_urls = await canva_service.get_export_urls(access_token, job_id)
+    print(f"DEBUG: URLs de download obtidas: {len(export_urls)}")
+    if export_urls:
+        print("DEBUG: Primeira URL:", export_urls[0][:30] + "...")
+
+    extracted_files = await canva_service.download_and_validate_exports(export_urls, sku)
+    total_files = len(extracted_files)
+    print(f"DEBUG: Arquivos extraídos para upload: {total_files}")
+
+    if total_files == 0:
+        raise canva_service.CanvaServiceError("Nenhum arquivo PNG foi gerado na exportação do Canva.")
+
+    service = await asyncio.to_thread(_build_drive_service, credentials_json)
+    sku_folder_id = await asyncio.to_thread(_get_or_create_subfolder, service, folder_id, sku)
+
+    if progress_hook:
+        maybe = progress_hook(0, total_files, f"Baixando arquivos do Canva 0/{total_files}")
+        if asyncio.iscoroutine(maybe):
+            await maybe
+
+    success_count = 0
+    for filename, b_content in extracted_files:
+        media = MediaIoBaseUpload(BytesIO(b_content), mimetype="image/png", resumable=False)
+        existing_id = await asyncio.to_thread(_find_file_in_folder, service, sku_folder_id, filename)
+
+        if existing_id:
+            await asyncio.to_thread(
+                lambda fid=existing_id, m=media: service.files().update(
+                    fileId=fid,
+                    media_body=m,
+                    supportsAllDrives=True
+                ).execute()
+            )
+        else:
+            file_metadata = {
+                "name": filename,
+                "parents": [sku_folder_id]
+            }
+            await asyncio.to_thread(
+                lambda md=file_metadata, m=media: service.files().create(
+                    body=md,
+                    media_body=m,
+                    fields="id",
+                    supportsAllDrives=True
+                ).execute()
+            )
+
+        success_count += 1
+        if progress_hook:
+            maybe = progress_hook(success_count, total_files, f"Baixando arquivos do Canva {success_count}/{total_files}")
+            if asyncio.iscoroutine(maybe):
+                await maybe
+
+    return {"count": success_count, "total": total_files}
+
+
+async def _run_canva_export_task(
+    task_id: str,
+    user_id: str,
+    access_token: str,
+    folder_id: str,
+    credentials_json: str,
+    payload: CanvaExportIn
+):
+    try:
+        _set_canva_export_task(
+            task_id,
+            user_id=user_id,
+            status="running",
+            phase="starting",
+            saved=0,
+            total=0,
+            error=None,
+            message="Iniciando exportação no Canva..."
+        )
+
+        async def _progress(saved: int, total: int, message: str):
+            _set_canva_export_task(
+                task_id,
+                status="running",
+                phase="uploading",
+                saved=saved,
+                total=total,
+                message=message
+            )
+
+        result = await _run_canva_export_flow(
+            access_token=access_token,
+            folder_id=folder_id,
+            credentials_json=credentials_json,
+            sku=payload.sku,
+            design_id=payload.design_id,
+            progress_hook=_progress
+        )
+
+        _set_canva_export_task(
+            task_id,
+            status="success",
+            phase="completed",
+            saved=result["count"],
+            total=result["total"],
+            message=f"Sucesso! {result['count']} arquivos sincronizados.",
+            result=result
+        )
+    except canva_service.CanvaAuthError:
+        _set_canva_export_task(
+            task_id,
+            status="error",
+            phase="failed",
+            message="Sessao do Canva expirada. Clique em 'Reautorizar Canva'.",
+            error="canva_reauth_required"
+        )
+    except Exception as e:
+        _set_canva_export_task(
+            task_id,
+            status="error",
+            phase="failed",
+            message="Falha ao exportar arquivos do Canva.",
+            error=str(e)
+        )
+
+
+@app.post("/api/canva/export-to-drive/start")
+async def canva_export_to_drive_start(
+    payload: CanvaExportIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db)
+):
+    if not GOOGLE_DRIVE_AVAILABLE:
+        raise HTTPException(status_code=500, detail="Google Drive não disponível.")
+
+    user_id = str(current_user.user_id)
+    access_token, folder_id, credentials_json = await _get_canva_and_drive_context(db, user_id)
+
+    _cleanup_canva_export_tasks()
+    task_id = uuid4().hex
+    _set_canva_export_task(
+        task_id,
+        id=task_id,
+        user_id=user_id,
+        status="queued",
+        phase="queued",
+        saved=0,
+        total=0,
+        error=None,
+        message="Preparando exportação do Canva...",
+        created_at=time.time()
+    )
+
+    asyncio.create_task(
+        _run_canva_export_task(
+            task_id=task_id,
+            user_id=user_id,
+            access_token=access_token,
+            folder_id=folder_id,
+            credentials_json=credentials_json,
+            payload=payload
+        )
+    )
+
+    return JSONResponse(content={"task_id": task_id, "status": "queued"})
+
+
+@app.get("/api/canva/export-to-drive/status/{task_id}")
+async def canva_export_to_drive_status(
+    task_id: str,
+    current_user: CurrentUser = Depends(get_current_user_master)
+):
+    _cleanup_canva_export_tasks()
+    user_id = str(current_user.user_id)
+    task = CANVA_EXPORT_TASKS.get(task_id)
+    if not task or task.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Tarefa de exportação não encontrada.")
+
+    saved = int(task.get("saved") or 0)
+    total = int(task.get("total") or 0)
+    progress = int((saved / total) * 100) if total > 0 else 0
+
+    return JSONResponse(content={
+        "task_id": task_id,
+        "status": task.get("status"),
+        "phase": task.get("phase"),
+        "message": task.get("message"),
+        "saved": saved,
+        "total": total,
+        "progress": progress,
+        "error": task.get("error"),
+        "result": task.get("result")
+    })
+
+@app.post("/api/canva/export-to-drive")
+async def canva_export_to_drive(
+    payload: CanvaExportIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db)
+):
+    if not GOOGLE_DRIVE_AVAILABLE:
+        raise HTTPException(status_code=500, detail="Google Drive nao disponivel.")
+
+    user_id = str(current_user.user_id)
+
+    try:
+        access_token, folder_id, credentials_json = await _get_canva_and_drive_context(db, user_id)
+        result = await _run_canva_export_flow(
+            access_token=access_token,
+            folder_id=folder_id,
+            credentials_json=credentials_json,
+            sku=payload.sku,
+            design_id=payload.design_id
+        )
+        return JSONResponse(content={
+            "message": f"Sucesso! {result['count']} arquivos sincronizados.",
+            "count": result["count"],
+            "total": result["total"]
+        })
+
+    except canva_service.CanvaAuthError:
+        # fallback: tenta um refresh forçado e repete uma única vez
+        access_token, folder_id, credentials_json = await _get_canva_and_drive_context(
+            db, user_id, force_token_refresh=True
+        )
+        result = await _run_canva_export_flow(
+            access_token=access_token,
+            folder_id=folder_id,
+            credentials_json=credentials_json,
+            sku=payload.sku,
+            design_id=payload.design_id
+        )
+        return JSONResponse(content={
+            "message": f"Sucesso! {result['count']} arquivos sincronizados.",
+            "count": result["count"],
+            "total": result["total"]
+        })
+
+    except HTTPException:
+        raise
+    except canva_service.CanvaValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except canva_service.CanvaServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except HttpError as e:
+        raise HTTPException(status_code=502, detail=f"Erro do Google Drive API: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro durante exportacao: {str(e)}")
+
 
 # ========= MAIN PARA RODAR DEBUGANDO =========
 
@@ -1572,3 +2152,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("app:app", host="127.0.0.1", port=5002, reload=True)
+
+
+
+
