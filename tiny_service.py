@@ -142,6 +142,28 @@ def _is_tiny_transient_message(message: Optional[str]) -> bool:
     return any(marker in msg for marker in transient_markers)
 
 
+def _is_tiny_not_found_message(message: Optional[str]) -> bool:
+    msg = _normalize_error_message(message)
+    if not msg:
+        return False
+    if "retornou registros" in msg:
+        return True
+    not_found_markers = (
+        "não retornou registros",
+        "nao retornou registros",
+        "n?o retornou registros",
+        "não encontrado",
+        "nao encontrado",
+        "n?o encontrado",
+        "nenhum registro",
+        "sem registros",
+        "produto não encontrado",
+        "produto nao encontrado",
+        "produto n?o encontrado",
+    )
+    return any(marker in msg for marker in not_found_markers)
+
+
 def _log_safe_request(url: str, has_token: bool, **kwargs):
     """Log de requisição sem expor o token"""
     logger.info(f"Tiny API Request: {url}, authenticated: {has_token}, params: {list(kwargs.keys())}")
@@ -393,6 +415,8 @@ async def get_product_by_sku(
                 erro_msg = erros[0].get('erro', 'Erro desconhecido')
                 if _is_tiny_auth_message(erro_msg):
                     raise TinyAuthError(f"Token inválido: {erro_msg}")
+                if _is_tiny_not_found_message(erro_msg):
+                    raise TinyNotFoundError(f"SKU '{sku}' não encontrado no Tiny ERP")
                 if _is_tiny_transient_message(erro_msg):
                     raise TinyRateLimitError(erro_msg)
                 raise TinyServiceError(erro_msg)

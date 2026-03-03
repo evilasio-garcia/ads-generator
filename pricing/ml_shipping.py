@@ -142,14 +142,16 @@ async def _fetch_shipping_tables() -> List[Dict]:
     return parsed_tables
 
 
-async def get_shipping_cost(cost_price: float, weight_kg: float) -> float:
+async def get_shipping_cost(cost_price: float, weight_kg: float, reference_price: Optional[float] = None) -> float:
     """
     Retorna o custo do frete dinamicamente baseado na regra:
-    Preço Base de Venda = Custo Produto * 2.
+    Preço Base de Venda:
+      - reference_price (se informado) OU
+      - Custo Produto * 2.
     Se Base <= 78.99 -> Frete R$ 0.00
     Senão -> Procura tabela e pega a faixa correspondente de peso.
     """
-    base_price = cost_price * 2.0
+    base_price = float(reference_price) if reference_price and reference_price > 0 else (cost_price * 2.0)
     
     if base_price <= 78.99:
         return 0.0

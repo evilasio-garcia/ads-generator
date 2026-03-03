@@ -129,6 +129,55 @@
       }
     }
 
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .regen-active {
+      border-color: #3b82f6 !important;
+      background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 50%, #eff6ff 100%) !important;
+      background-size: 200% 100% !important;
+      animation: regenSweep 0.9s linear infinite, regenPulse 1.1s ease-in-out infinite;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+    }
+
+    .regen-active-block {
+      border-color: #3b82f6 !important;
+      background: linear-gradient(90deg, #f8fbff 0%, #eaf3ff 50%, #f8fbff 100%) !important;
+      background-size: 220% 100% !important;
+      animation: regenSweep 0.9s linear infinite, regenPulse 1.1s ease-in-out infinite;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    }
+
+    @keyframes regenSweep {
+      0% {
+        background-position: 200% 0;
+      }
+
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    @keyframes regenPulse {
+      0% {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.16);
+      }
+
+      50% {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.28);
+      }
+
+      100% {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.16);
+      }
+    }
+
     .toolbar {
       display: flex;
       align-items: center;
@@ -239,6 +288,88 @@
 
     .price-tab-content.active {
       display: block;
+    }
+
+    .info-popover-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: transparent;
+    }
+
+    .info-popover {
+      position: fixed;
+      z-index: 71;
+      width: min(430px, calc(100vw - 1.5rem));
+      max-height: min(72vh, 560px);
+      overflow: auto;
+      border: 1px solid #bfdbfe;
+      border-radius: .9rem;
+      background: #ffffff;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+      padding: .85rem .95rem;
+    }
+
+    .info-popover-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      margin-bottom: .55rem;
+    }
+
+    .info-popover-title {
+      font-size: .95rem;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin: 0;
+    }
+
+    .info-popover-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: .5rem;
+      border: 1px solid #dbeafe;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .info-popover-close:hover {
+      background: #dbeafe;
+    }
+
+    .info-popover-content p {
+      font-size: .82rem;
+      line-height: 1.45;
+      color: #334155;
+      margin: 0 0 .55rem 0;
+    }
+
+    .info-popover-content ul {
+      margin: 0 0 .55rem 1.05rem;
+      padding: 0;
+      color: #334155;
+      font-size: .82rem;
+      line-height: 1.45;
+    }
+
+    .info-popover-content li+li {
+      margin-top: .25rem;
+    }
+
+    .info-popover-content strong {
+      color: #1e3a8a;
+    }
+
+    .info-popover-trigger.is-active {
+      background: #dbeafe !important;
+      border-color: #93c5fd !important;
+      color: #1d4ed8 !important;
     }
 
     /* Estilos Galeria de Imagens */
@@ -386,7 +517,20 @@
           </select>
         </div>
         <div>
-          <label class="text-sm text-gray-700 font-medium">SKU (Tiny)</label>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-700 font-medium">SKU (Tiny)</label>
+            <button
+              type="button"
+              class="info-popover-trigger inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              data-info-template="#infoTemplateSkuBehavior"
+              aria-label="Informacoes sobre edicao do SKU"
+              aria-expanded="false">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
+                <path d="M12 10v6m0-9h.01" stroke-width="1.8" stroke-linecap="round"></path>
+              </svg>
+            </button>
+          </div>
           <div class="mt-1 flex items-center gap-2">
             <input id="tinySKU" type="text"
               class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
@@ -837,7 +981,20 @@
             </div>
           </div>
           <div>
-            <label class="text-sm text-gray-600 font-medium">Custo do frete (R$)</label>
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-gray-600 font-medium">Custo do frete (R$)</label>
+              <button
+                type="button"
+                class="info-popover-trigger inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                data-info-template="#infoTemplateShippingCost"
+                aria-label="Informações sobre custo do frete"
+                aria-expanded="false">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
+                  <path d="M12 10v6m0-9h.01" stroke-width="1.8" stroke-linecap="round"></path>
+                </svg>
+              </button>
+            </div>
             <div class="flex gap-1 mt-1">
               <input id="tinyShippingCost" type="number" step="0.01"
                 class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="0.00">
@@ -874,13 +1031,26 @@
 
         <!-- Tabs de Precificação -->
         <div class="mt-4">
-          <div class="flex gap-2 border-b border-gray-200">
+          <div class="flex items-center justify-between border-b border-gray-200">
+            <div class="flex gap-2">
+              <button
+                class="price-tab-btn active px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600"
+                data-tab="min">% Min (Clássico)</button>
+              <button
+                class="price-tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800"
+                data-tab="max">% Max (Premium)</button>
+            </div>
             <button
-              class="price-tab-btn active px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600"
-              data-tab="min">% Min (Clássico)</button>
-            <button
-              class="price-tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800"
-              data-tab="max">% Max (Premium)</button>
+              type="button"
+              class="info-popover-trigger mb-1 inline-flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 p-1 text-blue-700 hover:bg-blue-100"
+              data-info-template="#infoTemplatePricingVolatility"
+              aria-label="Informações sobre volatilidade dos preços"
+              aria-expanded="false">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
+                <path d="M12 10v6m0-9h.01" stroke-width="1.8" stroke-linecap="round"></path>
+              </svg>
+            </button>
           </div>
 
           <!-- Tab Content: % Min -->
@@ -1440,6 +1610,7 @@
                 </div>
               </div>
             </div>
+          </div>
 
             <!-- Section: Precificação -->
             <div class="cfg-section p-5" data-section="pricing" style="display: none;">
@@ -1479,7 +1650,6 @@
                 </table>
               </div>
             </div>
-          </div>
         </div>
       </div> <!-- /Body with Sidebar + Content -->
 
@@ -1491,6 +1661,45 @@
       </div>
     </div>
   </div>
+
+  <div id="infoPopoverOverlay" class="info-popover-overlay" hidden></div>
+  <div id="infoPopover" class="info-popover" role="dialog" aria-modal="false" aria-labelledby="infoPopoverTitle" hidden>
+    <div class="info-popover-head">
+      <h4 id="infoPopoverTitle" class="info-popover-title">Informação</h4>
+      <button id="infoPopoverClose" type="button" class="info-popover-close" aria-label="Fechar informação">
+        ×
+      </button>
+    </div>
+    <div id="infoPopoverContent" class="info-popover-content"></div>
+  </div>
+  <template id="infoTemplateShippingCost" data-info-title="Custo do Frete">
+    <p>Este campo segue uma regra automática específica para o <strong>Mercado Livre</strong>.</p>
+    <ul>
+      <li>Quando <strong>custo base × 2 &gt; R$ 78,99</strong>, o sistema tenta preencher o frete automaticamente.</li>
+      <li>Se você clicar no botão de atualização após já existir preço promocional, o recálculo usa o
+        <strong>preço promocional da aba ativa</strong> como referência.</li>
+    </ul>
+    <p>Se o marketplace não tiver integração de frete, o valor deve ser informado manualmente.</p>
+  </template>
+  <template id="infoTemplatePricingVolatility" data-info-title="Preços Voláteis">
+    <p>Os campos de preço são <strong>dinâmicos</strong> e podem mudar conforme regras/configuração atuais.</p>
+    <ul>
+      <li>Ao carregar SKU salvo, anúncio, agressivo, promocional e atacado são recalculados.</li>
+      <li>O cálculo usa custo/frete atuais e as regras ativas do marketplace selecionado (vide taxas no painel de
+        configurações).</li>
+    </ul>
+    <p>Isso evita inconsistências entre preços antigos e parâmetros atuais de margem/comissão.</p>
+  </template>
+  <template id="infoTemplateSkuBehavior" data-info-title="Comportamento do SKU e Ctrl+Z">
+    <p>Para evitar troca silenciosa de contexto, o campo de SKU funciona em modo <strong>pesquisa confirmada</strong>.</p>
+    <ul>
+      <li>Editar o SKU (inclusive com undo/redo visual) <strong>nao troca</strong> automaticamente o SKU em uso.</li>
+      <li>A troca de contexto so acontece ao clicar na <strong>lupa</strong> (ou pressionar Enter).</li>
+      <li>No campo SKU, <strong>Ctrl+Z/Ctrl+Y</strong> nativos sao bloqueados para evitar rollback global acidental.</li>
+      <li>Nos demais campos editaveis, undo/redo passa a ser <strong>local ao proprio campo</strong> e para no limite dele.</li>
+    </ul>
+    <p>Sem esse cuidado, um undo longo pode voltar para outro campo e salvar dados no SKU errado.</p>
+  </template>
 
 </body>
 <script>
@@ -1610,6 +1819,11 @@
   // Botões de auto-preenchimento
   const btnAutoFillCost = $("#btnAutoFillCost");
   const btnAutoFillShipping = $("#btnAutoFillShipping");
+  const infoPopover = $("#infoPopover");
+  const infoPopoverOverlay = $("#infoPopoverOverlay");
+  const infoPopoverTitle = $("#infoPopoverTitle");
+  const infoPopoverContent = $("#infoPopoverContent");
+  const infoPopoverClose = $("#infoPopoverClose");
 
   // Campos de preço % Min
   const tinyAggressivePriceMin = $("#tinyAggressivePriceMin");
@@ -1639,6 +1853,139 @@
     amazon: 'Amazon',
     magalu: 'Magalu',
   };
+
+  const INFO_POPOVER_DATA = {};
+  let activeInfoPopoverTrigger = null;
+
+  // Padrão para novos ícones de info:
+  // 1) class="info-popover-trigger"
+  // 2) data-info-template="#idTemplate" (recomendado) OU data-info-title + data-info-html
+  // 3) fallback opcional por data-info-key em INFO_POPOVER_DATA
+  function resolveInfoPopoverContent(trigger) {
+    if (!trigger) return null;
+
+    const templateSelector = String(trigger.dataset.infoTemplate || "").trim();
+    if (templateSelector) {
+      const templateEl = document.querySelector(templateSelector);
+      if (templateEl) {
+        const titleFromTemplate = String(templateEl.dataset.infoTitle || "").trim();
+        const htmlFromTemplate =
+          templateEl.tagName?.toLowerCase() === "template"
+            ? templateEl.innerHTML
+            : templateEl.innerHTML;
+        if (htmlFromTemplate && htmlFromTemplate.trim()) {
+          return {
+            title: titleFromTemplate || "Informação",
+            html: htmlFromTemplate
+          };
+        }
+      }
+    }
+
+    const inlineTitle = String(trigger.dataset.infoTitle || "").trim();
+    const inlineHtml = String(trigger.dataset.infoHtml || "").trim();
+    if (inlineTitle || inlineHtml) {
+      return {
+        title: inlineTitle || "Informação",
+        html: inlineHtml || "<p>Sem conteúdo adicional.</p>"
+      };
+    }
+
+    const dataKey = String(trigger.dataset.infoKey || "").trim();
+    if (dataKey && INFO_POPOVER_DATA[dataKey]) {
+      return INFO_POPOVER_DATA[dataKey];
+    }
+
+    return null;
+  }
+
+  function positionInfoPopover(trigger) {
+    if (!trigger || !infoPopover || infoPopover.hidden) return;
+    const margin = 12;
+    const triggerRect = trigger.getBoundingClientRect();
+    const popRect = infoPopover.getBoundingClientRect();
+
+    let left = triggerRect.left;
+    let top = triggerRect.bottom + 10;
+
+    const maxLeft = window.innerWidth - popRect.width - margin;
+    if (left > maxLeft) left = maxLeft;
+    if (left < margin) left = margin;
+
+    const maxTop = window.innerHeight - popRect.height - margin;
+    if (top > maxTop) {
+      top = triggerRect.top - popRect.height - 10;
+    }
+    if (top < margin) top = margin;
+
+    infoPopover.style.left = `${Math.round(left)}px`;
+    infoPopover.style.top = `${Math.round(top)}px`;
+  }
+
+  function closeInfoPopover() {
+    if (!infoPopover || infoPopover.hidden) return;
+    infoPopover.hidden = true;
+    if (infoPopoverOverlay) infoPopoverOverlay.hidden = true;
+    if (activeInfoPopoverTrigger) {
+      activeInfoPopoverTrigger.classList.remove("is-active");
+      activeInfoPopoverTrigger.setAttribute("aria-expanded", "false");
+      activeInfoPopoverTrigger = null;
+    }
+  }
+
+  function openInfoPopover(trigger) {
+    if (!trigger || !infoPopover || !infoPopoverContent || !infoPopoverTitle) return;
+    const contentData = resolveInfoPopoverContent(trigger);
+    if (!contentData) return;
+
+    infoPopoverTitle.textContent = contentData.title;
+    infoPopoverContent.innerHTML = contentData.html;
+    infoPopover.hidden = false;
+    if (infoPopoverOverlay) infoPopoverOverlay.hidden = false;
+    activeInfoPopoverTrigger = trigger;
+    activeInfoPopoverTrigger.setAttribute("aria-controls", "infoPopover");
+    activeInfoPopoverTrigger.classList.add("is-active");
+    activeInfoPopoverTrigger.setAttribute("aria-expanded", "true");
+    positionInfoPopover(trigger);
+  }
+
+  function toggleInfoPopover(trigger) {
+    if (!trigger) return;
+    const isSameTriggerOpen =
+      activeInfoPopoverTrigger === trigger &&
+      infoPopover &&
+      !infoPopover.hidden;
+    if (isSameTriggerOpen) {
+      closeInfoPopover();
+      return;
+    }
+    if (activeInfoPopoverTrigger && activeInfoPopoverTrigger !== trigger) {
+      activeInfoPopoverTrigger.classList.remove("is-active");
+      activeInfoPopoverTrigger.setAttribute("aria-expanded", "false");
+    }
+    openInfoPopover(trigger);
+  }
+
+  if (infoPopoverClose) infoPopoverClose.addEventListener("click", closeInfoPopover);
+  if (infoPopoverOverlay) infoPopoverOverlay.addEventListener("click", closeInfoPopover);
+  if (infoPopover) {
+    infoPopover.addEventListener("click", (e) => e.stopPropagation());
+  }
+  document.addEventListener("click", (e) => {
+    const infoTrigger = e.target.closest(".info-popover-trigger");
+    if (infoTrigger) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleInfoPopover(infoTrigger);
+      return;
+    }
+
+    if (!infoPopover || infoPopover.hidden) return;
+    if (e.target.closest("#infoPopover")) return;
+    closeInfoPopover();
+  });
+  window.addEventListener("resize", () => positionInfoPopover(activeInfoPopoverTrigger));
+  window.addEventListener("scroll", () => positionInfoPopover(activeInfoPopoverTrigger), true);
 
   // Função auxiliar para feedback visual de cópia
   function showCopyFeedback(button, options = {}) {
@@ -1676,6 +2023,412 @@
   // Dados do produto Tiny (dados reais da API)
   let tinyProductData = null;
   let isFetchingTinyData = false;
+  let currentWorkspaceId = null;
+  let currentWorkspaceSku = null;
+  let currentWorkspaceMarketplace = null;
+  let workspaceHydrating = false;
+  let workspacePersistTimer = null;
+  let workspacePersistInFlight = false;
+  let workspacePersistQueued = false;
+  let workspacePendingAction = "manual";
+  let lastSkuInputNormalized = normalizeSkuValue(tinySKU.value);
+
+  function normalizeSkuValue(raw) {
+    return String(raw || "").trim().toUpperCase();
+  }
+
+  function normalizeMarketplaceValue(raw) {
+    return String(raw || "").trim().toLowerCase();
+  }
+
+  function normalizeSkuCacheKey(raw) {
+    return normalizeSkuValue(raw);
+  }
+
+  function getWorkspaceSkuForPersistence() {
+    const lockedSku = normalizeSkuValue(currentWorkspaceSku || "");
+    if (lockedSku) return lockedSku;
+    return normalizeSkuValue(tinySKU.value);
+  }
+
+  function normalizeMetrics(raw) {
+    const src = raw && typeof raw === "object" ? raw : {};
+    return {
+      margin_percent: Number(src.margin_percent || 0),
+      value_multiple: Number(src.value_multiple || 0),
+      value_amount: Number(src.value_amount || 0)
+    };
+  }
+
+  const LOCAL_UNDO_INPUT_TYPES = new Set(["text", "search", "number", "email", "url", "tel", "password"]);
+  const localUndoStacks = new WeakMap();
+  let lastSkuUndoWarningAt = 0;
+
+  function isEditableElementForLocalUndo(el) {
+    if (!(el instanceof HTMLElement)) return false;
+    if (el.matches("textarea")) return !el.disabled && !el.readOnly;
+    if (!el.matches("input")) return false;
+    const inputType = String(el.type || "text").toLowerCase();
+    if (!LOCAL_UNDO_INPUT_TYPES.has(inputType)) return false;
+    return !el.disabled && !el.readOnly;
+  }
+
+  function isSkuUndoBlockedField(el) {
+    return !!el && el.id === "tinySKU";
+  }
+
+  function ensureLocalUndoState(el) {
+    let state = localUndoStacks.get(el);
+    const currentValue = String(el.value ?? "");
+    if (!state) {
+      state = { stack: [currentValue], index: 0, applying: false };
+      localUndoStacks.set(el, state);
+      return state;
+    }
+    if (!Array.isArray(state.stack) || state.stack.length === 0) {
+      state.stack = [currentValue];
+      state.index = 0;
+      state.applying = false;
+      return state;
+    }
+    if (typeof state.index !== "number" || state.index < 0 || state.index >= state.stack.length) {
+      state.index = state.stack.length - 1;
+    }
+    return state;
+  }
+
+  function syncLocalUndoBaseline(el) {
+    const state = ensureLocalUndoState(el);
+    const currentValue = String(el.value ?? "");
+    const currentStackValue = String(state.stack[state.index] ?? "");
+    if (currentStackValue !== currentValue) {
+      state.stack = [currentValue];
+      state.index = 0;
+    }
+  }
+
+  function pushLocalUndoSnapshot(el) {
+    if (!isEditableElementForLocalUndo(el) || isSkuUndoBlockedField(el)) return;
+    const state = ensureLocalUndoState(el);
+    if (state.applying) return;
+    const nextValue = String(el.value ?? "");
+    const currentValue = String(state.stack[state.index] ?? "");
+    if (nextValue === currentValue) return;
+    state.stack = state.stack.slice(0, state.index + 1);
+    state.stack.push(nextValue);
+    state.index = state.stack.length - 1;
+    if (state.stack.length > 250) {
+      const drop = state.stack.length - 250;
+      state.stack.splice(0, drop);
+      state.index = Math.max(0, state.index - drop);
+    }
+  }
+
+  function emitSyntheticInput(el, inputType) {
+    try {
+      el.dispatchEvent(new InputEvent("input", { bubbles: true, composed: true, inputType }));
+    } catch (_) {
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  function applyLocalUndoValue(el, state, value, inputType) {
+    if (String(el.value ?? "") === value) return;
+    state.applying = true;
+    el.value = value;
+    emitSyntheticInput(el, inputType);
+    state.applying = false;
+
+    if (typeof el.setSelectionRange === "function") {
+      const pos = String(el.value ?? "").length;
+      try {
+        el.setSelectionRange(pos, pos);
+      } catch (_) {
+        // Ignore selection errors for unsupported input types.
+      }
+    }
+  }
+
+  function runLocalUndoAction(el, direction) {
+    const state = ensureLocalUndoState(el);
+    if (direction < 0) {
+      if (state.index <= 0) return false;
+      state.index -= 1;
+      applyLocalUndoValue(el, state, String(state.stack[state.index] ?? ""), "historyUndo");
+      return true;
+    }
+    if (state.index >= state.stack.length - 1) return false;
+    state.index += 1;
+    applyLocalUndoValue(el, state, String(state.stack[state.index] ?? ""), "historyRedo");
+    return true;
+  }
+
+  function showSkuUndoBlockedNotice() {
+    const now = Date.now();
+    if (now - lastSkuUndoWarningAt < 2200) return;
+    lastSkuUndoWarningAt = now;
+    showToast("No campo SKU, Ctrl+Z/Redo foi bloqueado. Para trocar o SKU, edite e clique na lupa.", "warning");
+  }
+
+  function setupLocalUndoGuards() {
+    document.addEventListener("focusin", (e) => {
+      const el = e.target;
+      if (!isEditableElementForLocalUndo(el)) return;
+      syncLocalUndoBaseline(el);
+    }, true);
+
+    document.addEventListener("input", (e) => {
+      const el = e.target;
+      if (!isEditableElementForLocalUndo(el)) return;
+      pushLocalUndoSnapshot(el);
+    }, true);
+
+    document.addEventListener("beforeinput", (e) => {
+      const inputType = String(e.inputType || "");
+      if (inputType !== "historyUndo" && inputType !== "historyRedo") return;
+      const el = e.target;
+      if (!isEditableElementForLocalUndo(el)) return;
+      e.preventDefault();
+      if (isSkuUndoBlockedField(el)) {
+        showSkuUndoBlockedNotice();
+        return;
+      }
+      runLocalUndoAction(el, inputType === "historyUndo" ? -1 : 1);
+    }, true);
+
+    document.addEventListener("keydown", (e) => {
+      const hasModifier = e.ctrlKey || e.metaKey;
+      if (!hasModifier || e.altKey) return;
+      const key = String(e.key || "").toLowerCase();
+      const isUndo = key === "z" && !e.shiftKey;
+      const isRedo = (key === "z" && e.shiftKey) || key === "y";
+      if (!isUndo && !isRedo) return;
+
+      const el = document.activeElement;
+      if (!isEditableElementForLocalUndo(el)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (isSkuUndoBlockedField(el)) {
+        showSkuUndoBlockedNotice();
+        return;
+      }
+      runLocalUndoAction(el, isUndo ? -1 : 1);
+    }, true);
+  }
+
+  function buildWorkspaceBaseState() {
+    return {
+      integration_mode: integrationMode || "manual",
+      tiny_product_data: tinyProductData || null,
+      selected_marketplace: marketplace.value || "",
+      product_fields: {
+        product_name: productName.value || "",
+        tiny_gtin: tinyGTIN.value || "",
+        tiny_sku_display: tinySKUDisplay.value || "",
+        tiny_height: tinyHeight.value || "",
+        tiny_width: tinyWidth.value || "",
+        tiny_length: tinyLength.value || "",
+        tiny_weight: tinyWeight.value || "",
+        tiny_cost_price: tinyCostPrice.value || "",
+        tiny_shipping_cost: tinyShippingCost.value || ""
+      },
+      cost_price_cache: { ...costPriceCache },
+      shipping_cost_cache: { ...shippingCostCache }
+    };
+  }
+
+  function buildWorkspaceVersionedState() {
+    return {
+      title: {
+        versions: Array.isArray(history.title) ? [...history.title] : [],
+        current_index: Number.isInteger(history.titleIdx) ? history.titleIdx : -1
+      },
+      description: {
+        versions: Array.isArray(history.description) ? [...history.description] : [],
+        current_index: Number.isInteger(history.descIdx) ? history.descIdx : -1
+      },
+      faq_lines: (history.faq || []).map(line => ({
+        approved: !!line.approved,
+        versions: (line.versions || []).map(v => ({ q: v?.q || "", a: v?.a || "" })),
+        current_index: Number.isInteger(line.vIdx) ? line.vIdx : -1
+      })),
+      card_lines: (history.cardLines || []).map(line => ({
+        versions: (line.versions || []).map(v => ({ title: v?.title || "", text: v?.text || "" })),
+        current_index: Number.isInteger(line.vIdx) ? line.vIdx : -1
+      }))
+    };
+  }
+
+  async function saveWorkspaceNow(action = "manual") {
+    const sku = getWorkspaceSkuForPersistence();
+    if (!sku) return;
+
+    const payload = {
+      sku,
+      marketplace: normalizeMarketplaceValue(marketplace.value || "mercadolivre"),
+      base_state: buildWorkspaceBaseState(),
+      versioned_state: buildWorkspaceVersionedState(),
+      action
+    };
+
+    const res = await fetchWithAuth("/api/sku/workspace/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(extractApiErrorMessage(data, "Falha ao persistir estado do SKU."));
+    }
+    if (data.workspace_id) currentWorkspaceId = data.workspace_id;
+    currentWorkspaceSku = sku;
+    currentWorkspaceMarketplace = normalizeMarketplaceValue(marketplace.value || "mercadolivre");
+  }
+
+  async function flushWorkspacePersist(action) {
+    if (workspacePersistInFlight) {
+      workspacePersistQueued = true;
+      workspacePendingAction = action || workspacePendingAction;
+      return;
+    }
+
+    workspacePersistInFlight = true;
+    try {
+      await saveWorkspaceNow(action || "manual");
+    } catch (e) {
+      console.warn("Falha ao persistir workspace:", e);
+    } finally {
+      workspacePersistInFlight = false;
+      if (workspacePersistQueued) {
+        workspacePersistQueued = false;
+        const queuedAction = workspacePendingAction || "manual";
+        workspacePendingAction = "manual";
+        flushWorkspacePersist(queuedAction);
+      }
+    }
+  }
+
+  async function fetchWorkspaceLoadData(sku, tinyToken, marketplaceValue) {
+    const payload = {
+      sku,
+      marketplace: normalizeMarketplaceValue(marketplaceValue || "mercadolivre")
+    };
+    if (tinyToken) payload.tiny_token = tinyToken;
+
+    const response = await fetchWithAuth("/api/sku/workspace/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw createApiError(response, result, `Erro HTTP ${response.status}`);
+    }
+    return result;
+  }
+
+  function applyWorkspaceBaseState(baseState = {}) {
+    const base = baseState && typeof baseState === "object" ? baseState : {};
+
+    integrationMode = base.integration_mode || "manual";
+    tinyProductData = base.tiny_product_data || null;
+
+    if (base.selected_marketplace) {
+      marketplace.value = base.selected_marketplace;
+    }
+
+    if (base.cost_price_cache && typeof base.cost_price_cache === "object") {
+      costPriceCache = { ...base.cost_price_cache };
+    }
+    if (base.shipping_cost_cache && typeof base.shipping_cost_cache === "object") {
+      shippingCostCache = { ...base.shipping_cost_cache };
+    }
+
+    const fields = base.product_fields && typeof base.product_fields === "object" ? base.product_fields : {};
+    if (!tinyProductData) {
+      productName.value = fields.product_name || "";
+      tinyGTIN.value = fields.tiny_gtin || "";
+      tinySKUDisplay.value = fields.tiny_sku_display || "";
+      tinyHeight.value = fields.tiny_height || "";
+      tinyWidth.value = fields.tiny_width || "";
+      tinyLength.value = fields.tiny_length || "";
+      tinyWeight.value = fields.tiny_weight || "";
+    }
+
+    // Custo/frete podem ter sido editados manualmente e devem ser restaurados
+    // mesmo quando tinyProductData existir.
+    if (fields.tiny_cost_price !== undefined && fields.tiny_cost_price !== null) {
+      tinyCostPrice.value = fields.tiny_cost_price || "";
+    }
+    if (fields.tiny_shipping_cost !== undefined && fields.tiny_shipping_cost !== null) {
+      tinyShippingCost.value = fields.tiny_shipping_cost || "";
+    }
+  }
+
+  function restoreWorkspaceVersionedState(rawState = {}) {
+    const state = rawState && typeof rawState === "object" ? rawState : {};
+    const titleState = state.title || {};
+    const descState = state.description || {};
+
+    history.title = Array.isArray(titleState.versions) ? [...titleState.versions] : [];
+    history.titleIdx = Number.isInteger(titleState.current_index) ? titleState.current_index : -1;
+    history.description = Array.isArray(descState.versions) ? [...descState.versions] : [];
+    history.descIdx = Number.isInteger(descState.current_index) ? descState.current_index : -1;
+
+    history.faq = (state.faq_lines || []).map(line => ({
+      approved: !!line?.approved,
+      versions: (line?.versions || []).map(v => ({ q: v?.q || "", a: v?.a || "" })),
+      vIdx: Number.isInteger(line?.current_index) ? line.current_index : -1,
+      processing: false
+    }));
+
+    history.cardLines = (state.card_lines || []).map(line => ({
+      versions: (line?.versions || []).map(v => ({ title: v?.title || "", text: v?.text || "" })),
+      vIdx: Number.isInteger(line?.current_index) ? line.current_index : -1,
+      copiedTitle: false,
+      copiedText: false,
+      processing: false
+    }));
+
+    // Precos sao volateis: nao restaurar versoes a partir do DB.
+    history.aggressivePriceMin = [];
+    history.aggressivePriceMinIdx = -1;
+    history.promoPriceMin = [];
+    history.promoPriceMinIdx = -1;
+    history.aggressivePriceMax = [];
+    history.aggressivePriceMaxIdx = -1;
+    history.promoPriceMax = [];
+    history.promoPriceMaxIdx = -1;
+
+    [
+      "tinyAnnouncePriceMin",
+      "tinyAggressivePriceMin",
+      "tinyPromoPriceMin",
+      "tinyAnnouncePriceMax",
+      "tinyAggressivePriceMax",
+      "tinyPromoPriceMax"
+    ].forEach((fieldId) => {
+      const field = document.getElementById(fieldId);
+      if (field) field.value = "";
+      clearMetricsForPriceField(fieldId);
+    });
+    wholesaleRows = [];
+    renderWholesaleTable();
+
+    outTitle.value = (history.titleIdx >= 0 && history.titleIdx < history.title.length)
+      ? history.title[history.titleIdx]
+      : "";
+    outDesc.value = (history.descIdx >= 0 && history.descIdx < history.description.length)
+      ? history.description[history.descIdx]
+      : "";
+
+    buildCurrentCards();
+    renderFAQFromState();
+    renderCardsFromState();
+    updateVersionControls();
+    updatePriceVersionControls();
+    rebuildPlaylist();
+  }
 
   // Buscar dados do produto Tiny da API
   async function fetchTinyProductData(token, sku) {
@@ -1689,11 +2442,7 @@
       const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const message =
-          result?.detail?.message ||
-          result?.message ||
-          `Erro HTTP ${response.status}`;
-        throw new Error(message);
+        throw createApiError(response, result, `Erro HTTP ${response.status}`);
       }
 
       return result.data;
@@ -1704,7 +2453,7 @@
   }
 
   // Atualizar estado da integração
-  async function updateIntegrationMode(options = {}) {
+  async function legacyUpdateIntegrationMode(options = {}) {
     const { forceFetch = false } = options;
     const tinyTokens = getTinyTokens();
     const hasTinyTokens = tinyTokens.length > 0;
@@ -1757,6 +2506,9 @@
       isFetchingTinyData = true;
       const requestedSKU = skuValue;
       const requestedInstance = selectedInstance;
+      if (normalizeSkuValue(requestedSKU) !== normalizeSkuValue(currentWorkspaceSku || "")) {
+        clearReferenceFilesForSkuChange(true);
+      }
 
       const originalSearchHtml = btnTinySearch ? btnTinySearch.innerHTML : "";
       if (btnTinySearch) {
@@ -1822,14 +2574,19 @@
         console.error('Erro ao buscar produto Tiny:', error);
         tinyProductData = null;
         integrationMode = "manual";
+        const isNotFound = isTinySkuNotFoundError(error);
 
         // Feedback de erro
         tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
-        tinySKU.classList.add('bg-red-50');
-        setTimeout(() => tinySKU.classList.remove('bg-red-50'), 3000);
+        tinySKU.classList.add(isNotFound ? 'bg-yellow-50' : 'bg-red-50');
+        setTimeout(() => tinySKU.classList.remove(isNotFound ? 'bg-yellow-50' : 'bg-red-50'), 3000);
 
         // Mostrar mensagem de erro
-        showToast(`Erro ao buscar produto do Tiny: ${error.message}`, 'error');
+        if (isNotFound) {
+          showToast(`SKU ${requestedSKU} não encontrado na instância Tiny selecionada.`, 'warning');
+        } else {
+          showToast(`Erro ao buscar produto do Tiny: ${error.message}`, 'error');
+        }
 
         // Limpar UI no path de erro
         applyTinyState();
@@ -1847,6 +2604,181 @@
     applyTinyState();
   }
 
+  async function updateIntegrationMode(options = {}) {
+    const { forceFetch = false } = options;
+    const tinyTokens = getTinyTokens();
+    const hasTinyTokens = tinyTokens.length > 0;
+    const selectedInstance = tinyInstance.value;
+    const skuValue = tinySKU.value.trim();
+
+    tinyInstance.disabled = !hasTinyTokens;
+    if (!hasTinyTokens) {
+      tinySKU.value = "";
+      tinyProductData = null;
+      currentWorkspaceId = null;
+      currentWorkspaceSku = null;
+      currentWorkspaceMarketplace = null;
+    }
+
+    tinySKU.disabled = !hasTinyTokens || !selectedInstance;
+    const canSearch = hasTinyTokens && !!selectedInstance && !!skuValue && !isFetchingTinyData;
+    if (btnTinySearch) btnTinySearch.disabled = !canSearch;
+
+    const shouldBeTinyMode = hasTinyTokens && !!selectedInstance && !!skuValue;
+    const normalizedInputSku = normalizeSkuValue(skuValue);
+    const normalizedInputMarketplace = normalizeMarketplaceValue(marketplace.value || "mercadolivre");
+    const hasCurrentData = !!(
+      currentWorkspaceSku &&
+      currentWorkspaceSku === normalizedInputSku &&
+      currentWorkspaceMarketplace === normalizedInputMarketplace
+    );
+
+    if (!shouldBeTinyMode) {
+      if (currentWorkspaceSku && !forceFetch) {
+        integrationMode = "tiny";
+        resetExternalSkuActions({ disableDrive: true, clearCanva: true });
+        await applyTinyState();
+        return;
+      }
+      integrationMode = "manual";
+      tinyProductData = null;
+      currentWorkspaceId = null;
+      currentWorkspaceSku = null;
+      currentWorkspaceMarketplace = null;
+      resetExternalSkuActions({ disableDrive: false, clearCanva: true });
+      await applyTinyState();
+      return;
+    }
+
+    integrationMode = "tiny";
+    if (!forceFetch) {
+      if (!hasCurrentData) {
+        if (currentWorkspaceSku) {
+          integrationMode = "tiny";
+        } else {
+          integrationMode = "manual";
+        }
+        resetExternalSkuActions({ disableDrive: true, clearCanva: true });
+      } else {
+        integrationMode = "tiny";
+        resetExternalSkuActions({ disableDrive: false, clearCanva: false });
+      }
+      await applyTinyState();
+      return;
+    }
+
+    if (isFetchingTinyData) {
+      await applyTinyState();
+      return;
+    }
+
+    isFetchingTinyData = true;
+    resetExternalSkuActions({ disableDrive: true, clearCanva: true });
+    const requestedSKU = skuValue;
+    const requestedInstance = selectedInstance;
+    if (normalizeSkuValue(requestedSKU) !== normalizeSkuValue(currentWorkspaceSku || "")) {
+      clearReferenceFilesForSkuChange(true);
+    }
+    const originalSearchHtml = btnTinySearch ? btnTinySearch.innerHTML : "";
+
+    if (btnTinySearch) {
+      btnTinySearch.disabled = true;
+      btnTinySearch.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" opacity="0.25"></circle>
+          <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"></path>
+        </svg>
+      `;
+    }
+
+    tinySKU.classList.add('bg-blue-50', 'animate-pulse');
+    tinyCostPrice.value = '';
+    tinyShippingCost.value = '';
+
+    try {
+      const instanceIndex = parseInt(requestedInstance);
+      const selectedToken = tinyTokens[instanceIndex]?.token;
+      if (!selectedToken) throw new Error('Token não encontrado para instância selecionada');
+
+      const loaded = await fetchWorkspaceLoadData(requestedSKU, selectedToken, marketplace.value);
+      const workspace = loaded.workspace || {};
+
+      const currentSKU = tinySKU.value.trim();
+      const currentInstance = tinyInstance.value;
+      if (currentSKU !== requestedSKU || currentInstance !== requestedInstance) {
+        tinyProductData = null;
+        currentWorkspaceId = null;
+        currentWorkspaceSku = null;
+        currentWorkspaceMarketplace = null;
+        integrationMode = "manual";
+        resetExternalSkuActions({ disableDrive: false, clearCanva: true });
+        await applyTinyState();
+        return;
+      }
+
+      if (loaded.source === "tiny") {
+        resetHistory();
+      }
+
+      workspaceHydrating = true;
+      try {
+        applyWorkspaceBaseState(workspace.base_state || {});
+        currentWorkspaceId = workspace.id || null;
+        currentWorkspaceSku = normalizeSkuValue(workspace.sku_normalized || requestedSKU);
+        currentWorkspaceMarketplace = normalizeMarketplaceValue(
+          workspace.marketplace_normalized || marketplace.value || "mercadolivre"
+        );
+        await applyTinyState();
+        restoreWorkspaceVersionedState(workspace.versioned_state || {});
+      } finally {
+        workspaceHydrating = false;
+      }
+
+      await autoPricing({
+        expectedSku: requestedSKU,
+        expectedMarketplace: marketplace.value
+      });
+
+      if (loaded.source === "db") {
+        showToast(`SKU ${requestedSKU} carregado do banco.`, "info");
+      } else {
+        const costPrice = parseFloat(tinyProductData?.cost_price) || 0;
+        if (costPrice === 0) integrationMode = "manual";
+      }
+
+      tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
+      tinySKU.classList.add('bg-green-50');
+      setTimeout(() => tinySKU.classList.remove('bg-green-50'), 1500);
+      resetExternalSkuActions({ disableDrive: false, clearCanva: false });
+    } catch (error) {
+      console.error('Erro ao buscar SKU:', error);
+      tinyProductData = null;
+      currentWorkspaceId = null;
+      currentWorkspaceSku = null;
+      currentWorkspaceMarketplace = null;
+      integrationMode = "manual";
+      const isNotFound = isTinySkuNotFoundError(error);
+
+      tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
+      tinySKU.classList.add(isNotFound ? 'bg-yellow-50' : 'bg-red-50');
+      setTimeout(() => tinySKU.classList.remove(isNotFound ? 'bg-yellow-50' : 'bg-red-50'), 3000);
+      if (isNotFound) {
+        showToast(`SKU ${requestedSKU} não encontrado na instância Tiny selecionada.`, 'warning');
+      } else {
+        showToast(`Erro ao buscar SKU: ${error.message}`, 'error');
+      }
+      resetExternalSkuActions({ disableDrive: false, clearCanva: true });
+      await applyTinyState();
+    } finally {
+      isFetchingTinyData = false;
+      if (btnTinySearch) {
+        btnTinySearch.innerHTML = originalSearchHtml;
+        const canSearchAfter = getTinyTokens().length > 0 && !!tinyInstance.value && !!tinySKU.value.trim();
+        btnTinySearch.disabled = !canSearchAfter;
+      }
+    }
+  }
+
   // ============================================================================
   // CANVA INTEGRATION LOGIC
   // ============================================================================
@@ -1856,6 +2788,34 @@
   const canvaDesignSubtitle = $("#canvaDesignSubtitle");
   const btnReauthCanvaInline = $("#btnReauthCanvaInline");
   let currentCanvaDesign = null;
+
+  function setDriveLoadButtonState({ disabled, reason = "" } = {}) {
+    const shouldDisable = !!disabled;
+    btnLoadFromDrive.disabled = shouldDisable;
+    btnLoadFromDrive.classList.toggle("opacity-50", shouldDisable);
+    btnLoadFromDrive.classList.toggle("cursor-not-allowed", shouldDisable);
+    btnLoadFromDrive.title = reason || "Procurar pasta com o SKU no Drive e carregar tudo (Imagens 001.png primeiro)";
+  }
+
+  function resetExternalSkuActions({ disableDrive = true, clearCanva = true } = {}) {
+    const hasSku = !!tinySKU.value.trim();
+    setDriveLoadButtonState({
+      disabled: disableDrive || !hasSku,
+      reason: disableDrive
+        ? "Aguarde a busca do SKU no ERP terminar para usar esta ação."
+        : ""
+    });
+
+    if (!clearCanva) return;
+    currentCanvaDesign = null;
+    canvaExportContainer.classList.add("hidden");
+    btnReauthCanvaInline.classList.add("hidden");
+    btnExportCanva.classList.remove("hidden");
+    if (canvaDesignTitle) canvaDesignTitle.textContent = "Canva Design Encontrado";
+    if (canvaDesignSubtitle) canvaDesignSubtitle.textContent = "Com o nome referente ao SKU. Deseja exportar e sincronizar?";
+  }
+
+  resetExternalSkuActions({ disableDrive: true, clearCanva: true });
 
   function extractApiErrorMessage(payload, fallback = "Erro inesperado.") {
     if (!payload || typeof payload !== "object") return fallback;
@@ -1868,6 +2828,35 @@
     }
     if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
     return fallback;
+  }
+
+  function createApiError(response, payload, fallback = "Erro inesperado.") {
+    const err = new Error(extractApiErrorMessage(payload, fallback));
+    err.status = Number(response?.status || 0);
+    const detail = payload && typeof payload === "object" ? payload.detail : null;
+    if (detail && typeof detail === "object" && typeof detail.type === "string") {
+      err.type = detail.type;
+    } else if (payload && typeof payload.type === "string") {
+      err.type = payload.type;
+    } else {
+      err.type = "";
+    }
+    err.payload = payload;
+    return err;
+  }
+
+  function isTinySkuNotFoundError(error) {
+    if (!error) return false;
+    if (Number(error.status || 0) === 404) return true;
+    const type = String(error.type || "").toLowerCase();
+    if (type === "not_found" || type.includes("not_found")) return true;
+    const msg = String(error.message || "").toLowerCase();
+    return (
+      msg.includes("não encontrado") ||
+      msg.includes("nao encontrado") ||
+      msg.includes("n?o encontrado") ||
+      msg.includes("retornou registros")
+    );
   }
 
   function isCanvaReauthRequired(payload, statusCode = 0) {
@@ -1897,6 +2886,7 @@
   }
 
   async function checkCanvaDesign(sku) {
+    const requestedSku = normalizeSkuValue(sku);
     canvaExportContainer.classList.add('hidden');
     currentCanvaDesign = null;
     try {
@@ -1906,6 +2896,11 @@
         body: JSON.stringify({ sku })
       });
       const data = await res.json().catch(() => ({}));
+
+      // Guard contra corrida: ignora resposta se o SKU ativo mudou.
+      if (normalizeSkuValue(tinySKU.value) !== requestedSku) {
+        return;
+      }
 
       if (res.ok) {
         if (data.design) {
@@ -2025,15 +3020,22 @@
 
       // Armazenar custo no cache (preenchimento via botão ou automático abaixo)
       const costFromTiny = parseFloat(tinyProductData.cost_price) || 0;
+      const tinySkuCacheKey = normalizeSkuCacheKey(tinyProductData.sku || tinySKU.value);
       if (costFromTiny > 0) {
-        costPriceCache[tinyProductData.sku] = costFromTiny;
+        costPriceCache[tinySkuCacheKey] = costFromTiny;
+      }
+      if (!String(tinyCostPrice.value || "").trim() && costFromTiny > 0) {
+        tinyCostPrice.value = costFromTiny.toFixed(2);
       }
 
       // Armazenar frete do Tiny no cache (se houver)
       const shippingFromTiny = parseFloat(tinyProductData.shipping_cost) || 0;
       if (shippingFromTiny > 0) {
-        const cacheKey = `${tinyProductData.sku}:${marketplace.value}`;
+        const cacheKey = `${tinySkuCacheKey}:${marketplace.value}`;
         shippingCostCache[cacheKey] = shippingFromTiny;
+      }
+      if (!String(tinyShippingCost.value || "").trim() && shippingFromTiny > 0) {
+        tinyShippingCost.value = shippingFromTiny.toFixed(2);
       }
 
       // Campos sempre editáveis
@@ -2054,9 +3056,9 @@
       manualPricingButton.style.display = 'block';
       validateCalculateButton();
 
-      // Auto-preencher custo via cache e acionar cálculo de preços
-      if (costFromTiny > 0) {
-        await autoFillCostPrice();
+      // Em fluxo DB-first, não devemos refazer consulta Tiny automaticamente.
+      // Se já há custo no estado, apenas recalcula preços locais.
+      if (costFromTiny > 0 && !workspaceHydrating) {
         setTimeout(() => autoPricing(), 300);
       }
 
@@ -2199,8 +3201,38 @@
   });
 
   // Event listeners para campos Tiny
-  tinyInstance.addEventListener('change', () => updateIntegrationMode());
-  tinySKU.addEventListener('input', () => updateIntegrationMode());
+  tinyInstance.addEventListener('change', () => {
+    resetExternalSkuActions({ disableDrive: true, clearCanva: true });
+    updateIntegrationMode();
+  });
+  tinySKU.addEventListener('input', () => {
+    const normalizedSku = normalizeSkuValue(tinySKU.value);
+    if (normalizedSku !== lastSkuInputNormalized) {
+      clearReferenceFilesForSkuChange(true);
+      lastSkuInputNormalized = normalizedSku;
+    }
+    // Durante digitacao do SKU nao disparamos fluxo de integracao:
+    // pesquisa/autoPricing/Canva so devem ocorrer com Enter/lupa.
+    const hasTinyTokens = getTinyTokens().length > 0;
+    const hasInstance = !!tinyInstance.value;
+    const hasSkuValue = !!tinySKU.value.trim();
+    if (btnTinySearch) {
+      btnTinySearch.disabled = !(hasTinyTokens && hasInstance && hasSkuValue && !isFetchingTinyData);
+    }
+
+    const isEditingDifferentSku = normalizedSku !== normalizeSkuValue(currentWorkspaceSku || "");
+    if (isEditingDifferentSku) {
+      resetExternalSkuActions({ disableDrive: true, clearCanva: true });
+    } else {
+      resetExternalSkuActions({ disableDrive: false, clearCanva: false });
+    }
+  });
+  tinySKU.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (btnTinySearch.disabled || isFetchingTinyData) return;
+    updateIntegrationMode({ forceFetch: true });
+  });
   btnTinySearch.addEventListener('click', () => updateIntegrationMode({ forceFetch: true }));
 
   // ============================================================================
@@ -2406,6 +3438,30 @@
     applyWarningStyles(valueField, metrics.value_amount < 5);
   }
 
+  function clearMetricsForPriceField(priceFieldId) {
+    const priceField = document.getElementById(priceFieldId);
+    if (!priceField) return;
+    const parentContainer = priceField.closest('div')?.parentElement;
+    const metricsGrid = parentContainer?.querySelector('.grid.grid-cols-3');
+    if (!metricsGrid) return;
+
+    const marginField = metricsGrid.querySelector('.analysis-margin');
+    const multipleField = metricsGrid.querySelector('.analysis-multiple');
+    const valueField = metricsGrid.querySelector('.analysis-value');
+    if (marginField) {
+      marginField.value = "";
+      marginField.classList.remove('bg-red-100', 'border-red-300', 'text-red-800', 'font-semibold');
+    }
+    if (multipleField) {
+      multipleField.value = "";
+      multipleField.classList.remove('bg-red-100', 'border-red-300', 'text-red-800', 'font-semibold');
+    }
+    if (valueField) {
+      valueField.value = "";
+      valueField.classList.remove('bg-red-100', 'border-red-300', 'text-red-800', 'font-semibold');
+    }
+  }
+
   /**
    * Aplica estilos de aviso (vermelho) quando necessário
    * @param {HTMLElement} field - Campo a ser estilizado
@@ -2572,7 +3628,10 @@
   zoomImage.onclick = (e) => e.stopPropagation();
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeZoom();
+    if (e.key === "Escape") {
+      closeZoom();
+      closeInfoPopover();
+    }
   });
 
   btnLoadMoreImages.onclick = () => {
@@ -2625,7 +3684,31 @@
 
   let autoPricingInProgress = false;
 
-  async function autoPricing() {
+  async function autoPricing(options = {}) {
+    const {
+      recordHistory = true,
+      updateAggressivePromo = true,
+      updateAnnounce = true,
+      updateWholesale = true,
+      expectedSku = null,
+      expectedMarketplace = null
+    } = options || {};
+
+    const expectedSkuNormalized = expectedSku ? normalizeSkuValue(expectedSku) : null;
+    const expectedMarketplaceNormalized = expectedMarketplace
+      ? normalizeMarketplaceValue(expectedMarketplace)
+      : null;
+    const isRequestStillCurrent = () => {
+      if (expectedSkuNormalized && normalizeSkuValue(tinySKU.value) !== expectedSkuNormalized) return false;
+      if (
+        expectedMarketplaceNormalized &&
+        normalizeMarketplaceValue(marketplace.value) !== expectedMarketplaceNormalized
+      ) {
+        return false;
+      }
+      return true;
+    };
+
     // Verificar se deve executar auto-pricing
     const costPrice = parseFloat(tinyCostPrice.value);
     const shippingCost = parseFloat(tinyShippingCost.value) || 0;
@@ -2643,8 +3726,19 @@
     try {
       autoPricingInProgress = true;
 
-      // Usar o valor de frete que está no campo — preenchido manualmente ou via botão de auto-preenchimento
-      const currentShippingCost = shippingCost;
+      // Usar o valor de frete do campo. Se ausente e o cenário do ML exigir,
+      // tenta preencher automaticamente antes de calcular os preços.
+      let currentShippingCost = shippingCost;
+      if (channel === 'mercadolivre' && currentShippingCost <= 0 && (costPrice * 2) > 78.99) {
+        const autoShipping = await autoFillShippingCost({
+          silent: true,
+          forceRefresh: false,
+          usePromoReference: false
+        });
+        if (Number.isFinite(autoShipping) && autoShipping >= 0) {
+          currentShippingCost = autoShipping;
+        }
+      }
 
       const totalCost = costPrice + currentShippingCost;
 
@@ -2712,59 +3806,86 @@
       }
 
       const dataMax = await responseMax.json();
+      if (!isRequestStillCurrent()) {
+        return;
+      }
 
       // ============================================================================
       // POPULAR PREÇOS E MÉTRICAS VINDOS DO BACKEND (aba % MIN)
       // ============================================================================
 
       // Preço do Anúncio (Min)
-      document.getElementById('tinyAnnouncePriceMin').value = dataMin.listing_price.price.toFixed(2);
-      populateMetrics('tinyAnnouncePriceMin', dataMin.listing_price.metrics);
+      if (updateAnnounce) {
+        document.getElementById('tinyAnnouncePriceMin').value = dataMin.listing_price.price.toFixed(2);
+        populateMetrics('tinyAnnouncePriceMin', dataMin.listing_price.metrics);
+      }
 
       // Preço Agressivo (Min)
-      tinyAggressivePriceMin.value = dataMin.aggressive_price.price.toFixed(2);
-      populateMetrics('tinyAggressivePriceMin', dataMin.aggressive_price.metrics);
-      pushPriceHistory('aggressivePriceMin', dataMin.aggressive_price.price, dataMin.aggressive_price.metrics);
+      if (updateAggressivePromo) {
+        tinyAggressivePriceMin.value = dataMin.aggressive_price.price.toFixed(2);
+        populateMetrics('tinyAggressivePriceMin', dataMin.aggressive_price.metrics);
+        if (recordHistory) {
+          pushPriceHistory('aggressivePriceMin', dataMin.aggressive_price.price, dataMin.aggressive_price.metrics, "price_calc");
+        }
+      }
 
       // Preço Promocional (Min)
-      tinyPromoPriceMin.value = dataMin.promo_price.price.toFixed(2);
-      populateMetrics('tinyPromoPriceMin', dataMin.promo_price.metrics);
-      pushPriceHistory('promoPriceMin', dataMin.promo_price.price, dataMin.promo_price.metrics);
+      if (updateAggressivePromo) {
+        tinyPromoPriceMin.value = dataMin.promo_price.price.toFixed(2);
+        populateMetrics('tinyPromoPriceMin', dataMin.promo_price.metrics);
+        if (recordHistory) {
+          pushPriceHistory('promoPriceMin', dataMin.promo_price.price, dataMin.promo_price.metrics, "price_calc");
+        }
+      }
 
       // ============================================================================
       // POPULAR PREÇOS E MÉTRICAS VINDOS DO BACKEND (aba % MAX)
       // ============================================================================
 
       // Preço do Anúncio (Max)
-      document.getElementById('tinyAnnouncePriceMax').value = dataMax.listing_price.price.toFixed(2);
-      populateMetrics('tinyAnnouncePriceMax', dataMax.listing_price.metrics);
+      if (updateAnnounce) {
+        document.getElementById('tinyAnnouncePriceMax').value = dataMax.listing_price.price.toFixed(2);
+        populateMetrics('tinyAnnouncePriceMax', dataMax.listing_price.metrics);
+      }
 
       // Preço Agressivo (Max)
-      tinyAggressivePriceMax.value = dataMax.aggressive_price.price.toFixed(2);
-      populateMetrics('tinyAggressivePriceMax', dataMax.aggressive_price.metrics);
-      pushPriceHistory('aggressivePriceMax', dataMax.aggressive_price.price, dataMax.aggressive_price.metrics);
+      if (updateAggressivePromo) {
+        tinyAggressivePriceMax.value = dataMax.aggressive_price.price.toFixed(2);
+        populateMetrics('tinyAggressivePriceMax', dataMax.aggressive_price.metrics);
+        if (recordHistory) {
+          pushPriceHistory('aggressivePriceMax', dataMax.aggressive_price.price, dataMax.aggressive_price.metrics, "price_calc");
+        }
+      }
 
       // Preço Promocional (Max)
-      tinyPromoPriceMax.value = dataMax.promo_price.price.toFixed(2);
-      populateMetrics('tinyPromoPriceMax', dataMax.promo_price.metrics);
-      pushPriceHistory('promoPriceMax', dataMax.promo_price.price, dataMax.promo_price.metrics);
+      if (updateAggressivePromo) {
+        tinyPromoPriceMax.value = dataMax.promo_price.price.toFixed(2);
+        populateMetrics('tinyPromoPriceMax', dataMax.promo_price.metrics);
+        if (recordHistory) {
+          pushPriceHistory('promoPriceMax', dataMax.promo_price.price, dataMax.promo_price.metrics, "price_calc");
+        }
+      }
 
       // ============================================================================
       // PREENCHER TABELA DE ATACADO COM MÉTRICAS (apenas % MIN)
       // ============================================================================
-      wholesaleRows = dataMin.wholesale_tiers.map(tier => ({
-        price: tier.price,
-        qty: tier.min_quantity,
-        metrics: tier.metrics  // Incluir métricas do backend
-      }));
-      renderWholesaleTable();
+      if (updateWholesale) {
+        wholesaleRows = dataMin.wholesale_tiers.map(tier => ({
+          price: tier.price,
+          qty: tier.min_quantity,
+          metrics: tier.metrics  // Incluir métricas do backend
+        }));
+        renderWholesaleTable();
+      }
 
       // Feedback visual sutil
-      [tinyAggressivePriceMin, tinyPromoPriceMin,
-        tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
-          field.classList.add('bg-green-50');
-          setTimeout(() => field.classList.remove('bg-green-50'), 1000);
-        });
+      if (updateAggressivePromo) {
+        [tinyAggressivePriceMin, tinyPromoPriceMin,
+          tinyAggressivePriceMax, tinyPromoPriceMax].forEach(field => {
+            field.classList.add('bg-green-50');
+            setTimeout(() => field.classList.remove('bg-green-50'), 1000);
+          });
+      }
 
       // Validação especial para Mercado Livre
       if (channel === 'mercadolivre' && tinyPromoPriceMin.value) {
@@ -2805,10 +3926,16 @@
     }
   });
 
-  marketplace.addEventListener('change', () => {
-    if (integrationMode === "tiny") {
-      autoPricing();
+  marketplace.addEventListener('change', async () => {
+    if (integrationMode !== "tiny") return;
+
+    const hasSku = !!tinySKU.value.trim();
+    const hasInstance = !!tinyInstance.value;
+    if (hasSku && hasInstance) {
+      await updateIntegrationMode({ forceFetch: true });
+      return;
     }
+    autoPricing();
   });
 
   // Listener do botão calcular preços (modo manual)
@@ -2994,13 +4121,25 @@
     return showToast(message, 'progress', 0, { persistent: true, progress });
   }
 
+  function onCanvaOAuthSuccess() {
+    showToast("Canva autenticado com sucesso.", "success");
+
+    // Sem reload: preserva todo estado atual e só atualiza a seção Canva.
+    const currentSku = normalizeSkuValue(tinySKU.value);
+    if (currentSku) {
+      checkCanvaDesign(currentSku).catch((err) => {
+        console.warn("Falha ao atualizar status do Canva após OAuth:", err);
+      });
+    }
+  }
+
   function handleCanvaOAuthReturn() {
     const params = new URLSearchParams(window.location.search);
     const canvaAuth = params.get("canva_auth");
     if (!canvaAuth) return;
 
     if (canvaAuth === "success") {
-      showToast("Canva autenticado com sucesso.", "success");
+      onCanvaOAuthSuccess();
     }
 
     params.delete("canva_auth");
@@ -3009,12 +4148,29 @@
     window.history.replaceState({}, document.title, newUrl);
   }
 
+  function setupCanvaOAuthPopupListener() {
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "canva_oauth_result") return;
+
+      if (data.status === "success") {
+        onCanvaOAuthSuccess();
+      } else {
+        const errMsg = String(data.message || "Falha na autenticação do Canva.");
+        showToast(errMsg, "error");
+      }
+    });
+  }
+
   // ============================================================================
   // AUTO-PREENCHIMENTO: Custo base via Tiny
   // ============================================================================
 
   async function autoFillCostPrice() {
-    const sku = tinySKU.value.trim();
+    const skuInput = tinySKU.value.trim();
+    const sku = normalizeSkuCacheKey(skuInput);
 
     if (!sku) {
       showToast('Nenhum SKU selecionado.', 'warning');
@@ -3035,7 +4191,7 @@
     }
 
     // Usar tinyProductData já carregado em memória
-    if (tinyProductData && tinyProductData.sku === sku) {
+    if (tinyProductData && normalizeSkuCacheKey(tinyProductData.sku) === sku) {
       const cost = parseFloat(tinyProductData.cost_price) || 0;
       costPriceCache[sku] = cost;
       if (cost > 0) {
@@ -3066,7 +4222,11 @@
         showToast('O produto não possui custo base cadastrado no Tiny.', 'warning');
       }
     } catch (err) {
-      showToast(`Erro ao buscar custo no Tiny: ${err.message}`, 'error');
+      if (isTinySkuNotFoundError(err)) {
+        showToast(`SKU ${sku} não encontrado na instância Tiny selecionada.`, 'warning');
+      } else {
+        showToast(`Erro ao buscar custo no Tiny: ${err.message}`, 'error');
+      }
     }
   }
 
@@ -3074,59 +4234,107 @@
   // AUTO-PREENCHIMENTO: Custo de frete via marketplace
   // ============================================================================
 
-  async function autoFillShippingCost() {
+  function getPromoReferencePriceForShipping() {
+    const activeTab = document.querySelector('.price-tab-content.active')?.dataset?.tab || 'min';
+    const preferredFieldId = activeTab === 'max' ? 'tinyPromoPriceMax' : 'tinyPromoPriceMin';
+    const preferredValue = parseFloat(document.getElementById(preferredFieldId)?.value || 0);
+    if (preferredValue > 0) return preferredValue;
+
+    const promoMin = parseFloat(document.getElementById('tinyPromoPriceMin')?.value || 0);
+    if (promoMin > 0) return promoMin;
+    const promoMax = parseFloat(document.getElementById('tinyPromoPriceMax')?.value || 0);
+    if (promoMax > 0) return promoMax;
+    return 0;
+  }
+
+  async function autoFillShippingCost(options = {}) {
+    const {
+      forceRefresh = false,
+      usePromoReference = false,
+      silent = false
+    } = options || {};
+
     const channel = marketplace.value;
-    const sku = tinySKU.value.trim();
+    const sku = normalizeSkuCacheKey(tinySKU.value);
     const channelLabel = MARKETPLACE_LABELS[channel] || channel;
 
     // Verificar suporte de automação de frete para o marketplace
     if (!SHIPPING_AUTO_MARKETPLACES.includes(channel)) {
-      showToast(`O marketplace ${channelLabel} não possui integração automática de frete. Preencha o valor manualmente.`, 'warning');
-      return;
+      if (!silent) {
+        showToast(`O marketplace ${channelLabel} não possui integração automática de frete. Preencha o valor manualmente.`, 'warning');
+      }
+      return null;
     }
 
     const cacheKey = `${sku}:${channel}`;
 
     // Consultar cache primeiro
-    if (shippingCostCache[cacheKey] !== undefined) {
+    if (!forceRefresh && shippingCostCache[cacheKey] !== undefined) {
       tinyShippingCost.value = shippingCostCache[cacheKey].toFixed(2);
-      showToast(`Frete preenchido com dado em cache: R$ ${shippingCostCache[cacheKey].toFixed(2)}`, 'info');
-      return;
+      if (!silent) {
+        showToast(`Frete preenchido com dado em cache: R$ ${shippingCostCache[cacheKey].toFixed(2)}`, 'info');
+      }
+      return shippingCostCache[cacheKey];
     }
 
     const costPrice = parseFloat(tinyCostPrice.value) || 0;
     const weightKg = parseFloat(tinyWeight.value) || 0;
 
     if (costPrice <= 0) {
-      showToast('Preencha o Custo base antes de buscar o frete.', 'warning');
-      return;
+      if (!silent) {
+        showToast('Preencha o Custo base antes de buscar o frete.', 'warning');
+      }
+      return null;
     }
 
     if (channel === 'mercadolivre') {
       try {
+        const promoReference = usePromoReference ? getPromoReferencePriceForShipping() : 0;
+        const payload = {
+          cost_price: costPrice,
+          weight_kg: weightKg
+        };
+        if (promoReference > 0) {
+          payload.reference_price = promoReference;
+        }
+
         const shipResp = await fetch('/api/shipping/calculate_ml', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cost_price: costPrice, weight_kg: weightKg }),
+          body: JSON.stringify(payload),
         });
         if (shipResp.ok) {
           const shipData = await shipResp.json();
           shippingCostCache[cacheKey] = shipData.shipping_cost;
           tinyShippingCost.value = shipData.shipping_cost.toFixed(2);
-          showToast(`Frete Mercado Livre calculado: R$ ${shipData.shipping_cost.toFixed(2)}`, 'success');
+          if (!silent) {
+            const refMessage = promoReference > 0
+              ? ` (referência: preço promocional R$ ${promoReference.toFixed(2)})`
+              : '';
+            showToast(`Frete Mercado Livre calculado: R$ ${shipData.shipping_cost.toFixed(2)}${refMessage}`, 'success');
+          }
+          return shipData.shipping_cost;
         } else {
           const errBody = await shipResp.json().catch(() => ({}));
-          showToast(`Erro ao calcular frete ML: ${errBody.detail || shipResp.status}`, 'error');
+          if (!silent) {
+            showToast(`Erro ao calcular frete ML: ${errBody.detail || shipResp.status}`, 'error');
+          }
         }
       } catch (err) {
-        showToast(`Erro ao buscar frete do Mercado Livre: ${err.message}`, 'error');
+        if (!silent) {
+          showToast(`Erro ao buscar frete do Mercado Livre: ${err.message}`, 'error');
+        }
       }
     }
+    return null;
   }
 
   // Listeners dos botões de auto-preenchimento
   btnAutoFillCost.addEventListener('click', () => autoFillCostPrice());
-  btnAutoFillShipping.addEventListener('click', () => autoFillShippingCost());
+  btnAutoFillShipping.addEventListener('click', () => autoFillShippingCost({
+    forceRefresh: true,
+    usePromoReference: true
+  }));
 
   // NOTA: Edição manual de preços agora usa métricas do backend
   // Quando o usuário edita um preço, as métricas não são recalculadas localmente
@@ -3194,6 +4402,16 @@
       fileWarnings.classList.remove('hidden');
     } else {
       fileWarnings.classList.add('hidden');
+    }
+  }
+
+  function clearReferenceFilesForSkuChange(silent = true) {
+    if (!uploadedFiles.length) return;
+    uploadedFiles = [];
+    if (fileInput) fileInput.value = '';
+    renderFilesTable();
+    if (!silent) {
+      showToast("Arquivos de referência limpos ao trocar o SKU.", "info");
     }
   }
 
@@ -4156,13 +5374,29 @@ Restrições:
     aggressivePriceMax: [], aggressivePriceMaxIdx: -1,
     promoPriceMax: [], promoPriceMaxIdx: -1
   };
-  function persistState() {
+  function legacyPersistState() {
     // Persistência desabilitada: não usamos mais cache no navegador.
   }
   function restoreState() {
     // Estado inicial já está definido em "history"; nada para restaurar do navegador.
   }
+  function persistState(action = "manual") {
+    if (workspaceHydrating) return;
+    const sku = getWorkspaceSkuForPersistence();
+    if (!sku) return;
+
+    workspacePendingAction = action || workspacePendingAction || "manual";
+    if (workspacePersistTimer) clearTimeout(workspacePersistTimer);
+    workspacePersistTimer = setTimeout(() => {
+      workspacePersistTimer = null;
+      const nextAction = workspacePendingAction || "manual";
+      workspacePendingAction = "manual";
+      flushWorkspacePersist(nextAction);
+    }, 600);
+  }
   function resetHistory() {
+    manualFieldVersionDrafts.title = null;
+    manualFieldVersionDrafts.description = null;
     // Limpar histórico
     history.title = [];
     history.titleIdx = -1;
@@ -4196,19 +5430,118 @@ Restrições:
     rebuildPlaylist();
 
     // Persistir estado limpo
-    persistState();
+    persistState("manual");
   }
-  function pushHistory(key, value) {
+
+  const manualFieldVersionDrafts = {
+    title: null,
+    description: null
+  };
+
+  function getVersionedFieldMeta(key) {
     if (key === "title") {
-      history.title = history.title.slice(0, history.titleIdx + 1);
+      return { field: outTitle, listKey: "title", idxKey: "titleIdx", actionPrefix: "title_manual_edit" };
+    }
+    if (key === "description") {
+      return { field: outDesc, listKey: "description", idxKey: "descIdx", actionPrefix: "description_manual_edit" };
+    }
+    return null;
+  }
+
+  function beginManualFieldDraft(key) {
+    const meta = getVersionedFieldMeta(key);
+    if (!meta || !meta.field) return null;
+    if (manualFieldVersionDrafts[key]) return manualFieldVersionDrafts[key];
+
+    const versions = history[meta.listKey];
+    const currentIdx = history[meta.idxKey];
+    const baselineValue =
+      currentIdx >= 0 && currentIdx < versions.length
+        ? String(versions[currentIdx] || "")
+        : String(meta.field.value || "");
+
+    versions.push(baselineValue);
+    const draft = {
+      baselineIndex: currentIdx,
+      baselineValue,
+      draftIndex: versions.length - 1
+    };
+    history[meta.idxKey] = draft.draftIndex;
+    manualFieldVersionDrafts[key] = draft;
+
+    updateVersionControls();
+    rebuildPlaylist();
+    persistState(`${meta.actionPrefix}_start`);
+    return draft;
+  }
+
+  function syncManualFieldDraft(key) {
+    const meta = getVersionedFieldMeta(key);
+    if (!meta || !meta.field) return;
+    let draft = manualFieldVersionDrafts[key];
+    if (!draft) {
+      draft = beginManualFieldDraft(key);
+    }
+    if (!draft) return;
+
+    const versions = history[meta.listKey];
+    if (draft.draftIndex < 0 || draft.draftIndex >= versions.length) return;
+    versions[draft.draftIndex] = String(meta.field.value || "");
+    persistState(`${meta.actionPrefix}_typing`);
+    rebuildPlaylist();
+  }
+
+  function finalizeManualFieldDraft(key) {
+    const meta = getVersionedFieldMeta(key);
+    if (!meta || !meta.field) return;
+    const draft = manualFieldVersionDrafts[key];
+    if (!draft) return;
+
+    const versions = history[meta.listKey];
+    if (draft.draftIndex < 0 || draft.draftIndex >= versions.length) {
+      manualFieldVersionDrafts[key] = null;
+      updateVersionControls();
+      rebuildPlaylist();
+      return;
+    }
+
+    const finalValue = String(versions[draft.draftIndex] || "");
+    const changed = finalValue !== String(draft.baselineValue || "");
+
+    if (!changed) {
+      versions.splice(draft.draftIndex, 1);
+      if (draft.baselineIndex >= 0 && draft.baselineIndex < versions.length) {
+        history[meta.idxKey] = draft.baselineIndex;
+      } else {
+        history[meta.idxKey] = versions.length ? versions.length - 1 : -1;
+      }
+      const resolvedIdx = history[meta.idxKey];
+      meta.field.value = resolvedIdx >= 0 ? String(versions[resolvedIdx] || "") : "";
+      persistState(`${meta.actionPrefix}_cancel`);
+    } else {
+      history[meta.idxKey] = Math.min(draft.draftIndex, versions.length - 1);
+      const resolvedIdx = history[meta.idxKey];
+      meta.field.value = resolvedIdx >= 0 ? String(versions[resolvedIdx] || "") : "";
+      persistState(`${meta.actionPrefix}_commit`);
+    }
+
+    manualFieldVersionDrafts[key] = null;
+    updateVersionControls();
+    rebuildPlaylist();
+  }
+
+  function pushHistory(key, value, action = "manual") {
+    if (key === "title") {
+      manualFieldVersionDrafts.title = null;
       history.title.push(value); history.titleIdx = history.title.length - 1; outTitle.value = value;
     } else if (key === "description") {
-      history.description = history.description.slice(0, history.descIdx + 1);
+      manualFieldVersionDrafts.description = null;
       history.description.push(value); history.descIdx = history.description.length - 1; outDesc.value = value;
     }
-    persistState(); updateVersionControls(); rebuildPlaylist();
+    persistState(action); updateVersionControls(); rebuildPlaylist();
   }
   function navHistory(key, dir) {
+    finalizeManualFieldDraft(key);
     if (key === "title") {
       const next = history.titleIdx + dir;
       if (next >= 0 && next < history.title.length) { history.titleIdx = next; outTitle.value = history.title[next]; }
@@ -4216,7 +5549,7 @@ Restrições:
       const next = history.descIdx + dir;
       if (next >= 0 && next < history.description.length) { history.descIdx = next; outDesc.value = history.description[next]; }
     }
-    persistState(); updateVersionControls(); rebuildPlaylist();
+    persistState("version_nav"); updateVersionControls(); rebuildPlaylist();
   }
   function updateVersionControls() {
     const tCount = history.title.length, tIdx = history.titleIdx;
@@ -4238,18 +5571,14 @@ Restrições:
    * @param {number} price - Valor do preço
    * @param {Object} metrics - Métricas: { margin_percent, value_multiple, value_amount }
    */
-  function pushPriceHistory(key, price, metrics) {
+  function pushPriceHistory(key, price, metrics, action = "manual") {
     const historyKey = key;
     const idxKey = key + 'Idx';
 
     // Truncar array se estivermos no meio do histórico
-    history[historyKey] = history[historyKey].slice(0, history[idxKey] + 1);
-
     // Adicionar nova versão
     history[historyKey].push({ price, metrics });
     history[idxKey] = history[historyKey].length - 1;
-
-    persistState();
     updatePriceVersionControls();
   }
 
@@ -4269,7 +5598,6 @@ Restrições:
       applyPriceToField(key, version.price, version.metrics);
     }
 
-    persistState();
     updatePriceVersionControls();
   }
 
@@ -4333,12 +5661,14 @@ Restrições:
 
   // -------- FAQ --------
   function renderFAQ(items) {
-    history.faq = (items || []).map(x => ({ approved: true, versions: [{ q: x.q, a: x.a }], vIdx: 0 }));
+    history.faq = (items || []).map(x => ({ approved: true, versions: [{ q: x.q, a: x.a }], vIdx: 0, processing: false }));
     renderFAQFromState();
   }
   function renderFAQFromState() {
     faqList.innerHTML = "";
     history.faq.forEach((line, idx) => {
+      line.processing = !!line.processing;
+      const isProcessing = line.processing;
       const cur = line.versions[line.vIdx];
       const el = document.createElement("div");
       el.className = "relative rounded-md p-3 text-sm bg-white border " + (line.approved ? "border-gray-200" : "border-red-400");
@@ -4368,14 +5698,17 @@ Restrições:
       qEl.textContent = cur.q; aEl.textContent = cur.a;
 
       function setProcessing(on) {
-        if (on) { qEl.parentElement.classList.add("pulse"); aEl.parentElement.classList.add("pulse"); }
-        else { qEl.parentElement.classList.remove("pulse"); aEl.parentElement.classList.remove("pulse"); }
+        el.classList.toggle("regen-active-block", on);
+        el.querySelectorAll('button[data-action]').forEach((btn) => {
+          btn.disabled = on;
+        });
       }
+      setProcessing(isProcessing);
 
       const prevBtn = el.querySelector('[data-action="prev"]');
-      if (prevBtn) prevBtn.addEventListener("click", () => { if (line.vIdx > 0) { line.vIdx--; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
+      if (prevBtn) prevBtn.addEventListener("click", () => { if (line.vIdx > 0) { line.vIdx--; renderFAQFromState(); persistState("version_nav"); rebuildPlaylist(); } });
       const nextBtn = el.querySelector('[data-action="next"]');
-      if (nextBtn) nextBtn.addEventListener("click", () => { if (line.vIdx < line.versions.length - 1) { line.vIdx++; renderFAQFromState(); persistState(); rebuildPlaylist(); } });
+      if (nextBtn) nextBtn.addEventListener("click", () => { if (line.vIdx < line.versions.length - 1) { line.vIdx++; renderFAQFromState(); persistState("version_nav"); rebuildPlaylist(); } });
 
       el.querySelector('[data-action="copy"]').addEventListener("click", (e) => {
         navigator.clipboard.writeText(`P: ${cur.q}\nR: ${cur.a}`);
@@ -4384,25 +5717,57 @@ Restrições:
       el.querySelector('[data-action="approve"]').addEventListener("click", () => {
         line.approved = !line.approved;
         el.className = "relative rounded-md p-3 text-sm bg-white border " + (line.approved ? "border-gray-200" : "border-red-400");
-        persistState(); rebuildPlaylist();
+        persistState("faq_toggle"); rebuildPlaylist();
       });
-      el.querySelector('[data-action="regen"]').addEventListener("click", async () => { setProcessing(true); await regenFAQ(idx); setProcessing(false); });
-      el.querySelector('[data-action="prompt"]').addEventListener("click", async () => { const txt = await openPrompt("Instruções para regerar esta FAQ:"); if (txt !== null) { setProcessing(true); await regenFAQ(idx, txt); setProcessing(false); } });
+      el.querySelector('[data-action="regen"]').addEventListener("click", async () => {
+        if (line.processing) return;
+        line.processing = true;
+        setProcessing(true);
+        try {
+          await regenFAQ(idx);
+        } catch (err) {
+          console.error("Erro ao regerar FAQ:", err);
+          showToast(`Erro ao regerar FAQ: ${(err && err.message) ? err.message : err}`, "error");
+        } finally {
+          line.processing = false;
+          if (el.isConnected) setProcessing(false);
+          else renderFAQFromState();
+        }
+      });
+      el.querySelector('[data-action="prompt"]').addEventListener("click", async () => {
+        if (line.processing) return;
+        const txt = await openPrompt("Instruções para regerar esta FAQ:");
+        if (txt === null) return;
+        line.processing = true;
+        setProcessing(true);
+        try {
+          await regenFAQ(idx, txt);
+        } catch (err) {
+          console.error("Erro ao regerar FAQ com prompt:", err);
+          showToast(`Erro ao regerar FAQ: ${(err && err.message) ? err.message : err}`, "error");
+        } finally {
+          line.processing = false;
+          if (el.isConnected) setProcessing(false);
+          else renderFAQFromState();
+        }
+      });
 
       faqList.appendChild(el);
     });
-    persistState(); rebuildPlaylist();
+    persistState("faq_render"); rebuildPlaylist();
   }
 
   // -------- Cards --------
   function renderCards(items) {
-    history.cardLines = (items || []).map(x => ({ versions: [{ title: x.title || "", text: x.text || "" }], vIdx: 0, copiedTitle: false, copiedText: false }));
-    buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
+    history.cardLines = (items || []).map(x => ({ versions: [{ title: x.title || "", text: x.text || "" }], vIdx: 0, copiedTitle: false, copiedText: false, processing: false }));
+    buildCurrentCards(); renderCardsFromState(); persistState("cards_render"); rebuildPlaylist();
   }
   function buildCurrentCards() { history.cards = history.cardLines.map(l => l.versions[l.vIdx]); }
   function renderCardsFromState() {
     cardsList.innerHTML = "";
     history.cardLines.forEach((line, idx) => {
+      line.processing = !!line.processing;
+      const isProcessing = line.processing;
       const cur = line.versions[line.vIdx];
       const el = document.createElement("div");
 
@@ -4447,9 +5812,12 @@ Restrições:
       tEl.textContent = cur.title; xEl.textContent = cur.text;
 
       function setProcessing(on) {
-        if (on) { tEl.parentElement.classList.add("pulse"); xEl.parentElement.classList.add("pulse"); }
-        else { tEl.parentElement.classList.remove("pulse"); xEl.parentElement.classList.remove("pulse"); }
+        el.classList.toggle("regen-active-block", on);
+        el.querySelectorAll('button[data-action]').forEach((btn) => {
+          btn.disabled = on;
+        });
       }
+      setProcessing(isProcessing);
 
       const prevBtn = el.querySelector('[data-action="prev"]');
       if (prevBtn) prevBtn.addEventListener("click", () => {
@@ -4457,7 +5825,7 @@ Restrições:
           line.vIdx--;
           line.copiedTitle = false;
           line.copiedText = false;
-          buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
+          buildCurrentCards(); renderCardsFromState(); persistState("version_nav"); rebuildPlaylist();
         }
       });
       const nextBtn = el.querySelector('[data-action="next"]');
@@ -4466,25 +5834,55 @@ Restrições:
           line.vIdx++;
           line.copiedTitle = false;
           line.copiedText = false;
-          buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
+          buildCurrentCards(); renderCardsFromState(); persistState("version_nav"); rebuildPlaylist();
         }
       });
-      el.querySelector('[data-action="regen"]').addEventListener("click", async () => { setProcessing(true); await regenCard(idx); setProcessing(false); });
-      el.querySelector('[data-action="prompt"]').addEventListener("click", async () => { const txt = await openPrompt("Instruções para regerar este card:"); if (txt !== null) { setProcessing(true); await regenCard(idx, txt); setProcessing(false); } });
+      el.querySelector('[data-action="regen"]').addEventListener("click", async () => {
+        if (line.processing) return;
+        line.processing = true;
+        setProcessing(true);
+        try {
+          await regenCard(idx);
+        } catch (err) {
+          console.error("Erro ao regerar card:", err);
+          showToast(`Erro ao regerar card: ${(err && err.message) ? err.message : err}`, "error");
+        } finally {
+          line.processing = false;
+          if (el.isConnected) setProcessing(false);
+          else renderCardsFromState();
+        }
+      });
+      el.querySelector('[data-action="prompt"]').addEventListener("click", async () => {
+        if (line.processing) return;
+        const txt = await openPrompt("Instruções para regerar este card:");
+        if (txt === null) return;
+        line.processing = true;
+        setProcessing(true);
+        try {
+          await regenCard(idx, txt);
+        } catch (err) {
+          console.error("Erro ao regerar card com prompt:", err);
+          showToast(`Erro ao regerar card: ${(err && err.message) ? err.message : err}`, "error");
+        } finally {
+          line.processing = false;
+          if (el.isConnected) setProcessing(false);
+          else renderCardsFromState();
+        }
+      });
 
       el.querySelector('[data-action="copyTitle"]').addEventListener("click", (e) => {
         navigator.clipboard.writeText(cur.title || "");
         line.copiedTitle = true;
         showCopyFeedback(e.currentTarget);
         renderCardsFromState();
-        persistState();
+        // Estado de cópia é apenas visual; não persistimos.
       });
       el.querySelector('[data-action="copyText"]').addEventListener("click", (e) => {
         navigator.clipboard.writeText(cur.text || "");
         line.copiedText = true;
         showCopyFeedback(e.currentTarget);
         renderCardsFromState();
-        persistState();
+        // Estado de cópia é apenas visual; não persistimos.
       });
 
       cardsList.appendChild(el);
@@ -4808,11 +6206,43 @@ Restrições:
   });
 
   // -------- Regenerações (backend) --------
+  const regenFieldBusy = {
+    title: false,
+    description: false
+  };
+
+  function setButtonsDisabled(buttonIds, disabled) {
+    (buttonIds || []).forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = disabled;
+    });
+  }
+
+  function setTitleRegenBusy(on) {
+    regenFieldBusy.title = on;
+    outTitle.classList.toggle("regen-active", on);
+    outTitle.disabled = on;
+    setButtonsDisabled(["titlePrev", "titleNext", "regenTitle", "regenTitlePrompt", "copyTitle"], on);
+  }
+
+  function setDescRegenBusy(on) {
+    regenFieldBusy.description = on;
+    outDesc.classList.toggle("regen-active", on);
+    outDesc.disabled = on;
+    setButtonsDisabled(["descPrev", "descNext", "regenDesc", "regenDescPrompt", "copyDesc", "copyDescNoFAQ"], on);
+  }
+
   async function regenTitle(withPrompt = false) {
-    outTitle.classList.add("pulse");
-    const saved = appConfig || {}
+    if (regenFieldBusy.title) return;
+    finalizeManualFieldDraft("title");
+
+    const saved = appConfig || {};
     let promptText = "";
-    if (withPrompt) { const txt = await openPrompt("Instruções para regerar o título:"); if (txt === null) { outTitle.classList.remove("pulse"); return; } promptText = txt; }
+    if (withPrompt) {
+      const txt = await openPrompt("Instruções para regerar o título:");
+      if (txt === null) return;
+      promptText = txt;
+    }
     const body = {
       product_name: productName.value.trim(),
       marketplace: marketplace.value,
@@ -4822,16 +6252,25 @@ Restrições:
       options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
     try {
+      setTitleRegenBusy(true);
       const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await r.json();
-      if (data.title && data.title !== outTitle.value) { pushHistory("title", data.title); }
-    } finally { outTitle.classList.remove("pulse"); }
+      if (data.title && data.title !== outTitle.value) { pushHistory("title", data.title, "regen_title"); }
+    } finally {
+      setTitleRegenBusy(false);
+    }
   }
   async function regenDesc(withPrompt = false) {
-    outDesc.classList.add("pulse");
-    const saved = appConfig || {}
+    if (regenFieldBusy.description) return;
+    finalizeManualFieldDraft("description");
+
+    const saved = appConfig || {};
     let promptText = "";
-    if (withPrompt) { const txt = await openPrompt("Instruções para regerar a descrição:"); if (txt === null) { outDesc.classList.remove("pulse"); return; } promptText = txt; }
+    if (withPrompt) {
+      const txt = await openPrompt("Instruções para regerar a descrição:");
+      if (txt === null) return;
+      promptText = txt;
+    }
     const body = {
       product_name: productName.value.trim(),
       marketplace: marketplace.value,
@@ -4841,12 +6280,18 @@ Restrições:
       options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
     try {
+      setDescRegenBusy(true);
       const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await r.json();
-      if (data.description && data.description !== outDesc.value) { pushHistory("description", data.description); }
-    } finally { outDesc.classList.remove("pulse"); }
+      if (data.description && data.description !== outDesc.value) { pushHistory("description", data.description, "regen_description"); }
+    } finally {
+      setDescRegenBusy(false);
+    }
   }
   async function regenFAQ(index, promptText = "") {
+    const lineRef = history.faq[index];
+    if (!lineRef) return;
+    const requestSku = normalizeSkuValue(tinySKU.value);
     const saved = appConfig || {}
     const body = {
       product_name: productName.value.trim(),
@@ -4854,23 +6299,29 @@ Restrições:
       field: "faq_item",
       index,
       prompt: promptText,
-      context: { previous: history.faq[index].versions[history.faq[index].vIdx] },
+      context: { previous: lineRef.versions[lineRef.vIdx] },
       options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
-    const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const data = await r.json();
+    const r = await fetchWithAuth("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw createApiError(r, data, `Erro HTTP ${r.status}`);
+    if (requestSku !== normalizeSkuValue(tinySKU.value)) return;
+    if (history.faq[index] !== lineRef) return;
     const item = (data.faq && data.faq[0]) ? data.faq[0] : null;
     if (item) {
-      const line = history.faq[index];
-      const curt = line.versions[line.vIdx];
+      const line = lineRef;
+      const curt = line.versions[line.vIdx] || {};
       // SEMPRE adicionar nova versão ao histórico (mesmo se for igual, para transparência)
-      line.versions = line.versions.slice(0, line.vIdx + 1);
       line.versions.push({ q: item.q || curt.q, a: item.a || curt.a });
       line.vIdx = line.versions.length - 1;
       renderFAQFromState();
+      persistState("regen_faq");
     }
   }
   async function regenCard(index, promptText = "") {
+    const lineRef = history.cardLines[index];
+    if (!lineRef) return;
+    const requestSku = normalizeSkuValue(tinySKU.value);
     const saved = appConfig || {}
     const body = {
       product_name: productName.value.trim(),
@@ -4878,23 +6329,25 @@ Restrições:
       field: "card",
       index,
       prompt: promptText,
-      context: { previous: history.cardLines[index].versions[history.cardLines[index].vIdx] },
+      context: { previous: lineRef.versions[lineRef.vIdx] },
       options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
     };
-    const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const data = await r.json();
+    const r = await fetchWithAuth("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw createApiError(r, data, `Erro HTTP ${r.status}`);
+    if (requestSku !== normalizeSkuValue(tinySKU.value)) return;
+    if (history.cardLines[index] !== lineRef) return;
     const item = (data.cards && data.cards[0]) ? data.cards[0] : null;
     if (item) {
-      const line = history.cardLines[index];
-      const cur = line.versions[line.vIdx];
+      const line = lineRef;
+      const cur = line.versions[line.vIdx] || {};
       // SEMPRE adicionar nova versão ao histórico (mesmo se for igual, para transparência)
-      line.versions = line.versions.slice(0, line.vIdx + 1);
       line.versions.push({ title: item.title || cur.title, text: item.text || cur.text });
       line.vIdx = line.versions.length - 1;
       // Reset copy state when regenerating
       line.copiedTitle = false;
       line.copiedText = false;
-      buildCurrentCards(); renderCardsFromState(); persistState(); rebuildPlaylist();
+      buildCurrentCards(); renderCardsFromState(); persistState("regen_card"); rebuildPlaylist();
     }
   }
 
@@ -5007,9 +6460,10 @@ Restrições:
       }
 
       data = await r.json();
-      pushHistory("title", data.title || "");
-      pushHistory("description", data.description || "");
+      pushHistory("title", data.title || "", "generate");
+      pushHistory("description", data.description || "", "generate");
       renderFAQ(data.faq || []); renderCards(data.cards || []);
+      persistState("generate");
 
       if (data?.file_warnings && data.file_warnings.length > 0) {
         demoWarn.classList.remove("hidden");
@@ -5050,6 +6504,10 @@ Restrições:
   titleNext.addEventListener("click", () => navHistory("title", +1));
   descPrev.addEventListener("click", () => navHistory("description", -1));
   descNext.addEventListener("click", () => navHistory("description", +1));
+  outTitle.addEventListener("input", () => syncManualFieldDraft("title"));
+  outTitle.addEventListener("blur", () => finalizeManualFieldDraft("title"));
+  outDesc.addEventListener("input", () => syncManualFieldDraft("description"));
+  outDesc.addEventListener("blur", () => finalizeManualFieldDraft("description"));
 
   // Event listeners para navegação de versões de preço
   $("#aggressiveMinPrev").addEventListener("click", () => navPriceHistory("aggressivePriceMin", -1));
@@ -5124,7 +6582,7 @@ Restrições:
         populateMetrics(priceFieldId, metrics);
 
         // Salvar no histórico
-        pushPriceHistory(historyKey, price, metrics);
+        pushPriceHistory(historyKey, price, metrics, "price_edit");
 
         // Feedback visual sutil
         priceField.classList.add('bg-green-50');
@@ -5152,9 +6610,11 @@ Restrições:
   setupPriceChangeListener('tinyPromoPriceMax', 'promoPriceMax');
 
   restoreState();
+  setupLocalUndoGuards();
   updateTinyInstanceSelect();
   renderWholesaleTable();
   loadConfigFromServer();
+  setupCanvaOAuthPopupListener();
   handleCanvaOAuthReturn();
 </script>
 

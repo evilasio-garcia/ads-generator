@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import base64
 import asyncio
+import hashlib
 import json
+import logging
 import os
 import random
 import re
@@ -16,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, create_engine, inspect
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -31,6 +33,7 @@ from pricing import PriceCalculatorFactory
 from pricing import ml_shipping
 
 app = FastAPI(title="Ads Generator API", version="2.2.0")
+logger = logging.getLogger("ads_generator.workspace")
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,6 +78,41 @@ class UserConfig(Base):
     )
 
 
+class SkuWorkspace(Base):
+    __tablename__ = "sku_workspace"
+    __table_args__ = (
+        UniqueConstraint("sku_normalized", "marketplace_normalized", name="ux_sku_workspace_sku_marketplace"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: uuid4().hex)
+    sku_normalized = Column(String, index=True, nullable=False)
+    marketplace_normalized = Column(String, index=True, nullable=False)
+    sku_display = Column(String, nullable=False)
+    base_state = Column(JSONB, nullable=False, default=dict)
+    versioned_state_current = Column(JSONB, nullable=False, default=dict)
+    state_seq = Column(Integer, nullable=False, default=0)
+    created_by_user_id = Column(String, nullable=False)
+    updated_by_user_id = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    last_accessed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SkuWorkspaceHistory(Base):
+    __tablename__ = "sku_workspace_history"
+
+    id = Column(String, primary_key=True, default=lambda: uuid4().hex)
+    workspace_id = Column(String, ForeignKey("sku_workspace.id"), index=True, nullable=False)
+    seq = Column(Integer, nullable=False)
+    action = Column(String, nullable=False)
+    created_by_user_id = Column(String, nullable=False)
+    versioned_state_snapshot = Column(JSONB, nullable=False, default=dict)
+    snapshot_hash = Column(String, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 def get_db():
     db: Session = SessionLocal()
     try:
@@ -83,7 +121,28 @@ def get_db():
         db.close()
 
 
-Base.metadata.create_all(bind=engine)
+def _ensure_schema_ready() -> None:
+    inspector = inspect(engine)
+    required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history"}
+    existing = set(inspector.get_table_names())
+    missing = sorted(required - existing)
+    if missing:
+        raise RuntimeError(
+            "Schema desatualizado. Tabelas ausentes: "
+            + ", ".join(missing)
+            + ". Execute: alembic upgrade head"
+        )
+    sku_workspace_columns = {col["name"] for col in inspector.get_columns("sku_workspace")}
+    if "marketplace_normalized" not in sku_workspace_columns:
+        raise RuntimeError(
+            "Schema desatualizado. Coluna ausente: sku_workspace.marketplace_normalized. "
+            "Execute: alembic upgrade head"
+        )
+
+
+@app.on_event("startup")
+def _startup_schema_guard() -> None:
+    _ensure_schema_ready()
 
 
 @app.get("/", include_in_schema=False)
@@ -583,6 +642,649 @@ async def save_config(
     return JSONResponse(content=base)
 
 
+def _normalize_sku(sku: str) -> str:
+    return str(sku or "").strip().upper()
+
+
+def _normalize_marketplace(marketplace: Any) -> str:
+    raw = str(marketplace or "").strip().lower()
+    compact = re.sub(r"[^a-z0-9]", "", raw)
+    aliases = {
+        "mercadolivre": "mercadolivre",
+        "mercadol": "mercadolivre",
+        "meli": "mercadolivre",
+        "ml": "mercadolivre",
+        "shopee": "shopee",
+        "amazon": "amazon",
+        "magalu": "magalu",
+        "shein": "shein",
+    }
+    if compact in aliases:
+        return aliases[compact]
+    return compact
+
+
+def _to_safe_dict(value: Any) -> Dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _to_safe_list(value: Any) -> List[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_index(value: Any, size: int, fallback_last: bool = False) -> int:
+    try:
+        idx = int(value)
+    except (TypeError, ValueError):
+        idx = -1
+
+    if size <= 0:
+        return -1
+    if idx < 0:
+        return size - 1 if fallback_last else -1
+    if idx >= size:
+        return size - 1
+    return idx
+
+
+def _hash_json(payload: Any) -> str:
+    body = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _normalize_text_block(raw: Any) -> Dict[str, Any]:
+    raw_d = _to_safe_dict(raw)
+    versions = [str(v) if v is not None else "" for v in _to_safe_list(raw_d.get("versions"))]
+    idx = _coerce_index(raw_d.get("current_index"), len(versions), fallback_last=True)
+    return {"versions": versions, "current_index": idx}
+
+
+def _normalize_faq_line(raw: Any) -> Dict[str, Any]:
+    raw_d = _to_safe_dict(raw)
+    versions: List[Dict[str, str]] = []
+    for item in _to_safe_list(raw_d.get("versions")):
+        item_d = _to_safe_dict(item)
+        versions.append({
+            "q": str(item_d.get("q") or ""),
+            "a": str(item_d.get("a") or "")
+        })
+    if not versions:
+        versions = [{"q": "", "a": ""}]
+    idx = _coerce_index(raw_d.get("current_index"), len(versions), fallback_last=True)
+    return {
+        "approved": bool(raw_d.get("approved", True)),
+        "versions": versions,
+        "current_index": idx
+    }
+
+
+def _normalize_card_line(raw: Any) -> Dict[str, Any]:
+    raw_d = _to_safe_dict(raw)
+    versions: List[Dict[str, str]] = []
+    for item in _to_safe_list(raw_d.get("versions")):
+        item_d = _to_safe_dict(item)
+        versions.append({
+            "title": str(item_d.get("title") or ""),
+            "text": str(item_d.get("text") or "")
+        })
+    if not versions:
+        versions = [{"title": "", "text": ""}]
+    idx = _coerce_index(raw_d.get("current_index"), len(versions), fallback_last=True)
+    return {"versions": versions, "current_index": idx}
+
+
+def _normalize_metrics(raw: Any) -> Dict[str, float]:
+    raw_d = _to_safe_dict(raw)
+    return {
+        "margin_percent": _coerce_float(raw_d.get("margin_percent"), 0.0),
+        "value_multiple": _coerce_float(raw_d.get("value_multiple"), 0.0),
+        "value_amount": _coerce_float(raw_d.get("value_amount"), 0.0),
+    }
+
+
+def _normalize_price_block(raw: Any) -> Dict[str, Any]:
+    raw_d = _to_safe_dict(raw)
+    versions: List[Dict[str, Any]] = []
+    for item in _to_safe_list(raw_d.get("versions")):
+        item_d = _to_safe_dict(item)
+        versions.append({
+            "price": _coerce_float(item_d.get("price"), 0.0),
+            "metrics": _normalize_metrics(item_d.get("metrics")),
+        })
+    idx = _coerce_index(raw_d.get("current_index"), len(versions), fallback_last=True)
+    return {"versions": versions, "current_index": idx}
+
+
+def _empty_versioned_state() -> Dict[str, Any]:
+    return {
+        "title": {"versions": [], "current_index": -1},
+        "description": {"versions": [], "current_index": -1},
+        "faq_lines": [],
+        "card_lines": [],
+        # Precos sao volateis e recalculados no load; nao persistimos no DB.
+        "prices": {},
+    }
+
+
+def _normalize_versioned_state(raw: Any) -> Dict[str, Any]:
+    raw_d = _to_safe_dict(raw)
+    base = _empty_versioned_state()
+    base["title"] = _normalize_text_block(raw_d.get("title"))
+    base["description"] = _normalize_text_block(raw_d.get("description"))
+    base["faq_lines"] = [_normalize_faq_line(x) for x in _to_safe_list(raw_d.get("faq_lines"))]
+    base["card_lines"] = [_normalize_card_line(x) for x in _to_safe_list(raw_d.get("card_lines"))]
+
+    # Ignora qualquer dado de preco vindo do cliente/DB.
+    base["prices"] = {}
+    return base
+
+
+def _normalize_base_state(raw: Any, default_marketplace: str = "") -> Dict[str, Any]:
+    raw_d = _to_safe_dict(raw)
+    selected_marketplace = _normalize_marketplace(raw_d.get("selected_marketplace") or default_marketplace)
+    return {
+        "integration_mode": str(raw_d.get("integration_mode") or "manual"),
+        "tiny_product_data": _to_safe_dict(raw_d.get("tiny_product_data")) or None,
+        "selected_marketplace": selected_marketplace,
+        "product_fields": _to_safe_dict(raw_d.get("product_fields")),
+        "cost_price_cache": _to_safe_dict(raw_d.get("cost_price_cache")),
+        "shipping_cost_cache": _to_safe_dict(raw_d.get("shipping_cost_cache")),
+    }
+
+
+def _merge_append_only_versions(current: List[Any], incoming: List[Any]) -> tuple[List[Any], int]:
+    prefix = 0
+    while prefix < len(current) and prefix < len(incoming) and current[prefix] == incoming[prefix]:
+        prefix += 1
+    merged = list(current)
+    merged.extend(incoming[prefix:])
+    return merged, prefix
+
+
+def _merge_block_with_latest_index(current: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+    cur_versions = _to_safe_list(current.get("versions"))
+    inc_versions = _to_safe_list(incoming.get("versions"))
+
+    merged_versions, prefix = _merge_append_only_versions(cur_versions, inc_versions)
+    incoming_idx = _coerce_index(incoming.get("current_index"), len(inc_versions), fallback_last=False)
+    current_idx = _coerce_index(current.get("current_index"), len(cur_versions), fallback_last=True)
+
+    if incoming_idx >= 0:
+        if incoming_idx < prefix:
+            merged_idx = incoming_idx
+        else:
+            merged_idx = len(cur_versions) + (incoming_idx - prefix)
+    else:
+        merged_idx = current_idx
+
+    merged_idx = _coerce_index(merged_idx, len(merged_versions), fallback_last=True)
+    return {"versions": merged_versions, "current_index": merged_idx}
+
+
+def _merge_lines(
+    current_lines: List[Dict[str, Any]],
+    incoming_lines: List[Dict[str, Any]],
+    normalizer,
+    preserve_approved: bool = False,
+) -> List[Dict[str, Any]]:
+    merged: List[Dict[str, Any]] = []
+    max_len = max(len(current_lines), len(incoming_lines))
+    for idx in range(max_len):
+        cur = normalizer(current_lines[idx]) if idx < len(current_lines) else None
+        inc = normalizer(incoming_lines[idx]) if idx < len(incoming_lines) else None
+
+        if cur is None and inc is not None:
+            merged.append(inc)
+            continue
+        if inc is None and cur is not None:
+            merged.append(cur)
+            continue
+        if cur is None and inc is None:
+            continue
+
+        merged_line = _merge_block_with_latest_index(cur, inc)
+        if preserve_approved:
+            merged_line["approved"] = bool(inc.get("approved", cur.get("approved", True)))
+        merged.append(merged_line)
+    return merged
+
+
+def _merge_versioned_state(current: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+    cur = _normalize_versioned_state(current)
+    inc = _normalize_versioned_state(incoming)
+
+    merged = _empty_versioned_state()
+    merged["title"] = _merge_block_with_latest_index(cur["title"], inc["title"])
+    merged["description"] = _merge_block_with_latest_index(cur["description"], inc["description"])
+    merged["faq_lines"] = _merge_lines(
+        cur["faq_lines"],
+        inc["faq_lines"],
+        normalizer=_normalize_faq_line,
+        preserve_approved=True,
+    )
+    merged["card_lines"] = _merge_lines(
+        cur["card_lines"],
+        inc["card_lines"],
+        normalizer=_normalize_card_line,
+        preserve_approved=False,
+    )
+    # Precos sao derivados e nao participam de merge/persistencia.
+    merged["prices"] = {}
+    return merged
+
+
+def _normalize_workspace_action(action: Any) -> str:
+    normalized = str(action or "manual").strip().lower()
+    return normalized or "manual"
+
+
+def _manual_text_replace_actions() -> set[str]:
+    return {
+        "title_manual_edit_start",
+        "title_manual_edit_typing",
+        "title_manual_edit_cancel",
+        "title_manual_edit_commit",
+        "description_manual_edit_start",
+        "description_manual_edit_typing",
+        "description_manual_edit_cancel",
+        "description_manual_edit_commit",
+    }
+
+
+def _transient_workspace_actions() -> set[str]:
+    return {
+        "title_manual_edit_start",
+        "title_manual_edit_typing",
+        "title_manual_edit_cancel",
+        "description_manual_edit_start",
+        "description_manual_edit_typing",
+        "description_manual_edit_cancel",
+    }
+
+
+def _workspace_to_api(workspace: SkuWorkspace) -> Dict[str, Any]:
+    return {
+        "id": workspace.id,
+        "sku": workspace.sku_display,
+        "sku_normalized": workspace.sku_normalized,
+        "marketplace": workspace.marketplace_normalized,
+        "marketplace_normalized": workspace.marketplace_normalized,
+        "base_state": workspace.base_state or {},
+        "versioned_state": workspace.versioned_state_current or _empty_versioned_state(),
+        "state_seq": int(workspace.state_seq or 0),
+        "updated_at": workspace.updated_at.isoformat() if workspace.updated_at else None,
+    }
+
+
+def _append_workspace_history(
+    db: Session,
+    workspace: SkuWorkspace,
+    action: str,
+    created_by_user_id: str,
+    versioned_state_snapshot: Dict[str, Any],
+) -> SkuWorkspaceHistory:
+    row = SkuWorkspaceHistory(
+        workspace_id=workspace.id,
+        seq=int(workspace.state_seq or 0),
+        action=(action or "manual").strip() or "manual",
+        created_by_user_id=created_by_user_id,
+        versioned_state_snapshot=versioned_state_snapshot,
+        snapshot_hash=_hash_json(versioned_state_snapshot),
+    )
+    db.add(row)
+    return row
+
+
+async def _fetch_tiny_or_http_error(token: str, sku: str) -> Dict[str, Any]:
+    try:
+        return await tiny_service.get_product_by_sku(token=token, sku=sku)
+    except tiny_service.TinyAuthError as e:
+        raise HTTPException(status_code=401, detail={"message": str(e), "type": "auth_error"})
+    except tiny_service.TinyNotFoundError as e:
+        raise HTTPException(status_code=404, detail={"message": str(e), "type": "not_found"})
+    except tiny_service.TinyRateLimitError as e:
+        raise HTTPException(status_code=429, detail={"message": str(e), "type": "rate_limit"})
+    except tiny_service.TinyTimeoutError as e:
+        raise HTTPException(status_code=408, detail={"message": str(e), "type": "timeout"})
+    except tiny_service.TinyServiceError as e:
+        raise HTTPException(status_code=502, detail={"message": str(e), "type": "upstream_error"})
+
+
+class SkuWorkspaceLoadIn(BaseModel):
+    sku: str
+    marketplace: str
+    tiny_token: Optional[str] = None
+
+
+class SkuWorkspaceSaveIn(BaseModel):
+    sku: str
+    marketplace: str
+    base_state: Dict[str, Any] = Field(default_factory=dict)
+    versioned_state: Dict[str, Any] = Field(default_factory=dict)
+    action: str = "manual"
+
+
+@app.post("/api/sku/workspace/load")
+async def sku_workspace_load(
+    payload: SkuWorkspaceLoadIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    sku_normalized = _normalize_sku(payload.sku)
+    marketplace_normalized = _normalize_marketplace(payload.marketplace)
+    if not sku_normalized:
+        raise HTTPException(status_code=400, detail={"message": "SKU é obrigatório."})
+    if not marketplace_normalized:
+        raise HTTPException(status_code=400, detail={"message": "Marketplace é obrigatório."})
+
+    user_id = str(current_user.user_id)
+    workspace = (
+        db.query(SkuWorkspace)
+        .filter(
+            SkuWorkspace.sku_normalized == sku_normalized,
+            SkuWorkspace.marketplace_normalized == marketplace_normalized,
+        )
+        .first()
+    )
+    if workspace:
+        logger.info(
+            "Workspace load DB hit | sku=%s | marketplace=%s | workspace_id=%s | user_id=%s",
+            sku_normalized,
+            marketplace_normalized,
+            workspace.id,
+            user_id,
+        )
+        workspace.last_accessed_at = datetime.utcnow()
+        workspace.updated_by_user_id = user_id
+        db.commit()
+        db.refresh(workspace)
+        return JSONResponse(content={"source": "db", "workspace": _workspace_to_api(workspace)})
+
+    available_marketplaces = [
+        row[0]
+        for row in (
+            db.query(SkuWorkspace.marketplace_normalized)
+            .filter(SkuWorkspace.sku_normalized == sku_normalized)
+            .all()
+        )
+        if row and row[0]
+    ]
+    logger.info(
+        "Workspace load DB miss | sku=%s | marketplace=%s | user_id=%s | available_marketplaces=%s",
+        sku_normalized,
+        marketplace_normalized,
+        user_id,
+        ",".join(sorted(set(available_marketplaces))) if available_marketplaces else "(none)",
+    )
+
+    if not payload.tiny_token:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "SKU não existe no DB para este marketplace e tiny_token não foi informado."},
+        )
+
+    product_data = await _fetch_tiny_or_http_error(payload.tiny_token, sku_normalized)
+    base_state = _normalize_base_state(
+        {
+            "integration_mode": "tiny",
+            "tiny_product_data": product_data,
+            "selected_marketplace": marketplace_normalized,
+        },
+        default_marketplace=marketplace_normalized,
+    )
+    versioned_state = _empty_versioned_state()
+
+    workspace = SkuWorkspace(
+        sku_normalized=sku_normalized,
+        marketplace_normalized=marketplace_normalized,
+        sku_display=sku_normalized,
+        base_state=base_state,
+        versioned_state_current=versioned_state,
+        state_seq=1,
+        created_by_user_id=user_id,
+        updated_by_user_id=user_id,
+        last_accessed_at=datetime.utcnow(),
+    )
+    db.add(workspace)
+    db.flush()
+    history = _append_workspace_history(
+        db=db,
+        workspace=workspace,
+        action="tiny_fetch",
+        created_by_user_id=user_id,
+        versioned_state_snapshot=versioned_state,
+    )
+    db.commit()
+    db.refresh(workspace)
+    db.refresh(history)
+
+    return JSONResponse(
+        content={
+            "source": "tiny",
+            "workspace": _workspace_to_api(workspace),
+            "history_id": history.id,
+        }
+    )
+
+
+@app.post("/api/sku/workspace/save")
+async def sku_workspace_save(
+    payload: SkuWorkspaceSaveIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    sku_normalized = _normalize_sku(payload.sku)
+    marketplace_normalized = _normalize_marketplace(payload.marketplace)
+    if not sku_normalized:
+        raise HTTPException(status_code=400, detail={"message": "SKU é obrigatório."})
+    if not marketplace_normalized:
+        raise HTTPException(status_code=400, detail={"message": "Marketplace é obrigatório."})
+
+    user_id = str(current_user.user_id)
+    action_name = _normalize_workspace_action(payload.action)
+    text_replace_actions = _manual_text_replace_actions()
+    transient_actions = _transient_workspace_actions()
+    replace_mode = action_name in text_replace_actions
+    transient_mode = action_name in transient_actions
+    normalized_base = _normalize_base_state(payload.base_state, default_marketplace=marketplace_normalized)
+    normalized_incoming = _normalize_versioned_state(payload.versioned_state)
+
+    workspace = (
+        db.query(SkuWorkspace)
+        .filter(
+            SkuWorkspace.sku_normalized == sku_normalized,
+            SkuWorkspace.marketplace_normalized == marketplace_normalized,
+        )
+        .first()
+    )
+    history: Optional[SkuWorkspaceHistory] = None
+
+    if workspace is None:
+        workspace = SkuWorkspace(
+            sku_normalized=sku_normalized,
+            marketplace_normalized=marketplace_normalized,
+            sku_display=sku_normalized,
+            base_state=normalized_base,
+            versioned_state_current=normalized_incoming,
+            state_seq=1,
+            created_by_user_id=user_id,
+            updated_by_user_id=user_id,
+            last_accessed_at=datetime.utcnow(),
+        )
+        db.add(workspace)
+        db.flush()
+        history = _append_workspace_history(
+            db=db,
+            workspace=workspace,
+            action=action_name,
+            created_by_user_id=user_id,
+            versioned_state_snapshot=normalized_incoming,
+        )
+        db.commit()
+        db.refresh(workspace)
+        db.refresh(history)
+        return JSONResponse(
+            content={
+                "ok": True,
+                "saved": True,
+                "workspace_id": workspace.id,
+                "history_id": history.id,
+                "reason": None,
+            }
+        )
+
+    current_versioned = _normalize_versioned_state(workspace.versioned_state_current or {})
+    if replace_mode:
+        # Edicao manual em andamento: snapshot de entrada representa o estado mais recente
+        # do draft e nao deve gerar append-only a cada tecla.
+        merged_versioned = normalized_incoming
+    else:
+        merged_versioned = _merge_versioned_state(current_versioned, normalized_incoming)
+
+    base_changed = (
+        _hash_json(_normalize_base_state(workspace.base_state or {}, default_marketplace=marketplace_normalized))
+        != _hash_json(normalized_base)
+    )
+    versioned_changed = _hash_json(current_versioned) != _hash_json(merged_versioned)
+    if not base_changed and not versioned_changed:
+        return JSONResponse(
+            content={
+                "ok": True,
+                "saved": False,
+                "workspace_id": workspace.id,
+                "history_id": None,
+                "reason": "no_changes",
+            }
+        )
+
+    workspace.base_state = normalized_base
+    workspace.versioned_state_current = merged_versioned
+    workspace.updated_by_user_id = user_id
+    workspace.updated_at = datetime.utcnow()
+    workspace.last_accessed_at = datetime.utcnow()
+
+    history_id: Optional[str] = None
+    if transient_mode:
+        # Autosave transitório (edicao em andamento): atualiza estado atual sem criar
+        # entrada definitiva de historico/seq.
+        db.commit()
+        db.refresh(workspace)
+    else:
+        workspace.state_seq = int(workspace.state_seq or 0) + 1
+        history = _append_workspace_history(
+            db=db,
+            workspace=workspace,
+            action=action_name,
+            created_by_user_id=user_id,
+            versioned_state_snapshot=merged_versioned,
+        )
+        db.commit()
+        db.refresh(workspace)
+        db.refresh(history)
+        history_id = history.id
+
+    return JSONResponse(
+        content={
+            "ok": True,
+            "saved": True,
+            "workspace_id": workspace.id,
+            "history_id": history_id,
+            "reason": "transient_autosave" if transient_mode else None,
+        }
+    )
+
+
+@app.get("/api/sku/workspace/versions")
+async def sku_workspace_versions(
+    sku: str,
+    marketplace: str,
+    limit: int = 50,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    _ = current_user
+    sku_normalized = _normalize_sku(sku)
+    marketplace_normalized = _normalize_marketplace(marketplace)
+    if not sku_normalized:
+        raise HTTPException(status_code=400, detail={"message": "SKU é obrigatório."})
+    if not marketplace_normalized:
+        raise HTTPException(status_code=400, detail={"message": "Marketplace é obrigatório."})
+
+    workspace = (
+        db.query(SkuWorkspace)
+        .filter(
+            SkuWorkspace.sku_normalized == sku_normalized,
+            SkuWorkspace.marketplace_normalized == marketplace_normalized,
+        )
+        .first()
+    )
+    if not workspace:
+        raise HTTPException(status_code=404, detail={"message": "SKU não encontrado."})
+
+    safe_limit = max(1, min(int(limit or 50), 200))
+    rows = (
+        db.query(SkuWorkspaceHistory)
+        .filter(SkuWorkspaceHistory.workspace_id == workspace.id)
+        .order_by(SkuWorkspaceHistory.seq.desc(), SkuWorkspaceHistory.created_at.desc())
+        .limit(safe_limit)
+        .all()
+    )
+
+    current_seq = int(workspace.state_seq or 0)
+    metadata = [
+        {
+            "history_id": row.id,
+            "seq": int(row.seq or 0),
+            "action": row.action,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "created_by": row.created_by_user_id,
+            "is_current": int(row.seq or 0) == current_seq,
+        }
+        for row in rows
+    ]
+    return JSONResponse(
+        content={
+            "sku": workspace.sku_display,
+            "marketplace": workspace.marketplace_normalized,
+            "versions": metadata,
+        }
+    )
+
+
+@app.get("/api/sku/workspace/version/{history_id}")
+async def sku_workspace_version_detail(
+    history_id: str,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    _ = current_user
+    row = db.query(SkuWorkspaceHistory).filter(SkuWorkspaceHistory.id == history_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail={"message": "Versão não encontrada."})
+
+    workspace = db.query(SkuWorkspace).filter(SkuWorkspace.id == row.workspace_id).first()
+    return JSONResponse(
+        content={
+            "history_id": row.id,
+            "workspace_id": row.workspace_id,
+            "sku": workspace.sku_display if workspace else None,
+            "marketplace": workspace.marketplace_normalized if workspace else None,
+            "seq": int(row.seq or 0),
+            "action": row.action,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "created_by": row.created_by_user_id,
+            "versioned_state": row.versioned_state_snapshot or _empty_versioned_state(),
+        }
+    )
+
+
 @app.post("/api/generate")
 async def generate(
         request: Request,
@@ -921,6 +1623,7 @@ async def pricing_quote(
 class MLShippingRequest(BaseModel):
     cost_price: float
     weight_kg: float
+    reference_price: Optional[float] = None
 
 
 @app.post("/api/shipping/calculate_ml")
@@ -929,7 +1632,7 @@ async def calculate_ml_shipping_endpoint(
         current_user: CurrentUser = Depends(get_current_user_master)
 ):
     try:
-        val = await ml_shipping.get_shipping_cost(request.cost_price, request.weight_kg)
+        val = await ml_shipping.get_shipping_cost(request.cost_price, request.weight_kg, request.reference_price)
         return JSONResponse(content={"shipping_cost": val})
     except ml_shipping.MLShippingError as e:
         raise HTTPException(status_code=502, detail=str(e))
@@ -1730,9 +2433,16 @@ async def canva_callback(
     <script>
       (function () {{
         var target = "{success_url}";
+        var payload = {{
+          type: "canva_oauth_result",
+          status: "success",
+          provider: "canva",
+          at: Date.now()
+        }};
+        var origin = window.location.origin || "*";
         try {{
           if (window.opener && !window.opener.closed) {{
-            window.opener.location.href = target;
+            window.opener.postMessage(payload, origin);
             window.close();
             return;
           }}

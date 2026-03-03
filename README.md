@@ -19,6 +19,31 @@ uvicorn app:app --reload --port 8000
 # Abra http://localhost:8000
 ```
 
+## Banco de dados e migrations (Alembic)
+
+O schema agora eh gerenciado por Alembic.
+
+1. Instalar dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Para banco novo:
+
+```bash
+alembic upgrade head
+```
+
+3. Para ambiente que ja possui `user_config` criado manualmente:
+
+```bash
+alembic stamp rev_001_baseline_user_config
+alembic upgrade head
+```
+
+Se a API iniciar e reportar schema desatualizado, execute `alembic upgrade head`.
+
 ### Chaves (opcional)
 
 ```bash
