@@ -387,9 +387,18 @@
         </div>
         <div>
           <label class="text-sm text-gray-700 font-medium">SKU (Tiny)</label>
-          <input id="tinySKU" type="text"
-            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Digite o SKU do Tiny" disabled>
+          <div class="mt-1 flex items-center gap-2">
+            <input id="tinySKU" type="text"
+              class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Digite o SKU do Tiny" disabled>
+            <button id="btnTinySearch" type="button" class="btn p-2" disabled title="Pesquisar SKU no Tiny"
+              aria-label="Pesquisar SKU no Tiny">
+              <svg class="icon w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 21l-4.35-4.35m1.6-4.65a6.25 6.25 0 11-12.5 0 6.25 6.25 0 0112.5 0z" stroke-width="1.8"
+                  fill="none" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1578,6 +1587,7 @@
   // Tiny ERP Integration
   const tinyInstance = $("#tinyInstance");
   const tinySKU = $("#tinySKU");
+  const btnTinySearch = $("#btnTinySearch");
   const tinyInfoSection = $("#tinyInfoSection");
   const tinyPriceSection = $("#tinyPriceSection");
 
@@ -1670,16 +1680,20 @@
   // Buscar dados do produto Tiny da API
   async function fetchTinyProductData(token, sku) {
     try {
-      const response = await fetch('/api/tiny/product', {
+      const response = await fetchWithAuth('/api/tiny/product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, sku })
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(result.detail?.message || `Erro HTTP ${response.status}`);
+        const message =
+          result?.detail?.message ||
+          result?.message ||
+          `Erro HTTP ${response.status}`;
+        throw new Error(message);
       }
 
       return result.data;
@@ -1690,8 +1704,10 @@
   }
 
   // Atualizar estado da integração
-  async function updateIntegrationMode() {
-    const hasTinyTokens = getTinyTokens().length > 0;
+  async function updateIntegrationMode(options = {}) {
+    const { forceFetch = false } = options;
+    const tinyTokens = getTinyTokens();
+    const hasTinyTokens = tinyTokens.length > 0;
     const selectedInstance = tinyInstance.value;
     const skuValue = tinySKU.value.trim();
 
@@ -1705,95 +1721,125 @@
     }
 
     tinySKU.disabled = !hasTinyTokens || !selectedInstance;
+    const canSearch = hasTinyTokens && !!selectedInstance && !!skuValue && !isFetchingTinyData;
+    if (btnTinySearch) {
+      btnTinySearch.disabled = !canSearch;
+    }
 
     // Determinar modo de integração
-    const shouldBeTinyMode = hasTinyTokens && selectedInstance && skuValue;
+    const shouldBeTinyMode = hasTinyTokens && !!selectedInstance && !!skuValue;
+    const hasCurrentData = !!(tinyProductData && String(tinyProductData.sku || "").trim() === skuValue);
 
-    if (shouldBeTinyMode && !isFetchingTinyData) {
+    if (!shouldBeTinyMode) {
+      integrationMode = "manual";
+      tinyProductData = null;
+      applyTinyState();
+      return;
+    }
+
+    if (shouldBeTinyMode) {
       integrationMode = "tiny";
 
-      // Buscar dados do Tiny apenas se mudou o SKU ou não temos dados
-      if (!tinyProductData || tinyProductData.sku !== skuValue) {
-        isFetchingTinyData = true;
+      // Sem clique explícito no botão, não consulta o Tiny.
+      if (!forceFetch) {
+        if (!hasCurrentData) {
+          tinyProductData = null;
+        }
+        applyTinyState();
+        return;
+      }
 
-        // Armazenar SKU solicitado para validar após fetch
-        const requestedSKU = skuValue;
-        const requestedInstance = selectedInstance;
+      if (isFetchingTinyData) {
+        applyTinyState();
+        return;
+      }
 
-        // Mostrar loading visual
-        tinySKU.classList.add('bg-blue-50', 'animate-pulse');
+      isFetchingTinyData = true;
+      const requestedSKU = skuValue;
+      const requestedInstance = selectedInstance;
 
-        // Limpar campos de custo ao iniciar fetch de novo SKU
-        tinyCostPrice.value = '';
-        tinyShippingCost.value = '';
+      const originalSearchHtml = btnTinySearch ? btnTinySearch.innerHTML : "";
+      if (btnTinySearch) {
+        btnTinySearch.disabled = true;
+        btnTinySearch.innerHTML = `
+          <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" opacity="0.25"></circle>
+            <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"></path>
+          </svg>
+        `;
+      }
 
-        try {
-          const tokens = getTinyTokens();
-          const instanceIndex = parseInt(requestedInstance);
-          const selectedToken = tokens[instanceIndex]?.token;
+      // Mostrar loading visual
+      tinySKU.classList.add('bg-blue-50', 'animate-pulse');
 
-          if (!selectedToken) {
-            throw new Error('Token não encontrado para instância selecionada');
-          }
+      // Limpar campos de custo ao iniciar fetch de novo SKU
+      tinyCostPrice.value = '';
+      tinyShippingCost.value = '';
 
-          const fetchedData = await fetchTinyProductData(selectedToken, requestedSKU);
+      try {
+        const instanceIndex = parseInt(requestedInstance);
+        const selectedToken = tinyTokens[instanceIndex]?.token;
 
-          // Validar se SKU/instância ainda são os mesmos após await
-          const currentSKU = tinySKU.value.trim();
-          const currentInstance = tinyInstance.value;
+        if (!selectedToken) {
+          throw new Error('Token não encontrado para instância selecionada');
+        }
 
-          if (currentSKU !== requestedSKU || currentInstance !== requestedInstance) {
-            // SKU/instância mudou durante fetch - descartar dados e retriggerar
-            console.log('SKU/instância mudou durante fetch - descartando dados');
-            isFetchingTinyData = false;
-            tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
-            // Retriggerar com novo SKU
-            updateIntegrationMode();
-            return;
-          }
+        const fetchedData = await fetchTinyProductData(selectedToken, requestedSKU);
 
-          // Resetar todo o histórico e interface quando carregar um novo produto
-          resetHistory();
+        // Validar se SKU/instância ainda são os mesmos após await
+        const currentSKU = tinySKU.value.trim();
+        const currentInstance = tinyInstance.value;
 
-          // Dados são válidos - aplicar
-          tinyProductData = fetchedData;
-
-          // Verificar se tem preço de custo válido
-          const costPrice = parseFloat(fetchedData.cost_price) || 0;
-          if (costPrice === 0) {
-            // Se custo for zero/vazio, forçar modo manual para precificação
-            console.log('Preço de custo do Tiny está vazio - usando modo manual para precificação');
-            integrationMode = "manual";
-          }
-
-          // Feedback de sucesso
-          tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
-          tinySKU.classList.add('bg-green-50');
-          setTimeout(() => tinySKU.classList.remove('bg-green-50'), 1500);
-
-        } catch (error) {
-          console.error('Erro ao buscar produto Tiny:', error);
+        if (currentSKU !== requestedSKU || currentInstance !== requestedInstance) {
+          // SKU/instância mudou durante fetch - exige novo clique manual.
+          console.log('SKU/instância mudou durante fetch - aguardando nova pesquisa manual');
           tinyProductData = null;
           integrationMode = "manual";
-
-          // Feedback de erro
-          tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
-          tinySKU.classList.add('bg-red-50');
-          setTimeout(() => tinySKU.classList.remove('bg-red-50'), 3000);
-
-          // Mostrar mensagem de erro
-          alert(`Erro ao buscar produto do Tiny: ${error.message}`);
-
-          // Limpar UI no path de erro
           applyTinyState();
-        } finally {
-          isFetchingTinyData = false;
+          return;
         }
-      }
-    } else {
-      integrationMode = "manual";
-      if (!shouldBeTinyMode) {
+
+        // Resetar todo o histórico e interface quando carregar um novo produto
+        resetHistory();
+
+        // Dados são válidos - aplicar
+        tinyProductData = fetchedData;
+
+        // Verificar se tem preço de custo válido
+        const costPrice = parseFloat(fetchedData.cost_price) || 0;
+        if (costPrice === 0) {
+          // Se custo for zero/vazio, forçar modo manual para precificação
+          console.log('Preço de custo do Tiny está vazio - usando modo manual para precificação');
+          integrationMode = "manual";
+        }
+
+        // Feedback de sucesso
+        tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
+        tinySKU.classList.add('bg-green-50');
+        setTimeout(() => tinySKU.classList.remove('bg-green-50'), 1500);
+
+      } catch (error) {
+        console.error('Erro ao buscar produto Tiny:', error);
         tinyProductData = null;
+        integrationMode = "manual";
+
+        // Feedback de erro
+        tinySKU.classList.remove('bg-blue-50', 'animate-pulse');
+        tinySKU.classList.add('bg-red-50');
+        setTimeout(() => tinySKU.classList.remove('bg-red-50'), 3000);
+
+        // Mostrar mensagem de erro
+        showToast(`Erro ao buscar produto do Tiny: ${error.message}`, 'error');
+
+        // Limpar UI no path de erro
+        applyTinyState();
+      } finally {
+        isFetchingTinyData = false;
+        if (btnTinySearch) {
+          btnTinySearch.innerHTML = originalSearchHtml;
+          const canSearchAfter = getTinyTokens().length > 0 && !!tinyInstance.value && !!tinySKU.value.trim();
+          btnTinySearch.disabled = !canSearchAfter;
+        }
       }
     }
 
@@ -2153,8 +2199,9 @@
   });
 
   // Event listeners para campos Tiny
-  tinyInstance.addEventListener('change', updateIntegrationMode);
-  tinySKU.addEventListener('input', updateIntegrationMode);
+  tinyInstance.addEventListener('change', () => updateIntegrationMode());
+  tinySKU.addEventListener('input', () => updateIntegrationMode());
+  btnTinySearch.addEventListener('click', () => updateIntegrationMode({ forceFetch: true }));
 
   // ============================================================================
   // NAVEGAÇÃO ENTRE ABAS DE PRECIFICAÇÃO
@@ -5112,4 +5159,3 @@ Restrições:
 </script>
 
 </html>
-

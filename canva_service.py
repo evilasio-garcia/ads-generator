@@ -4,7 +4,7 @@ import urllib.parse
 import zipfile
 import io
 import re
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from fastapi import HTTPException
 import asyncio
 import hashlib
@@ -118,21 +118,73 @@ async def refresh_access_token(client_id: str, client_secret: str, refresh_token
             raise CanvaAuthError(f"Erro ao renovar token do Canva: {resp.text}")
         return resp.json()
 
-async def get_designs(access_token: str) -> List[dict]:
-    """Busca a lista de designs recentes do usuário."""
+async def get_designs_page(access_token: str, continuation: Optional[str] = None) -> Tuple[List[dict], Optional[str]]:
+    """Busca uma página de designs e retorna (items, next_continuation)."""
     headers = {
         "Authorization": f"Bearer {access_token}"
     }
+    params = {"continuation": continuation} if continuation else None
+
+    max_attempts = 6
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{CANVA_API_BASE}/designs", headers=headers)
-        if resp.status_code == 401:
-            raise CanvaAuthError("Token do Canva expirado ou inválido.")
-        if resp.status_code != 200:
-            raise CanvaServiceError(f"Erro ao buscar designs: {resp.text}")
-            
-        data = resp.json()
-        # API atual retorna `items`; mantemos fallback para compatibilidade.
-        return data.get("items", data.get("designs", []))
+        for attempt in range(max_attempts):
+            resp = await client.get(
+                f"{CANVA_API_BASE}/designs",
+                headers=headers,
+                params=params
+            )
+
+            if resp.status_code == 429:
+                retry_after = _retry_after_seconds(resp)
+                backoff = min(30.0, 2.0 ** attempt)
+                await asyncio.sleep(retry_after if retry_after > 0 else backoff)
+                continue
+
+            if resp.status_code == 401:
+                raise CanvaAuthError("Token do Canva expirado ou inválido.")
+            if resp.status_code != 200:
+                raise CanvaServiceError(f"Erro ao buscar designs: {resp.text}")
+
+            data = resp.json()
+            items = data.get("items", data.get("designs", [])) or []
+            next_continuation = (
+                data.get("continuation")
+                or data.get("next_page_token")
+                or data.get("nextContinuation")
+            )
+            return items, next_continuation
+
+    raise CanvaServiceError("Canva rate limit ao buscar designs. Tente novamente em instantes.")
+
+
+async def get_designs(access_token: str, max_pages: int = 1) -> List[dict]:
+    """Busca designs do usuário com paginação via `continuation` quando disponível."""
+    max_pages = max(1, int(max_pages or 1))
+    all_items: List[dict] = []
+    seen_ids = set()
+    seen_continuations = set()
+    continuation = None
+
+    for _ in range(max_pages):
+        if continuation and continuation in seen_continuations:
+            break
+        if continuation:
+            seen_continuations.add(continuation)
+
+        items, next_continuation = await get_designs_page(access_token, continuation=continuation)
+        for d in items:
+            design_id = d.get("id")
+            if design_id:
+                if design_id in seen_ids:
+                    continue
+                seen_ids.add(design_id)
+            all_items.append(d)
+
+        continuation = next_continuation
+        if not continuation:
+            break
+
+    return all_items
 
 def check_design_exists(designs: List[dict], sku: str) -> dict:
     """Verifica se existe um design cujo nome bata com o SKU.
@@ -140,7 +192,7 @@ def check_design_exists(designs: List[dict], sku: str) -> dict:
     """
     if not sku:
         return None
-        
+
     sku_upper = sku.upper().strip()
     for d in designs:
         title = (d.get("title") or "").upper().strip()
@@ -370,5 +422,3 @@ async def download_and_validate_exports(urls: List[str], sku: str) -> List[Tuple
 async def get_export_url(access_token: str, job_id: str) -> str:
     urls = await get_export_urls(access_token, job_id)
     return urls[0]
-
-

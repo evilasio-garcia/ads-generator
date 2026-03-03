@@ -748,12 +748,32 @@ async def tiny_get_product(request: TinyGetProductIn, current_user: CurrentUser 
             }
         )
 
+    except tiny_service.TinyRateLimitError as e:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "status": "error",
+                "type": "rate_limit",
+                "message": str(e)
+            }
+        )
+
     except tiny_service.TinyTimeoutError as e:
         raise HTTPException(
             status_code=408,
             detail={
                 "status": "error",
                 "type": "timeout",
+                "message": str(e)
+            }
+        )
+
+    except tiny_service.TinyServiceError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "status": "error",
+                "type": "upstream_error",
                 "message": str(e)
             }
         )
@@ -1738,11 +1758,11 @@ async def canva_list(
     user_id = str(current_user.user_id)
     try:
         access_token, _, _ = await _get_valid_canva_access_token(db, user_id)
-        designs = await canva_service.get_designs(access_token)
+        found = await _find_canva_design_with_cache(access_token, user_id, payload.sku)
     except canva_service.CanvaAuthError:
         access_token, _, _ = await _get_valid_canva_access_token(db, user_id, force_refresh=True)
         try:
-            designs = await canva_service.get_designs(access_token)
+            found = await _find_canva_design_with_cache(access_token, user_id, payload.sku)
         except canva_service.CanvaAuthError:
             raise HTTPException(status_code=401, detail=_canva_reauth_detail())
     except HTTPException:
@@ -1750,11 +1770,7 @@ async def canva_list(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    try:
-        found = canva_service.check_design_exists(designs, payload.sku)
-        return JSONResponse(content={"design": found})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return JSONResponse(content={"design": found})
 
 
 class CanvaExportIn(BaseModel):
@@ -1765,6 +1781,15 @@ class CanvaExportIn(BaseModel):
 # Estado em memória para tarefas de exportação Canva -> Drive
 CANVA_EXPORT_TASKS: Dict[str, Dict[str, Any]] = {}
 CANVA_EXPORT_TASK_TTL_SECONDS = 3600
+
+# Cache em memória de designs do Canva por usuário.
+# Estratégia:
+# - guarda todas as páginas já varridas
+# - ao buscar SKU: primeiro consulta cache; se não achar e cache não completo, continua da próxima página
+# - se não achar SKU, percorre até o fim e marca cache como completo
+CANVA_DESIGN_CACHE: Dict[str, Dict[str, Any]] = {}
+CANVA_DESIGN_CACHE_LOCKS: Dict[str, asyncio.Lock] = {}
+CANVA_DESIGN_CACHE_IDLE_TTL_SECONDS = 24 * 3600
 
 
 def _cleanup_canva_export_tasks():
@@ -1777,6 +1802,121 @@ def _cleanup_canva_export_tasks():
             stale.append(task_id)
     for task_id in stale:
         CANVA_EXPORT_TASKS.pop(task_id, None)
+
+
+def _cleanup_canva_design_cache():
+    now = time.time()
+    stale_users = []
+    for user_id, entry in CANVA_DESIGN_CACHE.items():
+        updated_at = float(entry.get("updated_at", now))
+        if (now - updated_at) > CANVA_DESIGN_CACHE_IDLE_TTL_SECONDS:
+            stale_users.append(user_id)
+
+    for user_id in stale_users:
+        CANVA_DESIGN_CACHE.pop(user_id, None)
+        CANVA_DESIGN_CACHE_LOCKS.pop(user_id, None)
+
+
+def _get_canva_design_cache_entry(user_id: str) -> Dict[str, Any]:
+    entry = CANVA_DESIGN_CACHE.get(user_id)
+    if entry is None:
+        entry = {
+            "items": [],
+            "ids": set(),
+            "continuation": None,
+            "complete": False,
+            "updated_at": time.time(),
+        }
+        CANVA_DESIGN_CACHE[user_id] = entry
+    return entry
+
+
+def _get_canva_design_cache_lock(user_id: str) -> asyncio.Lock:
+    lock = CANVA_DESIGN_CACHE_LOCKS.get(user_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        CANVA_DESIGN_CACHE_LOCKS[user_id] = lock
+    return lock
+
+
+def _cache_canva_design_items(entry: Dict[str, Any], items: List[Dict[str, Any]]) -> int:
+    ids = entry.setdefault("ids", set())
+    if not isinstance(ids, set):
+        ids = set(ids)
+        entry["ids"] = ids
+
+    cached_items = entry.setdefault("items", [])
+    added = 0
+    for d in items or []:
+        design_id = d.get("id")
+        if design_id:
+            if design_id in ids:
+                continue
+            ids.add(design_id)
+        cached_items.append(d)
+        added += 1
+    entry["updated_at"] = time.time()
+    return added
+
+
+async def _find_canva_design_with_cache(
+    access_token: str,
+    user_id: str,
+    sku: str
+) -> Optional[Dict[str, Any]]:
+    _cleanup_canva_design_cache()
+    entry = _get_canva_design_cache_entry(user_id)
+
+    # Fast path: tenta encontrar no que já está em memória.
+    found = canva_service.check_design_exists(entry.get("items", []), sku)
+    if found is not None:
+        entry["updated_at"] = time.time()
+        return found
+    if bool(entry.get("complete")):
+        entry["updated_at"] = time.time()
+        return None
+
+    lock = _get_canva_design_cache_lock(user_id)
+    async with lock:
+        # Revalida após adquirir lock (outro request pode ter preenchido enquanto aguardava).
+        entry = _get_canva_design_cache_entry(user_id)
+        found = canva_service.check_design_exists(entry.get("items", []), sku)
+        if found is not None:
+            entry["updated_at"] = time.time()
+            return found
+        if bool(entry.get("complete")):
+            entry["updated_at"] = time.time()
+            return None
+
+        seen_continuations = set()
+        while True:
+            continuation = entry.get("continuation")
+            if continuation and continuation in seen_continuations:
+                entry["complete"] = True
+                entry["continuation"] = None
+                entry["updated_at"] = time.time()
+                return canva_service.check_design_exists(entry.get("items", []), sku)
+            if continuation:
+                seen_continuations.add(continuation)
+
+            items, next_continuation = await canva_service.get_designs_page(
+                access_token,
+                continuation=continuation
+            )
+            _cache_canva_design_items(entry, items)
+            entry["continuation"] = next_continuation
+
+            # Se encontrou, devolve imediatamente.
+            found = canva_service.check_design_exists(entry.get("items", []), sku)
+            if found is not None:
+                return found
+
+            # Em caso de miss, continua até o fim para popular cache completo.
+            if not next_continuation:
+                entry["complete"] = True
+                entry["continuation"] = None
+                entry["updated_at"] = time.time()
+                return None
 
 
 def _set_canva_export_task(task_id: str, **updates):
@@ -2152,7 +2292,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("app:app", host="127.0.0.1", port=5002, reload=True)
-
-
-
-

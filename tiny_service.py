@@ -97,6 +97,51 @@ class TinyTimeoutError(TinyServiceError):
     pass
 
 
+class TinyRateLimitError(TinyServiceError):
+    """Limite de requisições temporariamente excedido no Tiny"""
+    pass
+
+
+def _normalize_error_message(message: Optional[str]) -> str:
+    return (message or "").strip().lower()
+
+
+def _is_tiny_auth_message(message: Optional[str]) -> bool:
+    msg = _normalize_error_message(message)
+    if not msg:
+        return False
+    auth_markers = (
+        "token",
+        "autentica",
+        "não autorizado",
+        "nao autorizado",
+        "unauthorized",
+        "acesso negado",
+        "credencial",
+        "api key",
+    )
+    return any(marker in msg for marker in auth_markers)
+
+
+def _is_tiny_transient_message(message: Optional[str]) -> bool:
+    msg = _normalize_error_message(message)
+    if not msg:
+        return False
+    transient_markers = (
+        "limite",
+        "temporari",
+        "timeout",
+        "timed out",
+        "overload",
+        "indispon",
+        "status http 429",
+        "status http 502",
+        "status http 503",
+        "status http 504",
+    )
+    return any(marker in msg for marker in transient_markers)
+
+
 def _log_safe_request(url: str, has_token: bool, **kwargs):
     """Log de requisição sem expor o token"""
     logger.info(f"Tiny API Request: {url}, authenticated: {has_token}, params: {list(kwargs.keys())}")
@@ -310,13 +355,18 @@ async def get_product_by_sku(
     if not sku or not sku.strip():
         raise TinyNotFoundError("SKU não fornecido")
     
+    token = token.strip()
     sku = sku.strip()
     
     # 1. Sanity Check Inicial (Válida Token e Conexão antes de começar)
     # Atende ao requisito de "fazer uma primeira verificação de sanidade"
     is_ok, error = await validate_token(token)
     if not is_ok:
-        raise TinyAuthError(f"Falha na sanidade da conexão/token: {error}")
+        if _is_tiny_auth_message(error):
+            raise TinyAuthError(f"Falha na sanidade da conexão/token: {error}")
+        if _is_tiny_transient_message(error):
+            raise TinyRateLimitError(f"Falha temporária na sanidade da conexão Tiny: {error}")
+        raise TinyServiceError(f"Falha na sanidade da conexão Tiny: {error}")
 
     try:
         # 1. Pesquisar produto por SKU
@@ -341,8 +391,10 @@ async def get_product_by_sku(
             erros = retorno.get('erros', [])
             if erros:
                 erro_msg = erros[0].get('erro', 'Erro desconhecido')
-                if 'token' in erro_msg.lower() or 'autentica' in erro_msg.lower():
+                if _is_tiny_auth_message(erro_msg):
                     raise TinyAuthError(f"Token inválido: {erro_msg}")
+                if _is_tiny_transient_message(erro_msg):
+                    raise TinyRateLimitError(erro_msg)
                 raise TinyServiceError(erro_msg)
         
         # Verificar se encontrou produtos
@@ -432,14 +484,11 @@ async def get_product_by_sku(
         logger.info(f"Produto '{sku}' obtido com sucesso")
         return mapped_data
         
-    except (TinyAuthError, TinyNotFoundError):
+    except (TinyAuthError, TinyNotFoundError, TinyRateLimitError):
         raise
     except Exception as e:
         logger.error(f"Erro ao obter produto Tiny: {str(e)}")
         raise TinyServiceError(f"Falha na comunicação com Tiny ERP: {str(e)}")
-        
-    # Se chegou aqui, esgotou as tentativas
-    raise TinyServiceError(f"Falha após {total_attempts} tentativas: {str(last_error)}")
 
 
 def map_tiny_to_product_data(raw_product: Dict[str, Any]) -> Dict[str, Any]:
