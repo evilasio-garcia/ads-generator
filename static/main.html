@@ -282,6 +282,67 @@
       border-bottom-color: #4f46e5;
     }
 
+    .variant-tab-btn {
+      position: relative;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .2s ease;
+    }
+
+    .variant-tab-btn:hover {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #93c5fd;
+    }
+
+    .variant-tab-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+    }
+
+    .variant-tab-btn.active:hover {
+      background: #1d4ed8;
+      color: #ffffff;
+      border-color: #1d4ed8;
+    }
+
+    .variant-tab-btn.loading {
+      animation: variant-tab-pulse 1.4s ease-in-out infinite;
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.24);
+    }
+
+    .variant-tab-btn.loading::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      border: 1px solid rgba(59, 130, 246, 0.28);
+    }
+
+    .variant-tab-btn.loading.active {
+      border-color: #93c5fd;
+      box-shadow: 0 6px 16px rgba(30, 64, 175, 0.35);
+    }
+
+    @keyframes variant-tab-pulse {
+      0% {
+        transform: translateY(0);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.22);
+      }
+
+      50% {
+        transform: translateY(-1px);
+        box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.06);
+      }
+
+      100% {
+        transform: translateY(0);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.22);
+      }
+    }
+
     .price-tab-content {
       display: none;
     }
@@ -752,6 +813,32 @@
                 stroke-width="1.5" fill="none" />
             </svg></button>
         </div>
+      </div>
+
+      <div class="mt-4 flex items-center justify-between gap-3">
+        <div id="variantTabs" class="flex flex-wrap items-center gap-2">
+          <button class="variant-tab-btn active px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
+            data-variant="simple">Anúncio simples</button>
+          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
+            data-variant="kit2">Kit com 2</button>
+          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
+            data-variant="kit3">Kit com 3</button>
+          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
+            data-variant="kit4">Kit com 4</button>
+          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
+            data-variant="kit5">Kit com 5</button>
+        </div>
+        <button
+          type="button"
+          class="info-popover-trigger inline-flex h-7 w-7 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+          data-info-template="#infoTemplateVariantBehavior"
+          aria-label="Informações sobre as abas de variação"
+          aria-expanded="false">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
+            <path d="M12 10v6m0-9h.01" stroke-width="1.8" stroke-linecap="round"></path>
+          </svg>
+        </button>
       </div>
 
       <!-- Título -->
@@ -1690,6 +1777,19 @@
     </ul>
     <p>Isso evita inconsistências entre preços antigos e parâmetros atuais de margem/comissão.</p>
   </template>
+  <template id="infoTemplateVariantBehavior" data-info-title="Abas de Variação (Simples + Kits)">
+    <p>Cada aba funciona como um <strong>anúncio independente</strong> em conteúdo e versionamento.</p>
+    <ul>
+      <li>Título, descrição, FAQ e cards possuem histórico próprio por aba.</li>
+      <li>As abas de kit usam quantidade específica (2, 3, 4 ou 5) para orientar a geração por IA.</li>
+      <li>O <strong>custo base</strong> e a <strong>largura</strong> dos kits são sempre derivados do simples:
+        custo/largura × quantidade.</li>
+      <li>Os preços são <strong>voláteis</strong>: não ficam persistidos no banco e são recalculados dinamicamente por
+        aba.</li>
+      <li>Ao alterar custo/largura do simples, os kits são invalidados e recalculados ao abrir a aba.</li>
+    </ul>
+    <p>Esse modo evita confusão entre variações e mantém consistência de cálculo por quantidade.</p>
+  </template>
   <template id="infoTemplateSkuBehavior" data-info-title="Comportamento do SKU e Ctrl+Z">
     <p>Para evitar troca silenciosa de contexto, o campo de SKU funciona em modo <strong>pesquisa confirmada</strong>.</p>
     <ul>
@@ -1755,6 +1855,18 @@
 
   const titlePrev = $("#titlePrev"), titleNext = $("#titleNext"), titleCount = $("#titleCount");
   const descPrev = $("#descPrev"), descNext = $("#descNext"), descCount = $("#descCount");
+  const variantTabs = Array.from(document.querySelectorAll(".variant-tab-btn"));
+  const VARIANT_DEFS = [
+    { key: "simple", quantity: 1, label: "Anúncio simples", suffix: "" },
+    { key: "kit2", quantity: 2, label: "Kit com 2", suffix: "Kit com 2" },
+    { key: "kit3", quantity: 3, label: "Kit com 3", suffix: "Kit com 3" },
+    { key: "kit4", quantity: 4, label: "Kit com 4", suffix: "Kit com 4" },
+    { key: "kit5", quantity: 5, label: "Kit com 5", suffix: "Kit com 5" }
+  ];
+  const VARIANT_BY_KEY = Object.fromEntries(VARIANT_DEFS.map((item) => [item.key, item]));
+  const KIT_VARIANT_KEYS = VARIANT_DEFS.filter((item) => item.quantity > 1).map((item) => item.key);
+  let activeVariantKey = "simple";
+  let variantSwitchInProgress = false;
 
   // Image Gallery Elements
   const btnSearchImages = $("#btnSearchImages");
@@ -2216,7 +2328,87 @@
     }, true);
   }
 
+  function normalizeVariantKey(rawKey) {
+    const key = String(rawKey || "simple").trim().toLowerCase();
+    return VARIANT_BY_KEY[key] ? key : "simple";
+  }
+
+  function getActiveVariantDef() {
+    return VARIANT_BY_KEY[normalizeVariantKey(activeVariantKey)] || VARIANT_BY_KEY.simple;
+  }
+
+  function buildVariationContextForVariant(variantKey) {
+    const normalizedKey = normalizeVariantKey(variantKey);
+    const variantDef = VARIANT_BY_KEY[normalizedKey] || VARIANT_BY_KEY.simple;
+    const quantity = Number(variantDef.quantity || 1);
+    const isSimple = quantity <= 1;
+
+    let derivedCost = parseFloat(variantStore.simple.costPriceSnapshot || 0) || 0;
+    let derivedWidth = parseFloat(variantStore.simple.widthSnapshot || 0) || 0;
+    let derivedWeight = parseFloat(variantStore.simple.weightSnapshot || 0) || 0;
+    if (!isSimple) {
+      derivedCost = derivedCost > 0 ? derivedCost * quantity : 0;
+      derivedWidth = derivedWidth > 0 ? derivedWidth * quantity : 0;
+      derivedWeight = derivedWeight > 0 ? derivedWeight * quantity : 0;
+    }
+
+    return {
+      variant_key: normalizedKey,
+      quantity,
+      derived_cost_base: derivedCost > 0 ? Number(derivedCost.toFixed(4)) : 0,
+      derived_width_cm: derivedWidth > 0 ? Number(derivedWidth.toFixed(4)) : 0,
+      derived_weight_kg: derivedWeight > 0 ? Number(derivedWeight.toFixed(4)) : 0
+    };
+  }
+
+  function buildVariantProductName(baseProductName, variantKey) {
+    const variantDef = VARIANT_BY_KEY[normalizeVariantKey(variantKey)] || VARIANT_BY_KEY.simple;
+    const safeName = String(baseProductName || "").trim();
+    if (!safeName) return "";
+    if (variantDef.quantity <= 1) return safeName;
+    return `${safeName} - ${variantDef.suffix}`;
+  }
+
+  function getSimpleVariantState() {
+    return variantStore?.simple || null;
+  }
+
+  function readSimpleFieldFromVariant(fieldName, fallbackValue = "") {
+    const simpleState = getSimpleVariantState();
+    if (!simpleState) return fallbackValue;
+    const nextVal = simpleState[fieldName];
+    return nextVal !== undefined && nextVal !== null ? nextVal : fallbackValue;
+  }
+
+  function pickFirstNonEmptyValue(...values) {
+    for (const value of values) {
+      if (value === undefined || value === null) continue;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return String(value);
+      }
+      const text = String(value).trim();
+      if (text) return text;
+    }
+    return "";
+  }
+
   function buildWorkspaceBaseState() {
+    const simpleCost = pickFirstNonEmptyValue(
+      readSimpleFieldFromVariant("costPriceSnapshot", ""),
+      tinyProductData?.cost_price
+    );
+    const simpleWidth = pickFirstNonEmptyValue(
+      readSimpleFieldFromVariant("widthSnapshot", ""),
+      tinyProductData?.width_cm
+    );
+    const simpleWeight = pickFirstNonEmptyValue(
+      readSimpleFieldFromVariant("weightSnapshot", ""),
+      tinyProductData?.weight_kg
+    );
+    const simpleShipping = pickFirstNonEmptyValue(
+      readSimpleFieldFromVariant("shippingCostSnapshot", ""),
+      tinyProductData?.shipping_cost
+    );
     return {
       integration_mode: integrationMode || "manual",
       tiny_product_data: tinyProductData || null,
@@ -2226,36 +2418,48 @@
         tiny_gtin: tinyGTIN.value || "",
         tiny_sku_display: tinySKUDisplay.value || "",
         tiny_height: tinyHeight.value || "",
-        tiny_width: tinyWidth.value || "",
+        tiny_width: simpleWidth || "",
         tiny_length: tinyLength.value || "",
-        tiny_weight: tinyWeight.value || "",
-        tiny_cost_price: tinyCostPrice.value || "",
-        tiny_shipping_cost: tinyShippingCost.value || ""
+        tiny_weight: simpleWeight || "",
+        tiny_cost_price: simpleCost || "",
+        tiny_shipping_cost: simpleShipping || ""
       },
       cost_price_cache: { ...costPriceCache },
       shipping_cost_cache: { ...shippingCostCache }
     };
   }
 
-  function buildWorkspaceVersionedState() {
+  function serializeVariantContentState(state) {
+    const safeState = state || {};
     return {
       title: {
-        versions: Array.isArray(history.title) ? [...history.title] : [],
-        current_index: Number.isInteger(history.titleIdx) ? history.titleIdx : -1
+        versions: Array.isArray(safeState.title) ? [...safeState.title] : [],
+        current_index: Number.isInteger(safeState.titleIdx) ? safeState.titleIdx : -1
       },
       description: {
-        versions: Array.isArray(history.description) ? [...history.description] : [],
-        current_index: Number.isInteger(history.descIdx) ? history.descIdx : -1
+        versions: Array.isArray(safeState.description) ? [...safeState.description] : [],
+        current_index: Number.isInteger(safeState.descIdx) ? safeState.descIdx : -1
       },
-      faq_lines: (history.faq || []).map(line => ({
+      faq_lines: (safeState.faq || []).map(line => ({
         approved: !!line.approved,
         versions: (line.versions || []).map(v => ({ q: v?.q || "", a: v?.a || "" })),
         current_index: Number.isInteger(line.vIdx) ? line.vIdx : -1
       })),
-      card_lines: (history.cardLines || []).map(line => ({
+      card_lines: (safeState.cardLines || []).map(line => ({
         versions: (line.versions || []).map(v => ({ title: v?.title || "", text: v?.text || "" })),
         current_index: Number.isInteger(line.vIdx) ? line.vIdx : -1
       }))
+    };
+  }
+
+  function buildWorkspaceVersionedState() {
+    const variantsPayload = {};
+    VARIANT_DEFS.forEach((variant) => {
+      variantsPayload[variant.key] = serializeVariantContentState(variantStore[variant.key]);
+    });
+    return {
+      schema_version: 2,
+      variants: variantsPayload
     };
   }
 
@@ -2345,89 +2549,135 @@
     }
 
     const fields = base.product_fields && typeof base.product_fields === "object" ? base.product_fields : {};
+    const tinyData = base.tiny_product_data && typeof base.tiny_product_data === "object"
+      ? base.tiny_product_data
+      : tinyProductData || {};
+    const resolvedCost = pickFirstNonEmptyValue(fields.tiny_cost_price, tinyData.cost_price);
+    const resolvedShipping = pickFirstNonEmptyValue(fields.tiny_shipping_cost, tinyData.shipping_cost);
+    const resolvedWidth = pickFirstNonEmptyValue(fields.tiny_width, tinyData.width_cm);
+    const resolvedWeight = pickFirstNonEmptyValue(fields.tiny_weight, tinyData.weight_kg);
     if (!tinyProductData) {
       productName.value = fields.product_name || "";
       tinyGTIN.value = fields.tiny_gtin || "";
       tinySKUDisplay.value = fields.tiny_sku_display || "";
       tinyHeight.value = fields.tiny_height || "";
-      tinyWidth.value = fields.tiny_width || "";
+      tinyWidth.value = resolvedWidth;
       tinyLength.value = fields.tiny_length || "";
-      tinyWeight.value = fields.tiny_weight || "";
+      tinyWeight.value = resolvedWeight;
     }
 
     // Custo/frete podem ter sido editados manualmente e devem ser restaurados
     // mesmo quando tinyProductData existir.
-    if (fields.tiny_cost_price !== undefined && fields.tiny_cost_price !== null) {
-      tinyCostPrice.value = fields.tiny_cost_price || "";
-    }
-    if (fields.tiny_shipping_cost !== undefined && fields.tiny_shipping_cost !== null) {
-      tinyShippingCost.value = fields.tiny_shipping_cost || "";
+    tinyCostPrice.value = resolvedCost;
+    tinyShippingCost.value = resolvedShipping;
+    tinyWidth.value = resolvedWidth;
+    tinyWeight.value = resolvedWeight;
+
+    const simpleState = getSimpleVariantState();
+    if (simpleState) {
+      simpleState.costPriceSnapshot = resolvedCost;
+      simpleState.shippingCostSnapshot = resolvedShipping;
+      simpleState.widthSnapshot = resolvedWidth;
+      simpleState.weightSnapshot = resolvedWeight;
+      simpleState.pricesDirty = true;
+      simpleState.derivedSignature = "";
     }
   }
 
-  function restoreWorkspaceVersionedState(rawState = {}) {
-    const state = rawState && typeof rawState === "object" ? rawState : {};
+  function parseVariantContentState(rawVariant = {}) {
+    const state = rawVariant && typeof rawVariant === "object" ? rawVariant : {};
     const titleState = state.title || {};
     const descState = state.description || {};
+    const clampIndex = (idx, size) => {
+      const parsed = Number.isInteger(idx) ? idx : -1;
+      if (size <= 0) return -1;
+      if (parsed < 0) return size - 1;
+      if (parsed >= size) return size - 1;
+      return parsed;
+    };
+    const normalizeFaqLine = (line) => {
+      const versions = (line?.versions || []).map(v => ({ q: v?.q || "", a: v?.a || "" }));
+      if (!versions.length) versions.push({ q: "", a: "" });
+      return {
+        approved: !!line?.approved,
+        versions,
+        vIdx: clampIndex(line?.current_index, versions.length),
+        processing: false
+      };
+    };
+    const normalizeCardLine = (line) => {
+      const versions = (line?.versions || []).map(v => ({ title: v?.title || "", text: v?.text || "" }));
+      if (!versions.length) versions.push({ title: "", text: "" });
+      return {
+        versions,
+        vIdx: clampIndex(line?.current_index, versions.length),
+        copiedTitle: false,
+        copiedText: false,
+        processing: false
+      };
+    };
+    const titleVersions = Array.isArray(titleState.versions) ? [...titleState.versions] : [];
+    const descVersions = Array.isArray(descState.versions) ? [...descState.versions] : [];
+    return {
+      title: titleVersions,
+      titleIdx: clampIndex(titleState.current_index, titleVersions.length),
+      description: descVersions,
+      descIdx: clampIndex(descState.current_index, descVersions.length),
+      faq: (state.faq_lines || []).map(normalizeFaqLine),
+      cardLines: (state.card_lines || []).map(normalizeCardLine)
+    };
+  }
 
-    history.title = Array.isArray(titleState.versions) ? [...titleState.versions] : [];
-    history.titleIdx = Number.isInteger(titleState.current_index) ? titleState.current_index : -1;
-    history.description = Array.isArray(descState.versions) ? [...descState.versions] : [];
-    history.descIdx = Number.isInteger(descState.current_index) ? descState.current_index : -1;
+  async function restoreWorkspaceVersionedState(rawState = {}) {
+    const state = rawState && typeof rawState === "object" ? rawState : {};
+    const variantsRaw = state.variants && typeof state.variants === "object"
+      ? state.variants
+      : { simple: state };
 
-    history.faq = (state.faq_lines || []).map(line => ({
-      approved: !!line?.approved,
-      versions: (line?.versions || []).map(v => ({ q: v?.q || "", a: v?.a || "" })),
-      vIdx: Number.isInteger(line?.current_index) ? line.current_index : -1,
-      processing: false
-    }));
+    manualFieldVersionDrafts.title = null;
+    manualFieldVersionDrafts.description = null;
 
-    history.cardLines = (state.card_lines || []).map(line => ({
-      versions: (line?.versions || []).map(v => ({ title: v?.title || "", text: v?.text || "" })),
-      vIdx: Number.isInteger(line?.current_index) ? line.current_index : -1,
-      copiedTitle: false,
-      copiedText: false,
-      processing: false
-    }));
+    VARIANT_DEFS.forEach((variant) => {
+      const key = variant.key;
+      const incoming = parseVariantContentState(variantsRaw[key] || {});
+      const target = variantStore[key];
+      target.title = incoming.title;
+      target.titleIdx = incoming.titleIdx;
+      target.description = incoming.description;
+      target.descIdx = incoming.descIdx;
+      target.faq = incoming.faq;
+      target.cardLines = incoming.cardLines;
+      target.cards = incoming.cardLines.map((line) => line.versions[line.vIdx] || { title: "", text: "" });
 
-    // Precos sao volateis: nao restaurar versoes a partir do DB.
-    history.aggressivePriceMin = [];
-    history.aggressivePriceMinIdx = -1;
-    history.promoPriceMin = [];
-    history.promoPriceMinIdx = -1;
-    history.aggressivePriceMax = [];
-    history.aggressivePriceMaxIdx = -1;
-    history.promoPriceMax = [];
-    history.promoPriceMaxIdx = -1;
-
-    [
-      "tinyAnnouncePriceMin",
-      "tinyAggressivePriceMin",
-      "tinyPromoPriceMin",
-      "tinyAnnouncePriceMax",
-      "tinyAggressivePriceMax",
-      "tinyPromoPriceMax"
-    ].forEach((fieldId) => {
-      const field = document.getElementById(fieldId);
-      if (field) field.value = "";
-      clearMetricsForPriceField(fieldId);
+      // Precos sao volateis e nao voltam do DB.
+      target.aggressivePriceMin = [];
+      target.aggressivePriceMinIdx = -1;
+      target.promoPriceMin = [];
+      target.promoPriceMinIdx = -1;
+      target.aggressivePriceMax = [];
+      target.aggressivePriceMaxIdx = -1;
+      target.promoPriceMax = [];
+      target.promoPriceMaxIdx = -1;
+      target.announcePriceMin = "";
+      target.announcePriceMax = "";
+      target.wholesaleRows = [];
+      target.shippingCostSnapshot = "";
+      target.costPriceSnapshot = "";
+      target.widthSnapshot = "";
+      target.weightSnapshot = "";
+      target.pricesDirty = true;
+      if (key !== "simple") {
+        target.derivedSignature = "";
+      }
     });
-    wholesaleRows = [];
-    renderWholesaleTable();
-
-    outTitle.value = (history.titleIdx >= 0 && history.titleIdx < history.title.length)
-      ? history.title[history.titleIdx]
-      : "";
-    outDesc.value = (history.descIdx >= 0 && history.descIdx < history.description.length)
-      ? history.description[history.descIdx]
-      : "";
-
-    buildCurrentCards();
-    renderFAQFromState();
-    renderCardsFromState();
-    updateVersionControls();
-    updatePriceVersionControls();
-    rebuildPlaylist();
+    const simpleState = getSimpleVariantState();
+    if (simpleState) {
+      simpleState.costPriceSnapshot = tinyCostPrice.value || "";
+      simpleState.shippingCostSnapshot = tinyShippingCost.value || "";
+      simpleState.widthSnapshot = tinyWidth.value || "";
+      simpleState.weightSnapshot = tinyWeight.value || "";
+    }
+    await switchVariantTab("simple", { skipPersist: true, force: true, triggerPricing: false });
   }
 
   // Buscar dados do produto Tiny da API
@@ -2542,7 +2792,10 @@
         const currentSKU = tinySKU.value.trim();
         const currentInstance = tinyInstance.value;
 
-        if (currentSKU !== requestedSKU || currentInstance !== requestedInstance) {
+        if (
+          normalizeSkuValue(currentSKU) !== normalizeSkuValue(requestedSKU) ||
+          currentInstance !== requestedInstance
+        ) {
           // SKU/instância mudou durante fetch - exige novo clique manual.
           console.log('SKU/instância mudou durante fetch - aguardando nova pesquisa manual');
           tinyProductData = null;
@@ -2672,6 +2925,14 @@
       return;
     }
 
+    if (workspacePersistTimer) {
+      const pendingAction = workspacePendingAction || "manual";
+      clearTimeout(workspacePersistTimer);
+      workspacePersistTimer = null;
+      workspacePendingAction = "manual";
+      await flushWorkspacePersist(pendingAction);
+    }
+
     isFetchingTinyData = true;
     resetExternalSkuActions({ disableDrive: true, clearCanva: true });
     const requestedSKU = skuValue;
@@ -2694,6 +2955,7 @@
     tinySKU.classList.add('bg-blue-50', 'animate-pulse');
     tinyCostPrice.value = '';
     tinyShippingCost.value = '';
+    clearPriceVisualFields();
 
     try {
       const instanceIndex = parseInt(requestedInstance);
@@ -2705,7 +2967,10 @@
 
       const currentSKU = tinySKU.value.trim();
       const currentInstance = tinyInstance.value;
-      if (currentSKU !== requestedSKU || currentInstance !== requestedInstance) {
+      if (
+        normalizeSkuValue(currentSKU) !== normalizeSkuValue(requestedSKU) ||
+        currentInstance !== requestedInstance
+      ) {
         tinyProductData = null;
         currentWorkspaceId = null;
         currentWorkspaceSku = null;
@@ -2716,9 +2981,7 @@
         return;
       }
 
-      if (loaded.source === "tiny") {
-        resetHistory();
-      }
+      resetAllVariantHistories();
 
       workspaceHydrating = true;
       try {
@@ -2728,15 +2991,32 @@
         currentWorkspaceMarketplace = normalizeMarketplaceValue(
           workspace.marketplace_normalized || marketplace.value || "mercadolivre"
         );
+        const loadedSkuFromBase = normalizeSkuValue(
+          workspace?.base_state?.tiny_product_data?.sku || tinyProductData?.sku || ""
+        );
+        if (loadedSkuFromBase !== normalizeSkuValue(requestedSKU)) {
+          console.warn(
+            `Workspace inconsistente para SKU ${requestedSKU}: tiny_product_data.sku=${loadedSkuFromBase || "(vazio)"}. ` +
+            "Tentando recarregar dados do Tiny para corrigir a UI."
+          );
+          try {
+            const freshTinyData = await fetchTinyProductData(selectedToken, requestedSKU);
+            tinyProductData = freshTinyData || tinyProductData;
+          } catch (tinyReloadErr) {
+            console.warn("Falha ao recarregar dados Tiny para correção de consistência:", tinyReloadErr);
+          }
+        }
+
         await applyTinyState();
-        restoreWorkspaceVersionedState(workspace.versioned_state || {});
+        await restoreWorkspaceVersionedState(workspace.versioned_state || {});
       } finally {
         workspaceHydrating = false;
       }
 
       await autoPricing({
         expectedSku: requestedSKU,
-        expectedMarketplace: marketplace.value
+        expectedMarketplace: marketplace.value,
+        expectedVariant: "simple"
       });
 
       if (loaded.source === "db") {
@@ -3014,18 +3294,13 @@
       tinyGTIN.value = tinyProductData.gtin || "";
       tinySKUDisplay.value = tinyProductData.sku || "";
       tinyHeight.value = tinyProductData.height_cm || "";
-      tinyWidth.value = tinyProductData.width_cm || "";
       tinyLength.value = tinyProductData.length_cm || "";
-      tinyWeight.value = tinyProductData.weight_kg || "";
 
       // Armazenar custo no cache (preenchimento via botão ou automático abaixo)
       const costFromTiny = parseFloat(tinyProductData.cost_price) || 0;
       const tinySkuCacheKey = normalizeSkuCacheKey(tinyProductData.sku || tinySKU.value);
       if (costFromTiny > 0) {
         costPriceCache[tinySkuCacheKey] = costFromTiny;
-      }
-      if (!String(tinyCostPrice.value || "").trim() && costFromTiny > 0) {
-        tinyCostPrice.value = costFromTiny.toFixed(2);
       }
 
       // Armazenar frete do Tiny no cache (se houver)
@@ -3034,8 +3309,30 @@
         const cacheKey = `${tinySkuCacheKey}:${marketplace.value}`;
         shippingCostCache[cacheKey] = shippingFromTiny;
       }
-      if (!String(tinyShippingCost.value || "").trim() && shippingFromTiny > 0) {
-        tinyShippingCost.value = shippingFromTiny.toFixed(2);
+      const simpleState = variantStore.simple;
+      const resolvedCost = pickFirstNonEmptyValue(
+        simpleState?.costPriceSnapshot,
+        costFromTiny > 0 ? costFromTiny.toFixed(2) : "",
+        tinyProductData.cost_price
+      );
+      const resolvedShipping = pickFirstNonEmptyValue(
+        simpleState?.shippingCostSnapshot,
+        shippingFromTiny > 0 ? shippingFromTiny.toFixed(2) : "",
+        tinyProductData.shipping_cost
+      );
+      const resolvedWidth = pickFirstNonEmptyValue(simpleState?.widthSnapshot, tinyProductData.width_cm);
+      const resolvedWeight = pickFirstNonEmptyValue(simpleState?.weightSnapshot, tinyProductData.weight_kg);
+
+      tinyCostPrice.value = resolvedCost;
+      tinyShippingCost.value = resolvedShipping;
+      tinyWidth.value = resolvedWidth;
+      tinyWeight.value = resolvedWeight;
+
+      if (simpleState) {
+        simpleState.costPriceSnapshot = resolvedCost;
+        simpleState.shippingCostSnapshot = resolvedShipping;
+        simpleState.widthSnapshot = resolvedWidth;
+        simpleState.weightSnapshot = resolvedWeight;
       }
 
       // Campos sempre editáveis
@@ -3058,8 +3355,16 @@
 
       // Em fluxo DB-first, não devemos refazer consulta Tiny automaticamente.
       // Se já há custo no estado, apenas recalcula preços locais.
-      if (costFromTiny > 0 && !workspaceHydrating) {
-        setTimeout(() => autoPricing(), 300);
+      const costForPricing = parseFloat(tinyCostPrice.value) || 0;
+      if (costForPricing > 0 && !workspaceHydrating) {
+        const expectedVariant = normalizeVariantKey(activeVariantKey);
+        const expectedSku = normalizeSkuValue(tinySKU.value);
+        const expectedMarketplace = marketplace.value;
+        setTimeout(() => autoPricing({
+          expectedVariant,
+          expectedSku,
+          expectedMarketplace
+        }), 300);
       }
 
       // Validar design no Canva para este SKU (modo paralelo, sem blocking)
@@ -3077,6 +3382,7 @@
       tinyWeight.value = "";
       tinyCostPrice.value = "";
       tinyShippingCost.value = "";
+      clearPriceVisualFields();
 
       [tinyGTIN, tinySKUDisplay, tinyHeight, tinyWidth, tinyLength, tinyWeight,
         tinyCostPrice, tinyShippingCost].forEach(el => {
@@ -3096,10 +3402,13 @@
       manualPricingButton.style.display = 'block';
       validateCalculateButton();
     }
+
+    applyVariantInputMode();
   }
 
   // Renderizar tabela de preços de atacado
-  function renderWholesaleTable() {
+  function renderWholesaleTable(options = {}) {
+    const { syncHistory = true } = options || {};
     wholesalePriceBody.innerHTML = '';
     const isTinyMode = integrationMode === "tiny";
     const totalCost = (parseFloat(tinyCostPrice.value) || 0) + (parseFloat(tinyShippingCost.value) || 0);
@@ -3162,6 +3471,7 @@
         const field = e.target.dataset.field;
         const value = parseFloat(e.target.value) || 0;
         wholesaleRows[idx][field] = value;
+        captureActiveVariantVolatileState();
       });
     });
 
@@ -3171,6 +3481,7 @@
         const idx = parseInt(e.currentTarget.dataset.removeRow);
         wholesaleRows.splice(idx, 1);
         renderWholesaleTable();
+        captureActiveVariantVolatileState();
       });
     });
 
@@ -3192,12 +3503,21 @@
         }
       });
     });
+
+    if (syncHistory && history) {
+      history.wholesaleRows = (wholesaleRows || []).map((row) => ({
+        qty: Number(row?.qty || 0),
+        price: Number(row?.price || 0),
+        metrics: row?.metrics || null
+      }));
+    }
   }
 
   // Adicionar nova linha à tabela de atacado
   addWholesaleRow.addEventListener('click', () => {
     wholesaleRows.push({ qty: 0, price: 0 });
     renderWholesaleTable();
+    captureActiveVariantVolatileState();
   });
 
   // Event listeners para campos Tiny
@@ -3691,18 +4011,30 @@
       updateAnnounce = true,
       updateWholesale = true,
       expectedSku = null,
-      expectedMarketplace = null
+      expectedMarketplace = null,
+      expectedVariant = null
     } = options || {};
 
     const expectedSkuNormalized = expectedSku ? normalizeSkuValue(expectedSku) : null;
     const expectedMarketplaceNormalized = expectedMarketplace
       ? normalizeMarketplaceValue(expectedMarketplace)
       : null;
+    const expectedVariantNormalized = expectedVariant
+      ? normalizeVariantKey(expectedVariant)
+      : null;
+    const requestVariantKey = expectedVariantNormalized || normalizeVariantKey(activeVariantKey);
+    const requestState = variantStore[requestVariantKey] || history;
     const isRequestStillCurrent = () => {
       if (expectedSkuNormalized && normalizeSkuValue(tinySKU.value) !== expectedSkuNormalized) return false;
       if (
         expectedMarketplaceNormalized &&
         normalizeMarketplaceValue(marketplace.value) !== expectedMarketplaceNormalized
+      ) {
+        return false;
+      }
+      if (
+        expectedVariantNormalized &&
+        normalizeVariantKey(activeVariantKey) !== expectedVariantNormalized
       ) {
         return false;
       }
@@ -3729,15 +4061,25 @@
       // Usar o valor de frete do campo. Se ausente e o cenário do ML exigir,
       // tenta preencher automaticamente antes de calcular os preços.
       let currentShippingCost = shippingCost;
-      if (channel === 'mercadolivre' && currentShippingCost <= 0 && (costPrice * 2) > 78.99) {
+      const shippingDecisionCostBase = getShippingDecisionBaseCost(costPrice);
+      const shouldForceShippingRefresh = requestVariantKey !== "simple";
+      if (
+        channel === 'mercadolivre' &&
+        shippingDecisionCostBase > 78.99 &&
+        (currentShippingCost <= 0 || shouldForceShippingRefresh)
+      ) {
         const autoShipping = await autoFillShippingCost({
           silent: true,
-          forceRefresh: false,
-          usePromoReference: false
+          forceRefresh: shouldForceShippingRefresh,
+          usePromoReference: false,
+          shippingDecisionCostBase
         });
         if (Number.isFinite(autoShipping) && autoShipping >= 0) {
           currentShippingCost = autoShipping;
         }
+      }
+      if (!isRequestStillCurrent()) {
+        return;
       }
 
       const totalCost = costPrice + currentShippingCost;
@@ -3785,6 +4127,9 @@
       }
 
       const dataMin = await responseMin.json();
+      if (!isRequestStillCurrent()) {
+        return;
+      }
 
       // Calcular preços para % MAX (Premium) - passar commission_percent diretamente
       const responseMax = await fetchWithAuth('/pricing/quote', {
@@ -3825,7 +4170,10 @@
         tinyAggressivePriceMin.value = dataMin.aggressive_price.price.toFixed(2);
         populateMetrics('tinyAggressivePriceMin', dataMin.aggressive_price.metrics);
         if (recordHistory) {
-          pushPriceHistory('aggressivePriceMin', dataMin.aggressive_price.price, dataMin.aggressive_price.metrics, "price_calc");
+          pushPriceHistory('aggressivePriceMin', dataMin.aggressive_price.price, dataMin.aggressive_price.metrics, "price_calc", {
+            targetState: requestState,
+            syncUi: requestState === history
+          });
         }
       }
 
@@ -3834,7 +4182,10 @@
         tinyPromoPriceMin.value = dataMin.promo_price.price.toFixed(2);
         populateMetrics('tinyPromoPriceMin', dataMin.promo_price.metrics);
         if (recordHistory) {
-          pushPriceHistory('promoPriceMin', dataMin.promo_price.price, dataMin.promo_price.metrics, "price_calc");
+          pushPriceHistory('promoPriceMin', dataMin.promo_price.price, dataMin.promo_price.metrics, "price_calc", {
+            targetState: requestState,
+            syncUi: requestState === history
+          });
         }
       }
 
@@ -3853,7 +4204,10 @@
         tinyAggressivePriceMax.value = dataMax.aggressive_price.price.toFixed(2);
         populateMetrics('tinyAggressivePriceMax', dataMax.aggressive_price.metrics);
         if (recordHistory) {
-          pushPriceHistory('aggressivePriceMax', dataMax.aggressive_price.price, dataMax.aggressive_price.metrics, "price_calc");
+          pushPriceHistory('aggressivePriceMax', dataMax.aggressive_price.price, dataMax.aggressive_price.metrics, "price_calc", {
+            targetState: requestState,
+            syncUi: requestState === history
+          });
         }
       }
 
@@ -3862,20 +4216,27 @@
         tinyPromoPriceMax.value = dataMax.promo_price.price.toFixed(2);
         populateMetrics('tinyPromoPriceMax', dataMax.promo_price.metrics);
         if (recordHistory) {
-          pushPriceHistory('promoPriceMax', dataMax.promo_price.price, dataMax.promo_price.metrics, "price_calc");
+          pushPriceHistory('promoPriceMax', dataMax.promo_price.price, dataMax.promo_price.metrics, "price_calc", {
+            targetState: requestState,
+            syncUi: requestState === history
+          });
         }
       }
 
       // ============================================================================
       // PREENCHER TABELA DE ATACADO COM MÉTRICAS (apenas % MIN)
       // ============================================================================
+      if (!isRequestStillCurrent()) {
+        return;
+      }
+      const mappedWholesaleRows = dataMin.wholesale_tiers.map(tier => ({
+        price: tier.price,
+        qty: tier.min_quantity,
+        metrics: tier.metrics
+      }));
       if (updateWholesale) {
-        wholesaleRows = dataMin.wholesale_tiers.map(tier => ({
-          price: tier.price,
-          qty: tier.min_quantity,
-          metrics: tier.metrics  // Incluir métricas do backend
-        }));
-        renderWholesaleTable();
+        wholesaleRows = mappedWholesaleRows.map((row) => ({ ...row }));
+        renderWholesaleTable({ syncHistory: false });
       }
 
       // Feedback visual sutil
@@ -3894,6 +4255,38 @@
           console.warn('⚠️ Atenção: O preço promocional calculado é maior que R$ 78,99.\n\nPara produtos do Mercado Livre nesta faixa de preço, é importante preencher o custo do frete para obter cálculos mais precisos.');
         }
       }
+      if (!isRequestStillCurrent()) {
+        return;
+      }
+
+      requestState.announcePriceMin = dataMin.listing_price.price.toFixed(2);
+      requestState.announcePriceMax = dataMax.listing_price.price.toFixed(2);
+      requestState.shippingCostSnapshot = Number.isFinite(currentShippingCost)
+        ? Number(currentShippingCost).toFixed(2)
+        : "";
+      if (requestVariantKey === "simple") {
+        requestState.costPriceSnapshot = tinyCostPrice.value || "";
+        requestState.widthSnapshot = tinyWidth.value || "";
+        requestState.weightSnapshot = tinyWeight.value || "";
+      } else {
+        ensureKitDerivedState(requestVariantKey);
+      }
+      requestState.wholesaleRows = mappedWholesaleRows.map((row) => ({
+        qty: Number(row?.qty || 0),
+        price: Number(row?.price || 0),
+        metrics: row?.metrics
+          ? {
+            margin_percent: Number(row.metrics.margin_percent || 0),
+            value_multiple: Number(row.metrics.value_multiple || 0),
+            value_amount: Number(row.metrics.value_amount || 0)
+          }
+          : null
+      }));
+      requestState.pricesDirty = false;
+      if (requestState === history) {
+        captureActiveVariantVolatileState();
+        updatePriceVersionControls();
+      }
 
     } catch (error) {
       console.error('Erro ao buscar auto-pricing:', error);
@@ -3910,19 +4303,80 @@
 
   // Listeners para validação do botão (modo manual)
   tinyCostPrice.addEventListener('input', () => {
+    if (variantSwitchInProgress) return;
+    if (activeVariantKey === "simple") {
+      variantStore.simple.costPriceSnapshot = tinyCostPrice.value || "";
+      markKitVariantsDirty();
+      persistState("tiny_cost_edit");
+    }
     validateCalculateButton();
+  });
+
+  tinyWidth.addEventListener('input', () => {
+    if (variantSwitchInProgress) return;
+    if (activeVariantKey === "simple") {
+      variantStore.simple.widthSnapshot = tinyWidth.value || "";
+      markKitVariantsDirty();
+      persistState("tiny_width_edit");
+    }
   });
 
   // Listeners para auto-pricing (APENAS modo Tiny)
   tinyCostPrice.addEventListener('change', () => {
+    if (variantSwitchInProgress) return;
+    if (activeVariantKey === "simple") {
+      variantStore.simple.costPriceSnapshot = tinyCostPrice.value || "";
+      markKitVariantsDirty();
+      persistState("tiny_cost_edit");
+    }
     if (integrationMode === "tiny") {
-      autoPricing();
+      autoPricing({
+        expectedVariant: normalizeVariantKey(activeVariantKey),
+        expectedSku: normalizeSkuValue(tinySKU.value),
+        expectedMarketplace: marketplace.value
+      });
     }
   });
 
   tinyShippingCost.addEventListener('change', () => {
+    if (variantSwitchInProgress) return;
+    if (activeVariantKey === "simple") {
+      variantStore.simple.shippingCostSnapshot = tinyShippingCost.value || "";
+      persistState("tiny_shipping_edit");
+    }
     if (integrationMode === "tiny") {
-      autoPricing();
+      autoPricing({
+        expectedVariant: normalizeVariantKey(activeVariantKey),
+        expectedSku: normalizeSkuValue(tinySKU.value),
+        expectedMarketplace: marketplace.value
+      });
+    }
+  });
+
+  tinyWidth.addEventListener('change', () => {
+    if (variantSwitchInProgress) return;
+    if (activeVariantKey === "simple") {
+      variantStore.simple.widthSnapshot = tinyWidth.value || "";
+      markKitVariantsDirty();
+      persistState("tiny_width_edit");
+    }
+  });
+
+  tinyWeight.addEventListener('input', () => {
+    if (variantSwitchInProgress) return;
+    if (activeVariantKey === "simple") {
+      variantStore.simple.weightSnapshot = tinyWeight.value || "";
+      markKitVariantsDirty();
+      persistState("tiny_weight_edit");
+    }
+  });
+
+  tinyWeight.addEventListener('change', () => {
+    if (variantSwitchInProgress) return;
+    if (activeVariantKey === "simple") {
+      variantStore.simple.weightSnapshot = tinyWeight.value || "";
+      markKitVariantsDirty();
+      persistState("tiny_weight_edit");
     }
   });
 
@@ -3935,12 +4389,20 @@
       await updateIntegrationMode({ forceFetch: true });
       return;
     }
-    autoPricing();
+    autoPricing({
+      expectedVariant: normalizeVariantKey(activeVariantKey),
+      expectedSku: normalizeSkuValue(tinySKU.value),
+      expectedMarketplace: marketplace.value
+    });
   });
 
   // Listener do botão calcular preços (modo manual)
   calculatePricesBtn.addEventListener('click', () => {
-    autoPricing();
+    autoPricing({
+      expectedVariant: normalizeVariantKey(activeVariantKey),
+      expectedSku: normalizeSkuValue(tinySKU.value),
+      expectedMarketplace: marketplace.value
+    });
   });
 
   // ============================================================================
@@ -4183,9 +4645,26 @@
       return;
     }
 
+    const applyFetchedCostToSimpleVariant = (costValue) => {
+      const normalized = Number(costValue) > 0 ? Number(costValue).toFixed(2) : "";
+      tinyCostPrice.value = normalized;
+      if (activeVariantKey === "simple") {
+        variantStore.simple.costPriceSnapshot = normalized;
+        markKitVariantsDirty();
+      }
+      persistState("cost_base_autofill");
+      if (integrationMode === "tiny") {
+        autoPricing({
+          expectedSku: normalizeSkuValue(tinySKU.value),
+          expectedMarketplace: marketplace.value,
+          expectedVariant: "simple"
+        });
+      }
+    };
+
     // Consultar cache primeiro
     if (costPriceCache[sku] !== undefined) {
-      tinyCostPrice.value = costPriceCache[sku] > 0 ? costPriceCache[sku].toFixed(2) : '';
+      applyFetchedCostToSimpleVariant(costPriceCache[sku]);
       showToast(`Custo base preenchido com dado em cache: R$ ${costPriceCache[sku].toFixed(2)}`, 'info');
       return;
     }
@@ -4195,7 +4674,7 @@
       const cost = parseFloat(tinyProductData.cost_price) || 0;
       costPriceCache[sku] = cost;
       if (cost > 0) {
-        tinyCostPrice.value = cost.toFixed(2);
+        applyFetchedCostToSimpleVariant(cost);
         showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`, 'success');
       } else {
         showToast('O produto não possui custo base cadastrado no Tiny.', 'warning');
@@ -4216,7 +4695,7 @@
       const cost = parseFloat(data.cost_price) || 0;
       costPriceCache[sku] = cost;
       if (cost > 0) {
-        tinyCostPrice.value = cost.toFixed(2);
+        applyFetchedCostToSimpleVariant(cost);
         showToast(`Custo base preenchido: R$ ${cost.toFixed(2)}`, 'success');
       } else {
         showToast('O produto não possui custo base cadastrado no Tiny.', 'warning');
@@ -4247,11 +4726,19 @@
     return 0;
   }
 
+  function getShippingDecisionBaseCost(rawCost) {
+    const numericCost = parseFloat(rawCost) || 0;
+    if (numericCost <= 0) return 0;
+    // Custo apenas para regra de decisão de frete (volátil, em memória).
+    return Number((numericCost * 2).toFixed(4));
+  }
+
   async function autoFillShippingCost(options = {}) {
     const {
       forceRefresh = false,
       usePromoReference = false,
-      silent = false
+      silent = false,
+      shippingDecisionCostBase = null
     } = options || {};
 
     const channel = marketplace.value;
@@ -4266,7 +4753,7 @@
       return null;
     }
 
-    const cacheKey = `${sku}:${channel}`;
+    const cacheKey = `${sku}:${channel}:${normalizeVariantKey(activeVariantKey)}`;
 
     // Consultar cache primeiro
     if (!forceRefresh && shippingCostCache[cacheKey] !== undefined) {
@@ -4277,10 +4764,13 @@
       return shippingCostCache[cacheKey];
     }
 
-    const costPrice = parseFloat(tinyCostPrice.value) || 0;
+    const baseCostField = parseFloat(tinyCostPrice.value) || 0;
+    const decisionCostBase = Number.isFinite(Number(shippingDecisionCostBase))
+      ? Number(shippingDecisionCostBase)
+      : baseCostField;
     const weightKg = parseFloat(tinyWeight.value) || 0;
 
-    if (costPrice <= 0) {
+    if (decisionCostBase <= 0) {
       if (!silent) {
         showToast('Preencha o Custo base antes de buscar o frete.', 'warning');
       }
@@ -4291,7 +4781,9 @@
       try {
         const promoReference = usePromoReference ? getPromoReferencePriceForShipping() : 0;
         const payload = {
-          cost_price: costPrice,
+          // Usa custo de decisão de frete apenas em memória.
+          // NUNCA altera tinyCostPrice nem snapshots persistidos.
+          cost_price: decisionCostBase,
           weight_kg: weightKg
         };
         if (promoReference > 0) {
@@ -5175,7 +5667,7 @@ Tarefas:
 4) CARDS (11 itens) – para imagens 1200x1200: cada item = { "title": "...", "text": "..." } curto e direto.
 
 Restrições:
-- Sem “frete grátis”, “brinde”, “promoção” ou equivalentes.
+- Sem "frete grátis", "brinde", "promoção" ou equivalentes.
 - Não use emojis. Escreva em português do Brasil.
 - Adapte o tom ao marketplace especificado.
 - Responda em JSON com as chaves: title, description, faq (array de objetos {q,a}), cards (array de objetos {title,text}).
@@ -5364,26 +5856,353 @@ Restrições:
   });
 
   // -------- Estado / Histórico --------
-  const history = {
-    title: [], titleIdx: -1,
-    description: [], descIdx: -1,
-    faq: [], cards: [], cardLines: [],
-    // Histórico de preços (cada item: { price, metrics: { margin_percent, value_multiple, value_amount } })
-    aggressivePriceMin: [], aggressivePriceMinIdx: -1,
-    promoPriceMin: [], promoPriceMinIdx: -1,
-    aggressivePriceMax: [], aggressivePriceMaxIdx: -1,
-    promoPriceMax: [], promoPriceMaxIdx: -1
-  };
+  const PRICE_FIELD_IDS = [
+    "tinyAnnouncePriceMin",
+    "tinyAggressivePriceMin",
+    "tinyPromoPriceMin",
+    "tinyAnnouncePriceMax",
+    "tinyAggressivePriceMax",
+    "tinyPromoPriceMax"
+  ];
+
+  function createEmptyVariantHistory() {
+    return {
+      title: [], titleIdx: -1,
+      description: [], descIdx: -1,
+      faq: [], cards: [], cardLines: [],
+      aggressivePriceMin: [], aggressivePriceMinIdx: -1,
+      promoPriceMin: [], promoPriceMinIdx: -1,
+      aggressivePriceMax: [], aggressivePriceMaxIdx: -1,
+      promoPriceMax: [], promoPriceMaxIdx: -1,
+      announcePriceMin: "",
+      announcePriceMax: "",
+      wholesaleRows: [],
+      costPriceSnapshot: "",
+      shippingCostSnapshot: "",
+      widthSnapshot: "",
+      weightSnapshot: "",
+      derivedSignature: "",
+      pricesDirty: true
+    };
+  }
+
+  const variantStore = Object.fromEntries(
+    VARIANT_DEFS.map((variant) => [variant.key, createEmptyVariantHistory()])
+  );
+  const variantGenerationState = Object.fromEntries(
+    VARIANT_DEFS.map((variant) => [variant.key, { loading: false }])
+  );
+  let batchGenerateInProgress = false;
+  let history = variantStore.simple;
+
+  function variantHasContent(variantKey) {
+    const key = normalizeVariantKey(variantKey);
+    const state = variantStore[key];
+    if (!state) return false;
+    if ((state.title || []).some((v) => String(v || "").trim())) return true;
+    if ((state.description || []).some((v) => String(v || "").trim())) return true;
+    if ((state.faq || []).some((line) => (line.versions || []).some((v) => String(v?.q || "").trim() || String(v?.a || "").trim()))) {
+      return true;
+    }
+    if ((state.cardLines || []).some((line) => (line.versions || []).some((v) => String(v?.title || "").trim() || String(v?.text || "").trim()))) {
+      return true;
+    }
+    return false;
+  }
+
+  function setVariantLoading(variantKey, isLoading) {
+    const key = normalizeVariantKey(variantKey);
+    if (!variantGenerationState[key]) return;
+    variantGenerationState[key].loading = !!isLoading;
+    updateVariantTabsUi();
+  }
+
+  function updateVariantTabsUi() {
+    variantTabs.forEach((btn) => {
+      const key = normalizeVariantKey(btn.dataset.variant || "");
+      const isActive = key === activeVariantKey;
+      const isLoading = !!variantGenerationState[key]?.loading;
+      btn.classList.toggle("active", isActive);
+      btn.classList.toggle("loading", isLoading);
+      btn.setAttribute("aria-busy", isLoading ? "true" : "false");
+      if (isActive) {
+        btn.classList.add("text-white");
+        btn.classList.remove("text-gray-700");
+      } else {
+        btn.classList.remove("text-white");
+        btn.classList.add("text-gray-700");
+      }
+    });
+  }
+
+  function clearPriceVisualFields(options = {}) {
+    const { clearWholesale = true, syncHistory = true } = options || {};
+    PRICE_FIELD_IDS.forEach((fieldId) => {
+      const field = document.getElementById(fieldId);
+      if (field) field.value = "";
+      clearMetricsForPriceField(fieldId);
+    });
+    if (clearWholesale) {
+      wholesaleRows = [];
+      renderWholesaleTable({ syncHistory });
+    }
+  }
+
+  function resetPriceHistoryState(targetState) {
+    targetState.aggressivePriceMin = [];
+    targetState.aggressivePriceMinIdx = -1;
+    targetState.promoPriceMin = [];
+    targetState.promoPriceMinIdx = -1;
+    targetState.aggressivePriceMax = [];
+    targetState.aggressivePriceMaxIdx = -1;
+    targetState.promoPriceMax = [];
+    targetState.promoPriceMaxIdx = -1;
+    targetState.announcePriceMin = "";
+    targetState.announcePriceMax = "";
+    targetState.wholesaleRows = [];
+    targetState.shippingCostSnapshot = "";
+    targetState.pricesDirty = true;
+  }
+
+  function getSimpleSnapshotCost() {
+    const simple = variantStore.simple;
+    return parseFloat(simple.costPriceSnapshot || 0) || 0;
+  }
+
+  function getSimpleSnapshotWidth() {
+    const simple = variantStore.simple;
+    return parseFloat(simple.widthSnapshot || 0) || 0;
+  }
+
+  function getSimpleSnapshotWeight() {
+    const simple = variantStore.simple;
+    return parseFloat(simple.weightSnapshot || 0) || 0;
+  }
+
+  function markKitVariantsDirty() {
+    KIT_VARIANT_KEYS.forEach((key) => {
+      const state = variantStore[key];
+      state.derivedSignature = "";
+      state.pricesDirty = true;
+    });
+  }
+
+  function ensureKitDerivedState(variantKey) {
+    if (variantKey === "simple") return;
+    const variantDef = VARIANT_BY_KEY[variantKey];
+    if (!variantDef) return;
+    const variantState = variantStore[variantKey];
+    const baseCost = getSimpleSnapshotCost();
+    const baseWidth = getSimpleSnapshotWidth();
+    const baseWeight = getSimpleSnapshotWeight();
+    const derivedCost = baseCost > 0 ? baseCost * variantDef.quantity : 0;
+    const derivedWidth = baseWidth > 0 ? baseWidth * variantDef.quantity : 0;
+    const derivedWeight = baseWeight > 0 ? baseWeight * variantDef.quantity : 0;
+    const signature = `${variantDef.quantity}|${baseCost}|${baseWidth}|${baseWeight}`;
+    if (variantState.derivedSignature !== signature) {
+      variantState.derivedSignature = signature;
+      resetPriceHistoryState(variantState);
+    }
+    // Hard rule: kit custo/largura/peso são sempre derivados do simples.
+    // Isso impede contaminação entre abas em cenários assíncronos.
+    variantState.costPriceSnapshot = derivedCost > 0 ? derivedCost.toFixed(2) : "";
+    variantState.widthSnapshot = derivedWidth > 0 ? derivedWidth.toFixed(2) : "";
+    variantState.weightSnapshot = derivedWeight > 0 ? derivedWeight.toFixed(3) : "";
+  }
+
+  function captureActiveVariantVolatileState() {
+    if (!history) return;
+    history.costPriceSnapshot = tinyCostPrice.value || "";
+    history.shippingCostSnapshot = tinyShippingCost.value || "";
+    history.widthSnapshot = tinyWidth.value || "";
+    history.weightSnapshot = tinyWeight.value || "";
+    history.announcePriceMin = document.getElementById("tinyAnnouncePriceMin")?.value || "";
+    history.announcePriceMax = document.getElementById("tinyAnnouncePriceMax")?.value || "";
+    history.wholesaleRows = (wholesaleRows || []).map((row) => ({
+      qty: Number(row?.qty || 0),
+      price: Number(row?.price || 0),
+      metrics: row?.metrics
+        ? {
+          margin_percent: Number(row.metrics.margin_percent || 0),
+          value_multiple: Number(row.metrics.value_multiple || 0),
+          value_amount: Number(row.metrics.value_amount || 0)
+        }
+        : null
+    }));
+  }
+
+  function applyHistoryToUi() {
+    outTitle.value = (history.titleIdx >= 0 && history.titleIdx < history.title.length)
+      ? history.title[history.titleIdx]
+      : "";
+    outDesc.value = (history.descIdx >= 0 && history.descIdx < history.description.length)
+      ? history.description[history.descIdx]
+      : "";
+    buildCurrentCards();
+    renderFAQFromState();
+    renderCardsFromState();
+    updateVersionControls();
+    rebuildPlaylist();
+  }
+
+  function applyVariantInputMode() {
+    const isSimple = activeVariantKey === "simple";
+    [tinyCostPrice, tinyWidth, tinyWeight].forEach((field) => {
+      field.readOnly = !isSimple;
+      field.classList.toggle("bg-gray-50", !isSimple);
+    });
+    if (btnAutoFillCost) {
+      const shouldShowAutoCost = isSimple && integrationMode === "tiny" && tinyProductData !== null;
+      btnAutoFillCost.style.display = shouldShowAutoCost ? "" : "none";
+    }
+  }
+
+  function hydrateActiveVariantVolatileState() {
+    clearPriceVisualFields({ clearWholesale: false, syncHistory: false });
+    const isSimple = activeVariantKey === "simple";
+    if (isSimple) {
+      const simple = variantStore.simple;
+      tinyCostPrice.value = simple.costPriceSnapshot || "";
+      tinyShippingCost.value = simple.shippingCostSnapshot || "";
+      tinyWidth.value = simple.widthSnapshot || "";
+      tinyWeight.value = simple.weightSnapshot || "";
+    } else {
+      ensureKitDerivedState(activeVariantKey);
+      tinyCostPrice.value = history.costPriceSnapshot || "";
+      tinyShippingCost.value = history.shippingCostSnapshot || "";
+      tinyWidth.value = history.widthSnapshot || "";
+      tinyWeight.value = history.weightSnapshot || "";
+    }
+
+    const announceMin = document.getElementById("tinyAnnouncePriceMin");
+    const announceMax = document.getElementById("tinyAnnouncePriceMax");
+    if (announceMin) announceMin.value = history.announcePriceMin || "";
+    if (announceMax) announceMax.value = history.announcePriceMax || "";
+
+    if (
+      history.aggressivePriceMinIdx >= 0 &&
+      history.aggressivePriceMinIdx < history.aggressivePriceMin.length
+    ) {
+      const row = history.aggressivePriceMin[history.aggressivePriceMinIdx];
+      applyPriceToField("aggressivePriceMin", row.price, row.metrics);
+    }
+    if (history.promoPriceMinIdx >= 0 && history.promoPriceMinIdx < history.promoPriceMin.length) {
+      const row = history.promoPriceMin[history.promoPriceMinIdx];
+      applyPriceToField("promoPriceMin", row.price, row.metrics);
+    }
+    if (
+      history.aggressivePriceMaxIdx >= 0 &&
+      history.aggressivePriceMaxIdx < history.aggressivePriceMax.length
+    ) {
+      const row = history.aggressivePriceMax[history.aggressivePriceMaxIdx];
+      applyPriceToField("aggressivePriceMax", row.price, row.metrics);
+    }
+    if (history.promoPriceMaxIdx >= 0 && history.promoPriceMaxIdx < history.promoPriceMax.length) {
+      const row = history.promoPriceMax[history.promoPriceMaxIdx];
+      applyPriceToField("promoPriceMax", row.price, row.metrics);
+    }
+
+    wholesaleRows = (history.wholesaleRows || []).map((row) => ({
+      qty: Number(row?.qty || 0),
+      price: Number(row?.price || 0),
+      metrics: row?.metrics || null
+    }));
+    renderWholesaleTable();
+    updatePriceVersionControls();
+    applyVariantInputMode();
+  }
+
+  async function switchVariantTab(targetVariantKey, options = {}) {
+    const { skipPersist = false, force = false, triggerPricing = true } = options;
+    const nextKey = normalizeVariantKey(targetVariantKey);
+    if (variantSwitchInProgress && !force) return;
+    if (!force && nextKey === activeVariantKey) return;
+    const preservedSimpleSnapshots = nextKey === "simple"
+      ? {
+        costPriceSnapshot: variantStore.simple.costPriceSnapshot || "",
+        shippingCostSnapshot: variantStore.simple.shippingCostSnapshot || "",
+        widthSnapshot: variantStore.simple.widthSnapshot || "",
+        weightSnapshot: variantStore.simple.weightSnapshot || ""
+      }
+      : null;
+    variantSwitchInProgress = true;
+    try {
+      finalizeManualFieldDraft("title");
+      finalizeManualFieldDraft("description");
+      captureActiveVariantVolatileState();
+
+      activeVariantKey = nextKey;
+      history = variantStore[activeVariantKey];
+      history.cards = history.cardLines.map((line) => line.versions[line.vIdx] || { title: "", text: "" });
+
+      applyHistoryToUi();
+      hydrateActiveVariantVolatileState();
+      updateVariantTabsUi();
+      syncRegenBusyUiForActiveVariant();
+
+      if (activeVariantKey === "simple") {
+        const simple = variantStore.simple;
+        if (preservedSimpleSnapshots) {
+          simple.costPriceSnapshot = preservedSimpleSnapshots.costPriceSnapshot;
+          simple.shippingCostSnapshot = preservedSimpleSnapshots.shippingCostSnapshot;
+          simple.widthSnapshot = preservedSimpleSnapshots.widthSnapshot;
+          simple.weightSnapshot = preservedSimpleSnapshots.weightSnapshot;
+        }
+        tinyCostPrice.value = simple.costPriceSnapshot || "";
+        tinyShippingCost.value = simple.shippingCostSnapshot || "";
+        tinyWidth.value = simple.widthSnapshot || "";
+        tinyWeight.value = simple.weightSnapshot || "";
+      }
+
+      if (triggerPricing && integrationMode === "tiny") {
+        const hasCost = (parseFloat(tinyCostPrice.value) || 0) > 0;
+        if (hasCost) {
+          await autoPricing({
+            expectedSku: normalizeSkuValue(tinySKU.value),
+            expectedMarketplace: marketplace.value,
+            expectedVariant: activeVariantKey
+          });
+        }
+      }
+
+      if (!skipPersist) {
+        persistState("variant_nav");
+      }
+    } finally {
+      variantSwitchInProgress = false;
+    }
+  }
+
+  variantTabs.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = normalizeVariantKey(btn.dataset.variant || "simple");
+      const targetLabel = VARIANT_BY_KEY[target]?.label || target;
+      const isLoading = !!variantGenerationState[target]?.loading;
+      if (isLoading && !variantHasContent(target)) {
+        showToast(`Conteúdo da aba ${targetLabel} ainda está sendo gerado. Aguarde a finalização para acessar.`, "warning");
+        return;
+      }
+      switchVariantTab(target, { triggerPricing: true }).catch((err) => {
+        console.warn("Falha ao trocar aba de variação:", err);
+      });
+    });
+  });
+
   function legacyPersistState() {
     // Persistência desabilitada: não usamos mais cache no navegador.
   }
   function restoreState() {
-    // Estado inicial já está definido em "history"; nada para restaurar do navegador.
+    updateVariantTabsUi();
+    applyHistoryToUi();
+    hydrateActiveVariantVolatileState();
+    syncRegenBusyUiForActiveVariant();
   }
   function persistState(action = "manual") {
     if (workspaceHydrating) return;
     const sku = getWorkspaceSkuForPersistence();
     if (!sku) return;
+
+    captureActiveVariantVolatileState();
 
     workspacePendingAction = action || workspacePendingAction || "manual";
     if (workspacePersistTimer) clearTimeout(workspacePersistTimer);
@@ -5397,7 +6216,6 @@ Restrições:
   function resetHistory() {
     manualFieldVersionDrafts.title = null;
     manualFieldVersionDrafts.description = null;
-    // Limpar histórico
     history.title = [];
     history.titleIdx = -1;
     history.description = [];
@@ -5405,32 +6223,38 @@ Restrições:
     history.faq = [];
     history.cards = [];
     history.cardLines = [];
+    resetPriceHistoryState(history);
+    history.costPriceSnapshot = "";
+    history.widthSnapshot = "";
+    history.weightSnapshot = "";
+    history.derivedSignature = "";
+    applyHistoryToUi();
+    hydrateActiveVariantVolatileState();
 
-    // Limpar histórico de preços
-    history.aggressivePriceMin = [];
-    history.aggressivePriceMinIdx = -1;
-    history.promoPriceMin = [];
-    history.promoPriceMinIdx = -1;
-    history.aggressivePriceMax = [];
-    history.aggressivePriceMaxIdx = -1;
-    history.promoPriceMax = [];
-    history.promoPriceMaxIdx = -1;
-
-    // Limpar interface
-    outTitle.value = "";
-    outDesc.value = "";
-    faqList.innerHTML = "";
-    cardsList.innerHTML = "";
-
-    // Limpar controles de versão
-    updateVersionControls();
-    updatePriceVersionControls();
-
-    // Limpar playlist TTS
-    rebuildPlaylist();
-
-    // Persistir estado limpo
     persistState("manual");
+  }
+
+  function resetAllVariantHistories() {
+    manualFieldVersionDrafts.title = null;
+    manualFieldVersionDrafts.description = null;
+    VARIANT_DEFS.forEach((variant) => {
+      const state = variantStore[variant.key];
+      state.title = [];
+      state.titleIdx = -1;
+      state.description = [];
+      state.descIdx = -1;
+      state.faq = [];
+      state.cards = [];
+      state.cardLines = [];
+      resetPriceHistoryState(state);
+      state.costPriceSnapshot = "";
+      state.widthSnapshot = "";
+      state.weightSnapshot = "";
+      state.derivedSignature = "";
+    });
+    history = variantStore[normalizeVariantKey(activeVariantKey)];
+    applyHistoryToUi();
+    hydrateActiveVariantVolatileState();
   }
 
   const manualFieldVersionDrafts = {
@@ -5530,15 +6354,35 @@ Restrições:
     rebuildPlaylist();
   }
 
-  function pushHistory(key, value, action = "manual") {
+  function pushHistoryToState(targetState, key, value) {
+    if (!targetState) return;
     if (key === "title") {
-      manualFieldVersionDrafts.title = null;
-      history.title.push(value); history.titleIdx = history.title.length - 1; outTitle.value = value;
+      targetState.title.push(value);
+      targetState.titleIdx = targetState.title.length - 1;
     } else if (key === "description") {
-      manualFieldVersionDrafts.description = null;
-      history.description.push(value); history.descIdx = history.description.length - 1; outDesc.value = value;
+      targetState.description.push(value);
+      targetState.descIdx = targetState.description.length - 1;
     }
-    persistState(action); updateVersionControls(); rebuildPlaylist();
+  }
+
+  function pushHistory(key, value, action = "manual", targetVariantKey = activeVariantKey) {
+    const variantKey = normalizeVariantKey(targetVariantKey);
+    const targetState = variantStore[variantKey];
+    pushHistoryToState(targetState, key, value);
+    if (variantKey === activeVariantKey) {
+      if (key === "title") {
+        manualFieldVersionDrafts.title = null;
+        outTitle.value = value;
+      } else if (key === "description") {
+        manualFieldVersionDrafts.description = null;
+        outDesc.value = value;
+      }
+      updateVersionControls();
+      rebuildPlaylist();
+      persistState(action);
+      return;
+    }
+    persistState(action);
   }
   function navHistory(key, dir) {
     finalizeManualFieldDraft(key);
@@ -5571,15 +6415,77 @@ Restrições:
    * @param {number} price - Valor do preço
    * @param {Object} metrics - Métricas: { margin_percent, value_multiple, value_amount }
    */
-  function pushPriceHistory(key, price, metrics, action = "manual") {
+  function normalizePriceHistoryEntry(price, metrics) {
+    const toNum = (value, digits = 6) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return 0;
+      return Number(parsed.toFixed(digits));
+    };
+    return {
+      price: toNum(price),
+      metrics: {
+        margin_percent: toNum(metrics?.margin_percent),
+        value_multiple: toNum(metrics?.value_multiple),
+        value_amount: toNum(metrics?.value_amount),
+      }
+    };
+  }
+
+  function isSamePriceHistoryEntry(a, b) {
+    if (!a || !b) return false;
+    const aNorm = normalizePriceHistoryEntry(a.price, a.metrics);
+    const bNorm = normalizePriceHistoryEntry(b.price, b.metrics);
+    return (
+      aNorm.price === bNorm.price &&
+      aNorm.metrics.margin_percent === bNorm.metrics.margin_percent &&
+      aNorm.metrics.value_multiple === bNorm.metrics.value_multiple &&
+      aNorm.metrics.value_amount === bNorm.metrics.value_amount
+    );
+  }
+
+  function pushPriceHistory(key, price, metrics, action = "manual", options = {}) {
+    const { targetState = history, syncUi = true } = options || {};
+    if (!targetState) return;
     const historyKey = key;
     const idxKey = key + 'Idx';
+    const entries = Array.isArray(targetState[historyKey]) ? targetState[historyKey] : [];
+    targetState[historyKey] = entries;
+    const candidate = normalizePriceHistoryEntry(price, metrics);
 
-    // Truncar array se estivermos no meio do histórico
-    // Adicionar nova versão
-    history[historyKey].push({ price, metrics });
-    history[idxKey] = history[historyKey].length - 1;
-    updatePriceVersionControls();
+    const currentIdx = Number.isInteger(targetState[idxKey]) ? targetState[idxKey] : -1;
+    const currentEntry = (currentIdx >= 0 && currentIdx < entries.length) ? entries[currentIdx] : null;
+    if (isSamePriceHistoryEntry(currentEntry, candidate)) {
+      targetState.pricesDirty = false;
+      if (syncUi && targetState === history) {
+        captureActiveVariantVolatileState();
+        updatePriceVersionControls();
+      }
+      return;
+    }
+
+    // Para fluxos de cálculo automático (navegação/troca de aba), evita duplicar
+    // uma revisão idêntica já presente no final do histórico.
+    if (action !== "price_edit") {
+      const lastEntry = entries.length ? entries[entries.length - 1] : null;
+      if (isSamePriceHistoryEntry(lastEntry, candidate)) {
+        targetState[idxKey] = entries.length - 1;
+        targetState.pricesDirty = false;
+        if (syncUi && targetState === history) {
+          captureActiveVariantVolatileState();
+          updatePriceVersionControls();
+        }
+        return;
+      }
+    }
+
+    // Adicionar nova versão quando realmente houver mudança efetiva.
+    targetState[historyKey].push(candidate);
+    targetState[idxKey] = targetState[historyKey].length - 1;
+    targetState.pricesDirty = false;
+    if (syncUi && targetState === history) {
+      captureActiveVariantVolatileState();
+      updatePriceVersionControls();
+    }
   }
 
   /**
@@ -5596,6 +6502,7 @@ Restrições:
       history[idxKey] = next;
       const version = history[historyKey][next];
       applyPriceToField(key, version.price, version.metrics);
+      captureActiveVariantVolatileState();
     }
 
     updatePriceVersionControls();
@@ -6207,9 +7114,14 @@ Restrições:
 
   // -------- Regenerações (backend) --------
   const regenFieldBusy = {
-    title: false,
-    description: false
+    title: {},
+    description: {}
   };
+
+  function isRegenBusy(field, variantKey = activeVariantKey) {
+    const key = normalizeVariantKey(variantKey);
+    return !!regenFieldBusy[field]?.[key];
+  }
 
   function setButtonsDisabled(buttonIds, disabled) {
     (buttonIds || []).forEach((id) => {
@@ -6218,23 +7130,56 @@ Restrições:
     });
   }
 
-  function setTitleRegenBusy(on) {
-    regenFieldBusy.title = on;
-    outTitle.classList.toggle("regen-active", on);
-    outTitle.disabled = on;
-    setButtonsDisabled(["titlePrev", "titleNext", "regenTitle", "regenTitlePrompt", "copyTitle"], on);
+  function setTitleRegenBusy(on, variantKey = activeVariantKey) {
+    const key = normalizeVariantKey(variantKey);
+    regenFieldBusy.title[key] = on;
+    if (key === activeVariantKey) {
+      syncRegenBusyUiForActiveVariant();
+    }
   }
 
-  function setDescRegenBusy(on) {
-    regenFieldBusy.description = on;
-    outDesc.classList.toggle("regen-active", on);
-    outDesc.disabled = on;
-    setButtonsDisabled(["descPrev", "descNext", "regenDesc", "regenDescPrompt", "copyDesc", "copyDescNoFAQ"], on);
+  function setDescRegenBusy(on, variantKey = activeVariantKey) {
+    const key = normalizeVariantKey(variantKey);
+    regenFieldBusy.description[key] = on;
+    if (key === activeVariantKey) {
+      syncRegenBusyUiForActiveVariant();
+    }
+  }
+
+  function syncRegenBusyUiForActiveVariant() {
+    const titleBusy = isRegenBusy("title", activeVariantKey);
+    const descBusy = isRegenBusy("description", activeVariantKey);
+    outTitle.classList.toggle("regen-active", titleBusy);
+    outTitle.disabled = titleBusy;
+    setButtonsDisabled(["titlePrev", "titleNext", "regenTitle", "regenTitlePrompt", "copyTitle"], titleBusy);
+    outDesc.classList.toggle("regen-active", descBusy);
+    outDesc.disabled = descBusy;
+    setButtonsDisabled(["descPrev", "descNext", "regenDesc", "regenDescPrompt", "copyDesc", "copyDescNoFAQ"], descBusy);
+  }
+
+  function buildLlmOptionsPayload(saved, variationContext) {
+    return {
+      llm: llm.value,
+      openai_api_key: (saved.openai || "").trim(),
+      openai_base_url: (saved.openai_base || "").trim(),
+      gemini_api_key: (saved.gemini || "").trim(),
+      gemini_base_url: (saved.gemini_base || "").trim(),
+      rules: saved.rules || {},
+      prompt_template: saved.prompt_template || DEFAULT_PROMPT_TEMPLATE,
+      tiny_product_data: tinyProductData || null,
+      variation_context: variationContext || buildVariationContextForVariant(activeVariantKey)
+    };
   }
 
   async function regenTitle(withPrompt = false) {
-    if (regenFieldBusy.title) return;
+    if (isRegenBusy("title")) return;
     finalizeManualFieldDraft("title");
+    const requestVariantKey = normalizeVariantKey(activeVariantKey);
+    const targetState = variantStore[requestVariantKey];
+    if (!targetState) return;
+    const previousTitle = targetState.titleIdx >= 0 && targetState.titleIdx < targetState.title.length
+      ? (targetState.title[targetState.titleIdx] || "")
+      : (outTitle.value || "");
 
     const saved = appConfig || {};
     let promptText = "";
@@ -6244,25 +7189,41 @@ Restrições:
       promptText = txt;
     }
     const body = {
-      product_name: productName.value.trim(),
+      product_name: buildVariantProductName(productName.value.trim(), requestVariantKey),
       marketplace: marketplace.value,
       field: "title",
       prompt: promptText,
-      context: { previous: outTitle.value },
-      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
+      context: { previous: previousTitle },
+      options: buildLlmOptionsPayload(saved, buildVariationContextForVariant(requestVariantKey))
     };
     try {
-      setTitleRegenBusy(true);
-      const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await r.json();
-      if (data.title && data.title !== outTitle.value) { pushHistory("title", data.title, "regen_title"); }
+      const requestSku = normalizeSkuValue(tinySKU.value);
+      setTitleRegenBusy(true, requestVariantKey);
+      const r = await fetchWithAuth("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw createApiError(r, data, `Erro HTTP ${r.status}`);
+      if (requestSku !== normalizeSkuValue(tinySKU.value)) return;
+      if (data.title && data.title !== previousTitle) {
+        pushHistory("title", data.title, "regen_title", requestVariantKey);
+        if (requestVariantKey === activeVariantKey) {
+          outTitle.value = data.title;
+          updateVersionControls();
+          rebuildPlaylist();
+        }
+      }
     } finally {
-      setTitleRegenBusy(false);
+      setTitleRegenBusy(false, requestVariantKey);
     }
   }
   async function regenDesc(withPrompt = false) {
-    if (regenFieldBusy.description) return;
+    if (isRegenBusy("description")) return;
     finalizeManualFieldDraft("description");
+    const requestVariantKey = normalizeVariantKey(activeVariantKey);
+    const targetState = variantStore[requestVariantKey];
+    if (!targetState) return;
+    const previousDesc = targetState.descIdx >= 0 && targetState.descIdx < targetState.description.length
+      ? (targetState.description[targetState.descIdx] || "")
+      : (outDesc.value || "");
 
     const saved = appConfig || {};
     let promptText = "";
@@ -6272,41 +7233,54 @@ Restrições:
       promptText = txt;
     }
     const body = {
-      product_name: productName.value.trim(),
+      product_name: buildVariantProductName(productName.value.trim(), requestVariantKey),
       marketplace: marketplace.value,
       field: "description",
       prompt: promptText,
-      context: { previous: outDesc.value },
-      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
+      context: { previous: previousDesc },
+      options: buildLlmOptionsPayload(saved, buildVariationContextForVariant(requestVariantKey))
     };
     try {
-      setDescRegenBusy(true);
-      const r = await fetch("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await r.json();
-      if (data.description && data.description !== outDesc.value) { pushHistory("description", data.description, "regen_description"); }
+      const requestSku = normalizeSkuValue(tinySKU.value);
+      setDescRegenBusy(true, requestVariantKey);
+      const r = await fetchWithAuth("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw createApiError(r, data, `Erro HTTP ${r.status}`);
+      if (requestSku !== normalizeSkuValue(tinySKU.value)) return;
+      if (data.description && data.description !== previousDesc) {
+        pushHistory("description", data.description, "regen_description", requestVariantKey);
+        if (requestVariantKey === activeVariantKey) {
+          outDesc.value = data.description;
+          updateVersionControls();
+          rebuildPlaylist();
+        }
+      }
     } finally {
-      setDescRegenBusy(false);
+      setDescRegenBusy(false, requestVariantKey);
     }
   }
   async function regenFAQ(index, promptText = "") {
-    const lineRef = history.faq[index];
+    const requestVariantKey = normalizeVariantKey(activeVariantKey);
+    const targetVariant = variantStore[requestVariantKey];
+    if (!targetVariant) return;
+    const lineRef = targetVariant.faq[index];
     if (!lineRef) return;
     const requestSku = normalizeSkuValue(tinySKU.value);
     const saved = appConfig || {}
     const body = {
-      product_name: productName.value.trim(),
+      product_name: buildVariantProductName(productName.value.trim(), requestVariantKey),
       marketplace: marketplace.value,
       field: "faq_item",
       index,
       prompt: promptText,
       context: { previous: lineRef.versions[lineRef.vIdx] },
-      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
+      options: buildLlmOptionsPayload(saved, buildVariationContextForVariant(requestVariantKey))
     };
     const r = await fetchWithAuth("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw createApiError(r, data, `Erro HTTP ${r.status}`);
     if (requestSku !== normalizeSkuValue(tinySKU.value)) return;
-    if (history.faq[index] !== lineRef) return;
+    if (targetVariant.faq[index] !== lineRef) return;
     const item = (data.faq && data.faq[0]) ? data.faq[0] : null;
     if (item) {
       const line = lineRef;
@@ -6314,29 +7288,37 @@ Restrições:
       // SEMPRE adicionar nova versão ao histórico (mesmo se for igual, para transparência)
       line.versions.push({ q: item.q || curt.q, a: item.a || curt.a });
       line.vIdx = line.versions.length - 1;
-      renderFAQFromState();
+      if (requestVariantKey === activeVariantKey) {
+        renderFAQFromState();
+      }
       persistState("regen_faq");
+      if (requestVariantKey === activeVariantKey) {
+        rebuildPlaylist();
+      }
     }
   }
   async function regenCard(index, promptText = "") {
-    const lineRef = history.cardLines[index];
+    const requestVariantKey = normalizeVariantKey(activeVariantKey);
+    const targetVariant = variantStore[requestVariantKey];
+    if (!targetVariant) return;
+    const lineRef = targetVariant.cardLines[index];
     if (!lineRef) return;
     const requestSku = normalizeSkuValue(tinySKU.value);
     const saved = appConfig || {}
     const body = {
-      product_name: productName.value.trim(),
+      product_name: buildVariantProductName(productName.value.trim(), requestVariantKey),
       marketplace: marketplace.value,
       field: "card",
       index,
       prompt: promptText,
       context: { previous: lineRef.versions[lineRef.vIdx] },
-      options: { llm: llm.value, openai_api_key: (saved.openai || "").trim(), openai_base_url: (saved.openai_base || "").trim(), gemini_api_key: (saved.gemini || "").trim(), gemini_base_url: (saved.gemini_base || "").trim() }
+      options: buildLlmOptionsPayload(saved, buildVariationContextForVariant(requestVariantKey))
     };
     const r = await fetchWithAuth("/api/regen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw createApiError(r, data, `Erro HTTP ${r.status}`);
     if (requestSku !== normalizeSkuValue(tinySKU.value)) return;
-    if (history.cardLines[index] !== lineRef) return;
+    if (targetVariant.cardLines[index] !== lineRef) return;
     const item = (data.cards && data.cards[0]) ? data.cards[0] : null;
     if (item) {
       const line = lineRef;
@@ -6347,7 +7329,15 @@ Restrições:
       // Reset copy state when regenerating
       line.copiedTitle = false;
       line.copiedText = false;
-      buildCurrentCards(); renderCardsFromState(); persistState("regen_card"); rebuildPlaylist();
+      targetVariant.cards = targetVariant.cardLines.map((l) => l.versions[l.vIdx] || { title: "", text: "" });
+      if (requestVariantKey === activeVariantKey) {
+        buildCurrentCards();
+        renderCardsFromState();
+      }
+      persistState("regen_card");
+      if (requestVariantKey === activeVariantKey) {
+        rebuildPlaylist();
+      }
     }
   }
 
@@ -6394,87 +7384,182 @@ Restrições:
     showCopyFeedback(e.currentTarget);
   });
 
-  // Geração principal
-  async function generate() {
-    // Resetar todo o histórico e interface quando gerar novo conteúdo
-    resetHistory();
+  function setVariantFaqItems(variantKey, items) {
+    const key = normalizeVariantKey(variantKey);
+    const targetState = variantStore[key];
+    if (!targetState) return;
+    targetState.faq = (items || []).map(x => ({
+      approved: true,
+      versions: [{ q: x?.q || "", a: x?.a || "" }],
+      vIdx: 0,
+      processing: false
+    }));
+    if (key === activeVariantKey) {
+      renderFAQFromState();
+    }
+  }
 
-    statusArea.classList.remove("hidden"); loader.style.display = "inline-block"; statusText.textContent = "Gerando…";
-    demoWarn.classList.add("hidden");
-    const saved = appConfig || {}
+  function setVariantCardItems(variantKey, items) {
+    const key = normalizeVariantKey(variantKey);
+    const targetState = variantStore[key];
+    if (!targetState) return;
+    targetState.cardLines = (items || []).map(x => ({
+      versions: [{ title: x?.title || "", text: x?.text || "" }],
+      vIdx: 0,
+      copiedTitle: false,
+      copiedText: false,
+      processing: false
+    }));
+    targetState.cards = targetState.cardLines.map((line) => line.versions[line.vIdx] || { title: "", text: "" });
+    if (key === activeVariantKey) {
+      buildCurrentCards();
+      renderCardsFromState();
+    }
+  }
 
+  async function requestGenerateForVariant(variantKey, savedConfig, enabledFiles) {
+    const variationContext = buildVariationContextForVariant(variantKey);
     const req = {
-      product_name: productName.value.trim(),
+      product_name: buildVariantProductName(productName.value.trim(), variantKey),
       marketplace: marketplace.value,
-      options: {
-        llm: llm.value,
-        openai_api_key: (saved.openai || "").trim(),
-        openai_base_url: (saved.openai_base || "").trim(),
-        gemini_api_key: (saved.gemini || "").trim(),
-        gemini_base_url: (saved.gemini_base || "").trim(),
-        rules: saved.rules || {},
-        prompt_template: saved.prompt_template || DEFAULT_PROMPT_TEMPLATE,
-        tiny_product_data: tinyProductData || null
-      }
+      options: buildLlmOptionsPayload(savedConfig, variationContext)
     };
 
-    // Preparar arquivos habilitados
-    const enabledFiles = uploadedFiles.filter(f => f.enabled);
-
     const MAX_ATTEMPTS = 3;
-    let r, data, lastErr;
+    let lastErr = "";
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (attempt > 0) {
+        await new Promise(res => setTimeout(res, 1200 * attempt));
+      }
+
+      try {
+        let response;
+        if (enabledFiles.length > 0) {
+          const formData = new FormData();
+          formData.append('json_data', JSON.stringify(req));
+          enabledFiles.forEach(item => formData.append('files', item.file));
+          response = await fetch("/api/generate", { method: "POST", body: formData });
+        } else {
+          response = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(req)
+          });
+        }
+
+        if (!response.ok) {
+          lastErr = `HTTP ${response.status}`;
+          continue;
+        }
+
+        const payload = await response.json();
+        return payload;
+      } catch (fetchErr) {
+        lastErr = fetchErr?.message || String(fetchErr);
+      }
+    }
+    throw new Error(lastErr || "Falha na geração");
+  }
+
+  // Geração principal
+  async function generate() {
+    if (batchGenerateInProgress) {
+      showToast("Já existe uma geração em andamento para as abas de variação.", "warning");
+      return;
+    }
+    batchGenerateInProgress = true;
+    btnGenerate.disabled = true;
+
+    statusArea.classList.remove("hidden");
+    loader.style.display = "inline-block";
+    statusText.textContent = "Iniciando geração por variação…";
+    demoWarn.classList.add("hidden");
+
+    const saved = appConfig || {};
+    const enabledFiles = uploadedFiles.filter(f => f.enabled);
+    const expectedSku = normalizeSkuValue(tinySKU.value);
+    const expectedMarketplace = marketplace.value;
+    let lastWarnings = [];
+    let usedMock = false;
+    let filesProcessed = 0;
+    let doneCount = 0;
+    const failedVariants = [];
 
     try {
-      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        if (attempt > 0) {
-          statusText.textContent = `Tentando novamente (${attempt + 1}/${MAX_ATTEMPTS})…`;
-          await new Promise(res => setTimeout(res, 1200 * attempt));
-        }
+      VARIANT_DEFS.forEach((variant) => setVariantLoading(variant.key, true));
 
+      for (let i = 0; i < VARIANT_DEFS.length; i++) {
+        const variant = VARIANT_DEFS[i];
+        statusText.textContent = `Gerando ${variant.label} (${i + 1}/${VARIANT_DEFS.length})…`;
         try {
-          if (enabledFiles.length > 0) {
-            const formData = new FormData();
-            formData.append('json_data', JSON.stringify(req));
-            enabledFiles.forEach(item => formData.append('files', item.file));
-            r = await fetch("/api/generate", { method: "POST", body: formData });
+          if (expectedSku !== normalizeSkuValue(tinySKU.value) || expectedMarketplace !== marketplace.value) {
+            throw new Error("Contexto alterado durante a geração (SKU/marketplace). Processo interrompido.");
+          }
+
+          const data = await requestGenerateForVariant(variant.key, saved, enabledFiles);
+
+          if (expectedSku !== normalizeSkuValue(tinySKU.value) || expectedMarketplace !== marketplace.value) {
+            throw new Error("Contexto alterado durante a geração (SKU/marketplace). Processo interrompido.");
+          }
+
+          pushHistory("title", data.title || "", "generate", variant.key);
+          pushHistory("description", data.description || "", "generate", variant.key);
+          setVariantFaqItems(variant.key, data.faq || []);
+          setVariantCardItems(variant.key, data.cards || []);
+
+          if (variant.key === activeVariantKey) {
+            applyHistoryToUi();
+            if (integrationMode === "tiny") {
+              await autoPricing({
+                expectedSku,
+                expectedMarketplace,
+                expectedVariant: variant.key
+              });
+            }
           } else {
-            r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
+            variantStore[variant.key].pricesDirty = true;
           }
 
-          if (r.ok) {
-            lastErr = null;
-            break;
-          }
+          persistState("generate");
 
-          lastErr = `HTTP ${r.status}`;
-        } catch (fetchErr) {
-          lastErr = fetchErr?.message || String(fetchErr);
+          if (Array.isArray(data?.file_warnings) && data.file_warnings.length > 0) {
+            lastWarnings = data.file_warnings;
+          }
+          if (data?.sources_used?.mock) {
+            usedMock = true;
+          }
+          if (data?.files_processed) {
+            filesProcessed = Math.max(filesProcessed, Number(data.files_processed || 0));
+          }
+        } catch (variantErr) {
+          const msg = variantErr?.message || "falha desconhecida";
+          if (msg.includes("Contexto alterado durante a geração")) {
+            throw variantErr;
+          }
+          failedVariants.push(`${variant.label}: ${msg}`);
+          showToast(`Falha ao gerar ${variant.label}.`, "warning");
+        } finally {
+          doneCount += 1;
+          setVariantLoading(variant.key, false);
+          statusText.textContent = `Gerando variações… ${doneCount}/${VARIANT_DEFS.length}`;
         }
       }
 
-      if (lastErr || !r?.ok) {
-        statusText.textContent = "Falha na geração — tente novamente";
-        loader.style.display = "none";
-        setTimeout(() => statusArea.classList.add("hidden"), 3000);
-        return;
+      if (lastWarnings.length > 0) {
+        demoWarn.classList.remove("hidden");
+        demoText.innerHTML = `<strong>Avisos sobre arquivos:</strong><br>${lastWarnings.join('<br>')}`;
+      } else if (usedMock) {
+        demoWarn.classList.remove("hidden");
+        demoText.textContent = "Modo demonstração: cadastre uma chave.";
       }
 
-      data = await r.json();
-      pushHistory("title", data.title || "", "generate");
-      pushHistory("description", data.description || "", "generate");
-      renderFAQ(data.faq || []); renderCards(data.cards || []);
-      persistState("generate");
-
-      if (data?.file_warnings && data.file_warnings.length > 0) {
-        demoWarn.classList.remove("hidden");
-        demoText.innerHTML = `<strong>Avisos sobre arquivos:</strong><br>${data.file_warnings.join('<br>')}`;
-      } else if (data?.sources_used?.mock) {
-        demoWarn.classList.remove("hidden");
-        demoText.textContent = data?.sources_used?.message || "Modo demonstração: cadastre uma chave.";
+      if (filesProcessed > 0) {
+        console.log(`${filesProcessed} arquivo(s) processado(s) com sucesso`);
       }
-
-      if (data?.files_processed) {
-        console.log(`✅ ${data.files_processed} arquivo(s) processado(s) com sucesso`);
+      if (failedVariants.length > 0) {
+        showToast(`Geração concluída com ${failedVariants.length} aba(s) com falha.`, "warning");
+      } else {
+        showToast("Conteúdo gerado para anúncio simples e todos os kits.", "success");
       }
     } catch (err) {
       statusText.textContent = "Erro: " + (err?.message || "falha desconhecida");
@@ -6482,7 +7567,11 @@ Restrições:
       setTimeout(() => statusArea.classList.add("hidden"), 3000);
       return;
     } finally {
-      loader.style.display = "none"; setTimeout(() => statusArea.classList.add("hidden"), 800);
+      VARIANT_DEFS.forEach((variant) => setVariantLoading(variant.key, false));
+      batchGenerateInProgress = false;
+      btnGenerate.disabled = false;
+      loader.style.display = "none";
+      setTimeout(() => statusArea.classList.add("hidden"), 800);
     }
   }
 

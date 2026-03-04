@@ -161,6 +161,7 @@ class Options(BaseModel):
     rules: Dict[str, Any] = Field(default_factory=dict)
     prompt_template: Optional[str] = None
     tiny_product_data: Optional[Dict[str, Any]] = None
+    variation_context: Optional[Dict[str, Any]] = None
 
 
 class GenerateIn(BaseModel):
@@ -189,7 +190,7 @@ DEFAULT_PROMPT_TEMPLATE = (
     "3) FAQ (10 pares Q->A) – foque objeções reais, uso, compatibilidades, garantia, manutenção, devolução.\n"
     '4) CARDS (11 itens) – para imagens 1200x1200: cada item = { "title": "...", "text": "..." } curto e direto.\n\n'
     "Restrições:\n"
-    "- Sem “frete grátis”, “brinde”, “promoção” ou equivalentes.\n"
+    '- Sem "frete grátis", "brinde", "promoção" ou equivalentes.\n'
     "- Não use emojis. Escreva em português do Brasil.\n"
     "- Adapte o tom ao marketplace especificado.\n"
     "- Responda em JSON com as chaves: title, description, faq (array de objetos {q,a}), cards (array de objetos {title,text}).\n"
@@ -442,7 +443,34 @@ def parse_json_loose(s: str) -> Dict[str, Any]:
 def build_full_prompt(product: str, marketplace: str, opts: Options) -> str:
     tpl = opts.prompt_template or DEFAULT_PROMPT_TEMPLATE
     specs = "{}"
-    return render_prompt_template(tpl, product, marketplace, specs)
+    base_prompt = render_prompt_template(tpl, product, marketplace, specs)
+
+    variation_ctx = _to_safe_dict(opts.variation_context)
+    quantity = int(_coerce_float(variation_ctx.get("quantity"), 1.0))
+    quantity = max(1, min(quantity, 5))
+    variant_key = str(variation_ctx.get("variant_key") or "simple").strip().lower()
+    derived_cost = _coerce_float(variation_ctx.get("derived_cost_base"), 0.0)
+    derived_width = _coerce_float(variation_ctx.get("derived_width_cm"), 0.0)
+    derived_weight = _coerce_float(variation_ctx.get("derived_weight_kg"), 0.0)
+    if variation_ctx:
+        base_prompt += "\n\n🎯 CONTEXTO DE VARIAÇÃO DO ANÚNCIO:\n"
+        base_prompt += f"- Variante ativa: {variant_key}\n"
+        base_prompt += f"- Quantidade de itens no anúncio: {quantity}\n"
+        if derived_cost > 0:
+            base_prompt += f"- Custo base de referência da variante: R$ {derived_cost:.4f}\n"
+        if derived_width > 0:
+            base_prompt += f"- Largura de referência da variante: {derived_width:.4f} cm\n"
+        if derived_weight > 0:
+            base_prompt += f"- Peso de referência da variante: {derived_weight:.4f} kg\n"
+        if quantity > 1:
+            base_prompt += (
+                "- Gere conteúdo explícito para KIT/COMBO desta quantidade. "
+                "Não reutilize texto do anúncio simples; descreva benefícios e contexto da quantidade.\n"
+            )
+        else:
+            base_prompt += "- Gere conteúdo específico para unidade simples (não kit).\n"
+
+    return base_prompt
 
 
 def build_field_prompt(base_prompt: str, field: str, previous: Optional[Dict[str, Any]] = None,
@@ -551,10 +579,7 @@ async def process_uploaded_files(files: List[UploadFile]) -> tuple[List[Dict[str
 
 def build_full_prompt_with_files(product: str, marketplace: str, opts: Options, has_files: bool = False) -> str:
     """Constrói prompt com instruções específicas sobre uso de arquivos"""
-    tpl = opts.prompt_template or DEFAULT_PROMPT_TEMPLATE
-    specs = "{}"
-
-    base_prompt = render_prompt_template(tpl, product, marketplace, specs)
+    base_prompt = build_full_prompt(product, marketplace, opts)
 
     # Injetar dados do Tiny ERP se disponíveis
     if opts.tiny_product_data:
@@ -762,24 +787,48 @@ def _normalize_price_block(raw: Any) -> Dict[str, Any]:
     return {"versions": versions, "current_index": idx}
 
 
-def _empty_versioned_state() -> Dict[str, Any]:
+_VARIANT_KEYS = ("simple", "kit2", "kit3", "kit4", "kit5")
+
+
+def _empty_variant_state() -> Dict[str, Any]:
     return {
         "title": {"versions": [], "current_index": -1},
         "description": {"versions": [], "current_index": -1},
         "faq_lines": [],
         "card_lines": [],
+    }
+
+
+def _empty_versioned_state() -> Dict[str, Any]:
+    return {
+        "schema_version": 2,
+        "variants": {key: _empty_variant_state() for key in _VARIANT_KEYS},
         # Precos sao volateis e recalculados no load; nao persistimos no DB.
         "prices": {},
     }
 
 
-def _normalize_versioned_state(raw: Any) -> Dict[str, Any]:
+def _normalize_variant_state(raw: Any) -> Dict[str, Any]:
     raw_d = _to_safe_dict(raw)
-    base = _empty_versioned_state()
+    base = _empty_variant_state()
     base["title"] = _normalize_text_block(raw_d.get("title"))
     base["description"] = _normalize_text_block(raw_d.get("description"))
     base["faq_lines"] = [_normalize_faq_line(x) for x in _to_safe_list(raw_d.get("faq_lines"))]
     base["card_lines"] = [_normalize_card_line(x) for x in _to_safe_list(raw_d.get("card_lines"))]
+    return base
+
+
+def _normalize_versioned_state(raw: Any) -> Dict[str, Any]:
+    raw_d = _to_safe_dict(raw)
+    base = _empty_versioned_state()
+
+    variants_raw = _to_safe_dict(raw_d.get("variants"))
+    if variants_raw:
+        for key in _VARIANT_KEYS:
+            base["variants"][key] = _normalize_variant_state(variants_raw.get(key))
+    else:
+        # Compatibilidade retroativa V1: estado antigo vira a variante "simple".
+        base["variants"]["simple"] = _normalize_variant_state(raw_d)
 
     # Ignora qualquer dado de preco vindo do cliente/DB.
     base["prices"] = {}
@@ -861,20 +910,25 @@ def _merge_versioned_state(current: Dict[str, Any], incoming: Dict[str, Any]) ->
     inc = _normalize_versioned_state(incoming)
 
     merged = _empty_versioned_state()
-    merged["title"] = _merge_block_with_latest_index(cur["title"], inc["title"])
-    merged["description"] = _merge_block_with_latest_index(cur["description"], inc["description"])
-    merged["faq_lines"] = _merge_lines(
-        cur["faq_lines"],
-        inc["faq_lines"],
-        normalizer=_normalize_faq_line,
-        preserve_approved=True,
-    )
-    merged["card_lines"] = _merge_lines(
-        cur["card_lines"],
-        inc["card_lines"],
-        normalizer=_normalize_card_line,
-        preserve_approved=False,
-    )
+    for key in _VARIANT_KEYS:
+        cur_variant = _normalize_variant_state(cur["variants"].get(key))
+        inc_variant = _normalize_variant_state(inc["variants"].get(key))
+        merged["variants"][key] = {
+            "title": _merge_block_with_latest_index(cur_variant["title"], inc_variant["title"]),
+            "description": _merge_block_with_latest_index(cur_variant["description"], inc_variant["description"]),
+            "faq_lines": _merge_lines(
+                cur_variant["faq_lines"],
+                inc_variant["faq_lines"],
+                normalizer=_normalize_faq_line,
+                preserve_approved=True,
+            ),
+            "card_lines": _merge_lines(
+                cur_variant["card_lines"],
+                inc_variant["card_lines"],
+                normalizer=_normalize_card_line,
+                preserve_approved=False,
+            ),
+        }
     # Precos sao derivados e nao participam de merge/persistencia.
     merged["prices"] = {}
     return merged

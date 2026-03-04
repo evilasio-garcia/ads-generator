@@ -1,0 +1,38 @@
+{
+  "schema": "tiny_product_fixture_v1",
+  "generated_at": "2026-03-03T21:18:26.697403+00:00",
+  "token_source": "db_user_config",
+  "user_id": null,
+  "instance_index": 0,
+  "skus_requested": [
+    "PTBOCSALMCATCX10",
+    "NEWGD60C7"
+  ],
+  "products": {
+    "PTBOCSALMCATCX10": {
+      "title": "CAIXA COM 10 UNIDADES PETISCO NUGGETS BOCAO GATO SABOR SALMÃO 400GR",
+      "sku": "PTBOCSALMCATCX10",
+      "gtin": "17898959321839",
+      "height_cm": 13.0,
+      "width_cm": 11.0,
+      "length_cm": 22.0,
+      "weight_kg": 0.4,
+      "cost_price": 22.26,
+      "list_price": 0.0,
+      "promo_price": 0.0
+    },
+    "NEWGD60C7": {
+      "title": "NEW GOOD 60X60 - 7 UNIDADES",
+      "sku": "NEWGD60C7",
+      "gtin": "7898590070977",
+      "height_cm": 52.0,
+      "width_cm": 30.0,
+      "length_cm": 18.0,
+      "weight_kg": 0.2,
+      "cost_price": 24.9,
+      "list_price": 0.0,
+      "promo_price": 0.0
+    }
+  },
+  "errors": {}
+}
