@@ -65,3 +65,18 @@ This document tracks manual-to-automated GUI scenarios to be implemented in the 
   - title/description remain empty,
   - FAQ and Cards stay empty when no edits are made.
 - Run the same full dual-SKU sequence again after `F5` (no server restart) and require DB-hit parity.
+
+8. `Variation tabs ear layout + sticky + no scroll jump/no reload`
+- Desktop (`>1024px`):
+  - Assert tabs render as left-side vertical ear tabs in `#resultCard`.
+  - Assert labels are rotated and active/hover states remain in blue palette.
+  - Assert rail uses sticky behavior while `#resultCard` is visible.
+  - Assert sticky remains bounded by `#resultCard` (rail does not overflow card bottom).
+- Mobile/tablet (`<=1024px`):
+  - Assert fallback to top horizontal chips.
+  - Assert labels are not rotated in mobile fallback.
+- Runtime behavior on tab switch:
+  - Scroll page into `#resultCard`, capture `scrollY`.
+  - Switch variants multiple times (`simple -> kit5 -> kit2 -> simple`).
+  - Assert `scrollY` delta remains minimal (no jump).
+  - Assert no page reload (runtime boot marker/counter unchanged).

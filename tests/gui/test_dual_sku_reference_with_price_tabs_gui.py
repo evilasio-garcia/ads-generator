@@ -62,8 +62,8 @@ NEW_REFERENCE = {
     },
     "kit2": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB2",
             "height": "52",
             "width": "60.00",
             "length": "18",
@@ -82,8 +82,8 @@ NEW_REFERENCE = {
     },
     "kit3": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB3",
             "height": "52",
             "width": "90.00",
             "length": "18",
@@ -102,8 +102,8 @@ NEW_REFERENCE = {
     },
     "kit4": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB4",
             "height": "52",
             "width": "120.00",
             "length": "18",
@@ -122,8 +122,8 @@ NEW_REFERENCE = {
     },
     "kit5": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB5",
             "height": "52",
             "width": "150.00",
             "length": "18",
@@ -164,8 +164,8 @@ PT_REFERENCE = {
     },
     "kit2": {
         "base": {
-            "gtin": "17898959321839",
-            "sku": "PTBOCSALMCATCX10",
+            "gtin": "",
+            "sku": "PTBOCSALMCATCX10CB2",
             "height": "13",
             "width": "22.00",
             "length": "22",
@@ -184,8 +184,8 @@ PT_REFERENCE = {
     },
     "kit3": {
         "base": {
-            "gtin": "17898959321839",
-            "sku": "PTBOCSALMCATCX10",
+            "gtin": "",
+            "sku": "PTBOCSALMCATCX10CB3",
             "height": "13",
             "width": "33.00",
             "length": "22",
@@ -204,8 +204,8 @@ PT_REFERENCE = {
     },
     "kit4": {
         "base": {
-            "gtin": "17898959321839",
-            "sku": "PTBOCSALMCATCX10",
+            "gtin": "",
+            "sku": "PTBOCSALMCATCX10CB4",
             "height": "13",
             "width": "44.00",
             "length": "22",
@@ -224,8 +224,8 @@ PT_REFERENCE = {
     },
     "kit5": {
         "base": {
-            "gtin": "17898959321839",
-            "sku": "PTBOCSALMCATCX10",
+            "gtin": "",
+            "sku": "PTBOCSALMCATCX10CB5",
             "height": "13",
             "width": "55.00",
             "length": "22",

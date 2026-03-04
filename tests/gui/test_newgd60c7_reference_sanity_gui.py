@@ -47,8 +47,8 @@ REFERENCE_BY_VARIANT = {
     },
     "kit2": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB2",
             "height": "52",
             "width": "60.00",
             "length": "18",
@@ -67,8 +67,8 @@ REFERENCE_BY_VARIANT = {
     },
     "kit3": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB3",
             "height": "52",
             "width": "90.00",
             "length": "18",
@@ -87,8 +87,8 @@ REFERENCE_BY_VARIANT = {
     },
     "kit4": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB4",
             "height": "52",
             "width": "120.00",
             "length": "18",
@@ -107,8 +107,8 @@ REFERENCE_BY_VARIANT = {
     },
     "kit5": {
         "base": {
-            "gtin": "7898590070977",
-            "sku": "NEWGD60C7",
+            "gtin": "",
+            "sku": "NEWGD60C7CB5",
             "height": "52",
             "width": "150.00",
             "length": "18",
@@ -498,7 +498,12 @@ def test_newgd60c7_reference_values_stay_exact_across_variant_navigation_and_ref
                 ref = REFERENCE_BY_VARIANT[variant_key]
 
                 base = ref["base"]
-                _assert_exact_decimal(read_input("#tinyGTIN"), base["gtin"], f"{step_label} gtin")
+                expected_gtin = str(base["gtin"] or "").strip()
+                got_gtin = read_input("#tinyGTIN")
+                if expected_gtin:
+                    _assert_exact_decimal(got_gtin, expected_gtin, f"{step_label} gtin")
+                else:
+                    assert got_gtin == "", f"{step_label} gtin: esperado vazio, recebido {got_gtin!r}"
                 assert read_input("#tinySKUDisplay").upper() == base["sku"], (
                     f"{step_label} sku: esperado {base['sku']}, recebido {read_input('#tinySKUDisplay')}"
                 )

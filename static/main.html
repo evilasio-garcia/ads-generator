@@ -282,64 +282,197 @@
       border-bottom-color: #4f46e5;
     }
 
+    #resultCard {
+      position: relative;
+      overflow: visible;
+    }
+
+    .result-layout {
+      position: relative;
+      display: block;
+      margin-top: 1rem;
+    }
+
+    .variant-tabs-rail {
+      position: absolute;
+      left: -54px;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      overflow: visible;
+      z-index: 8;
+    }
+
+    .variant-tabs-rail-inner {
+      position: sticky;
+      top: 84px;
+      transform: translateX(-100%);
+      pointer-events: auto;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .result-main {
+      min-width: 0;
+    }
+
+    #variantTabs.variant-tabs-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      align-items: flex-start;
+    }
+
     .variant-tab-btn {
       position: relative;
-      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      min-width: 2.1rem;
+      height: auto;
+      min-height: 4.2rem;
+      padding: .55rem .34rem;
+      background: #eef2ff;
+      color: #334155;
+      border: 1px solid #c7d2fe;
+      border-right: 1px solid #c7d2fe;
+      border-radius: .7rem 0 0 .7rem;
+      box-shadow: -1px 1px 3px rgba(15, 23, 42, 0.14);
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .2s ease, transform .18s ease;
+    }
+
+    .variant-tab-btn::after {
+      display: none;
+    }
+
+    .variant-tab-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      white-space: nowrap;
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .015em;
+      line-height: 1;
     }
 
     .variant-tab-btn:hover {
-      background: #eff6ff;
+      background: #dbeafe;
       color: #1d4ed8;
       border-color: #93c5fd;
+      transform: translateX(-1px);
+      box-shadow: -1px 4px 12px rgba(30, 64, 175, 0.18);
+    }
+
+    .variant-tab-btn:focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
     }
 
     .variant-tab-btn.active {
       background: #2563eb;
       color: #ffffff;
-      border-color: #2563eb;
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+      border-color: #1d4ed8;
+      box-shadow: -2px 6px 16px rgba(30, 64, 175, 0.30);
     }
 
     .variant-tab-btn.active:hover {
       background: #1d4ed8;
+      border-color: #1e3a8a;
       color: #ffffff;
-      border-color: #1d4ed8;
+      transform: translateX(-1px);
     }
 
     .variant-tab-btn.loading {
-      animation: variant-tab-pulse 1.4s ease-in-out infinite;
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.24);
+      animation: variant-tab-pulse 1.35s ease-in-out infinite;
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.30);
     }
 
-    .variant-tab-btn.loading::after {
+    .variant-tab-btn.loading::before {
       content: "";
       position: absolute;
-      inset: 0;
-      border-radius: inherit;
+      inset: 2px;
+      border-radius: .55rem 0 0 .55rem;
+      border: 1px solid rgba(255, 255, 255, 0.35);
       pointer-events: none;
-      border: 1px solid rgba(59, 130, 246, 0.28);
     }
 
     .variant-tab-btn.loading.active {
       border-color: #93c5fd;
-      box-shadow: 0 6px 16px rgba(30, 64, 175, 0.35);
+      box-shadow: -2px 7px 18px rgba(30, 64, 175, 0.38);
     }
 
     @keyframes variant-tab-pulse {
       0% {
-        transform: translateY(0);
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.22);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.28);
       }
 
       50% {
-        transform: translateY(-1px);
-        box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.06);
+        box-shadow: 0 0 0 7px rgba(59, 130, 246, 0.08);
       }
 
       100% {
-        transform: translateY(0);
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.22);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.28);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .result-layout {
+        display: block;
+      }
+
+      .variant-tabs-rail {
+        position: static;
+        width: auto;
+      }
+
+      .variant-tabs-rail-inner {
+        position: static;
+        transform: none;
+      }
+
+      .result-main {
+        margin-top: .75rem;
+      }
+
+      #variantTabs.variant-tabs-stack {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+      }
+
+      .variant-tab-btn {
+        width: auto;
+        min-width: auto;
+        height: auto;
+        min-height: auto;
+        border-radius: .55rem;
+        border-right: 1px solid #c7d2fe;
+        padding: .42rem .72rem;
+      }
+
+      .variant-tab-btn::after,
+      .variant-tab-btn.loading::before {
+        display: none;
+      }
+
+      .variant-tab-label {
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
+        transform: none;
+        font-size: .8rem;
+        font-weight: 600;
+      }
+
+      .variant-tab-btn:hover,
+      .variant-tab-btn.active:hover {
+        transform: none;
       }
     }
 
@@ -584,7 +717,7 @@
               type="button"
               class="info-popover-trigger inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
               data-info-template="#infoTemplateSkuBehavior"
-              aria-label="Informacoes sobre edicao do SKU"
+              aria-label="Informações sobre edição do SKU"
               aria-expanded="false">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
@@ -805,43 +938,51 @@
 
     <section class="card p-5" id="resultCard">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-800">Resultado</h2>
-        <div class="flex gap-2">
-          <button id="copyAll" class="btn" title="Copiar tudo"><svg class="icon" viewBox="0 0 24 24">
-              <path
-                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                stroke-width="1.5" fill="none" />
-            </svg></button>
+        <div class="flex items-center gap-2">
+          <h2 class="text-lg font-semibold text-gray-800">Resultado</h2>
+          <button
+            type="button"
+            class="info-popover-trigger inline-flex h-7 w-7 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            data-info-template="#infoTemplateVariantBehavior"
+            aria-label="Informações sobre as abas de variação"
+            aria-expanded="false">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
+              <path d="M12 10v6m0-9h.01" stroke-width="1.8" stroke-linecap="round"></path>
+            </svg>
+          </button>
         </div>
+        <button id="copyAll" class="btn" title="Copiar tudo"><svg class="icon" viewBox="0 0 24 24">
+            <path
+              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              stroke-width="1.5" fill="none" />
+          </svg></button>
       </div>
 
-      <div class="mt-4 flex items-center justify-between gap-3">
-        <div id="variantTabs" class="flex flex-wrap items-center gap-2">
-          <button class="variant-tab-btn active px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
-            data-variant="simple">Anúncio simples</button>
-          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
-            data-variant="kit2">Kit com 2</button>
-          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
-            data-variant="kit3">Kit com 3</button>
-          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
-            data-variant="kit4">Kit com 4</button>
-          <button class="variant-tab-btn px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700"
-            data-variant="kit5">Kit com 5</button>
-        </div>
-        <button
-          type="button"
-          class="info-popover-trigger inline-flex h-7 w-7 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-          data-info-template="#infoTemplateVariantBehavior"
-          aria-label="Informações sobre as abas de variação"
-          aria-expanded="false">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
-            <path d="M12 10v6m0-9h.01" stroke-width="1.8" stroke-linecap="round"></path>
-          </svg>
-        </button>
-      </div>
-
-      <!-- Título -->
+      <div class="result-layout">
+        <aside class="variant-tabs-rail">
+          <div class="variant-tabs-rail-inner">
+            <div id="variantTabs" class="variant-tabs-stack" role="tablist" aria-label="Abas de variação">
+              <button class="variant-tab-btn active" data-variant="simple" aria-label="Anúncio simples">
+                <span class="variant-tab-label">Anúncio simples</span>
+              </button>
+              <button class="variant-tab-btn" data-variant="kit2" aria-label="Kit com 2">
+                <span class="variant-tab-label">Kit com 2</span>
+              </button>
+              <button class="variant-tab-btn" data-variant="kit3" aria-label="Kit com 3">
+                <span class="variant-tab-label">Kit com 3</span>
+              </button>
+              <button class="variant-tab-btn" data-variant="kit4" aria-label="Kit com 4">
+                <span class="variant-tab-label">Kit com 4</span>
+              </button>
+              <button class="variant-tab-btn" data-variant="kit5" aria-label="Kit com 5">
+                <span class="variant-tab-label">Kit com 5</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+        <div class="result-main">
+<!-- Título -->
       <div class="mt-4">
         <div class="label-row">
           <h3 class="font-medium text-gray-700 mt-1">Título</h3>
@@ -1418,6 +1559,8 @@
           </div>
         </div>
       </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -1426,7 +1569,7 @@
   <!-- Controles TTS Flutuantes -->
   <div id="floatingTTS" class="floating-tts">
     <div class="controls">
-      <span class="label">🔊 Leitura</span>
+      <span class="label">Leitura</span>
       <button id="ttsPlayFloat" class="btn" title="Play"><svg class="icon" viewBox="0 0 24 24">
           <path d="M8 5v14l11-7z" stroke-width="1.5" />
         </svg></button>
@@ -1793,10 +1936,10 @@
   <template id="infoTemplateSkuBehavior" data-info-title="Comportamento do SKU e Ctrl+Z">
     <p>Para evitar troca silenciosa de contexto, o campo de SKU funciona em modo <strong>pesquisa confirmada</strong>.</p>
     <ul>
-      <li>Editar o SKU (inclusive com undo/redo visual) <strong>nao troca</strong> automaticamente o SKU em uso.</li>
-      <li>A troca de contexto so acontece ao clicar na <strong>lupa</strong> (ou pressionar Enter).</li>
-      <li>No campo SKU, <strong>Ctrl+Z/Ctrl+Y</strong> nativos sao bloqueados para evitar rollback global acidental.</li>
-      <li>Nos demais campos editaveis, undo/redo passa a ser <strong>local ao proprio campo</strong> e para no limite dele.</li>
+      <li>Editar o SKU (inclusive com undo/redo visual) <strong>não troca</strong> automaticamente o SKU em uso.</li>
+      <li>A troca de contexto só acontece ao clicar na <strong>lupa</strong> (ou pressionar Enter).</li>
+      <li>No campo SKU, <strong>Ctrl+Z/Ctrl+Y</strong> nativos são bloqueados para evitar rollback global acidental.</li>
+      <li>Nos demais campos editáveis, undo/redo passa a ser <strong>local ao próprio campo</strong> e para no limite dele.</li>
     </ul>
     <p>Sem esse cuidado, um undo longo pode voltar para outro campo e salvar dados no SKU errado.</p>
   </template>
@@ -1804,6 +1947,8 @@
 </body>
 <script>
   function $(q) { return document.querySelector(q); }
+  window.__adsGeneratorBootMarker = window.__adsGeneratorBootMarker || `boot-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  window.__adsGeneratorBootCount = (window.__adsGeneratorBootCount || 0) + 1;
 
   /**
    * Wrapper robusto para fetch que lida com 401 (Unauthorized)
@@ -2134,6 +2279,7 @@
 
   // Dados do produto Tiny (dados reais da API)
   let tinyProductData = null;
+  let simpleCatalogIdentity = { gtin: "", sku: "" };
   let isFetchingTinyData = false;
   let currentWorkspaceId = null;
   let currentWorkspaceSku = null;
@@ -2392,6 +2538,49 @@
     return "";
   }
 
+  function setSimpleCatalogIdentity(gtinValue, skuValue) {
+    simpleCatalogIdentity = {
+      gtin: String(gtinValue || "").trim(),
+      sku: String(skuValue || "").trim()
+    };
+  }
+
+  function getSimpleCatalogIdentity() {
+    const gtin = pickFirstNonEmptyValue(
+      simpleCatalogIdentity.gtin,
+      tinyProductData?.gtin,
+      activeVariantKey === "simple" ? tinyGTIN.value : ""
+    );
+    const sku = pickFirstNonEmptyValue(
+      simpleCatalogIdentity.sku,
+      tinyProductData?.sku,
+      activeVariantKey === "simple" ? tinySKUDisplay.value : ""
+    );
+    return {
+      gtin: String(gtin || "").trim(),
+      sku: String(sku || "").trim()
+    };
+  }
+
+  function buildVariantCatalogSku(variantKey = activeVariantKey) {
+    const { sku } = getSimpleCatalogIdentity();
+    if (!sku) return "";
+    const variantDef = VARIANT_BY_KEY[normalizeVariantKey(variantKey)] || VARIANT_BY_KEY.simple;
+    if ((variantDef.quantity || 1) <= 1) return sku;
+    return `${sku}CB${variantDef.quantity}`;
+  }
+
+  function applyCatalogIdentityForActiveVariant() {
+    if (activeVariantKey === "simple") {
+      const { gtin, sku } = getSimpleCatalogIdentity();
+      tinyGTIN.value = gtin;
+      tinySKUDisplay.value = sku;
+      return;
+    }
+    tinyGTIN.value = "";
+    tinySKUDisplay.value = buildVariantCatalogSku(activeVariantKey);
+  }
+
   function buildWorkspaceBaseState() {
     const simpleCost = pickFirstNonEmptyValue(
       readSimpleFieldFromVariant("costPriceSnapshot", ""),
@@ -2409,14 +2598,15 @@
       readSimpleFieldFromVariant("shippingCostSnapshot", ""),
       tinyProductData?.shipping_cost
     );
+    const catalogIdentity = getSimpleCatalogIdentity();
     return {
       integration_mode: integrationMode || "manual",
       tiny_product_data: tinyProductData || null,
       selected_marketplace: marketplace.value || "",
       product_fields: {
         product_name: productName.value || "",
-        tiny_gtin: tinyGTIN.value || "",
-        tiny_sku_display: tinySKUDisplay.value || "",
+        tiny_gtin: catalogIdentity.gtin || "",
+        tiny_sku_display: catalogIdentity.sku || "",
         tiny_height: tinyHeight.value || "",
         tiny_width: simpleWidth || "",
         tiny_length: tinyLength.value || "",
@@ -2556,10 +2746,10 @@
     const resolvedShipping = pickFirstNonEmptyValue(fields.tiny_shipping_cost, tinyData.shipping_cost);
     const resolvedWidth = pickFirstNonEmptyValue(fields.tiny_width, tinyData.width_cm);
     const resolvedWeight = pickFirstNonEmptyValue(fields.tiny_weight, tinyData.weight_kg);
+    const resolvedCatalogGtin = pickFirstNonEmptyValue(fields.tiny_gtin, tinyData.gtin);
+    const resolvedCatalogSku = pickFirstNonEmptyValue(fields.tiny_sku_display, tinyData.sku);
     if (!tinyProductData) {
       productName.value = fields.product_name || "";
-      tinyGTIN.value = fields.tiny_gtin || "";
-      tinySKUDisplay.value = fields.tiny_sku_display || "";
       tinyHeight.value = fields.tiny_height || "";
       tinyWidth.value = resolvedWidth;
       tinyLength.value = fields.tiny_length || "";
@@ -2582,6 +2772,8 @@
       simpleState.pricesDirty = true;
       simpleState.derivedSignature = "";
     }
+    setSimpleCatalogIdentity(resolvedCatalogGtin, resolvedCatalogSku);
+    applyCatalogIdentityForActiveVariant();
   }
 
   function parseVariantContentState(rawVariant = {}) {
@@ -3291,8 +3483,7 @@
     if (hasTinyData) {
       // Modo Tiny ou Híbrido: preencher campos do produto com dados reais da API
       productName.value = tinyProductData.title || "";
-      tinyGTIN.value = tinyProductData.gtin || "";
-      tinySKUDisplay.value = tinyProductData.sku || "";
+      setSimpleCatalogIdentity(tinyProductData.gtin || "", tinyProductData.sku || "");
       tinyHeight.value = tinyProductData.height_cm || "";
       tinyLength.value = tinyProductData.length_cm || "";
 
@@ -3334,6 +3525,7 @@
         simpleState.widthSnapshot = resolvedWidth;
         simpleState.weightSnapshot = resolvedWeight;
       }
+      applyCatalogIdentityForActiveVariant();
 
       // Campos sempre editáveis
       [tinyCostPrice, tinyShippingCost].forEach(el => {
@@ -3374,8 +3566,7 @@
 
     } else {
       // Modo Manual PURO: LIMPAR valores e habilitar
-      tinyGTIN.value = "";
-      tinySKUDisplay.value = "";
+      setSimpleCatalogIdentity("", "");
       tinyHeight.value = "";
       tinyWidth.value = "";
       tinyLength.value = "";
@@ -3401,6 +3592,7 @@
       // Mostrar botão de cálculo manual e validar
       manualPricingButton.style.display = 'block';
       validateCalculateButton();
+      applyCatalogIdentityForActiveVariant();
     }
 
     applyVariantInputMode();
@@ -3589,7 +3781,7 @@
   });
 
   // ============================================================================
-  // FUNÇÕES AUXILIARES DE CÁLCULO
+  // FUNCOES AUXILIARES DE CALCULO
   // ============================================================================
 
   // Calcula % de margem: (preço - custo_total) / preço * 100
@@ -4252,7 +4444,7 @@
       if (channel === 'mercadolivre' && tinyPromoPriceMin.value) {
         const promoPrice = parseFloat(tinyPromoPriceMin.value);
         if (promoPrice > 78.99 && !currentShippingCost) {
-          console.warn('⚠️ Atenção: O preço promocional calculado é maior que R$ 78,99.\n\nPara produtos do Mercado Livre nesta faixa de preço, é importante preencher o custo do frete para obter cálculos mais precisos.');
+          console.warn('ATENCAO: o preco promocional calculado e maior que R$ 78,99. Para produtos do Mercado Livre nessa faixa de preco, preencha o custo do frete para obter calculos mais precisos.');
         }
       }
       if (!isRequestStillCurrent()) {
@@ -4875,12 +5067,12 @@
     const enabledFiles = uploadedFiles.filter(f => f.valid && f.enabled).length;
 
     if (totalFiles > MAX_FILES_PROCESSED) {
-      warnings.push(`⚠️ ${totalFiles} arquivos enviados. Apenas os <strong>10 primeiros válidos</strong> serão processados.`);
+      warnings.push(`[ALERTA] ${totalFiles} arquivos enviados. Apenas os <strong>10 primeiros validos</strong> serao processados.`);
     }
 
     const totalSize = uploadedFiles.reduce((sum, f) => sum + (f.valid ? f.file.size : 0), 0);
     if (totalSize > MAX_TOTAL_SIZE) {
-      warnings.push(`❌ Tamanho total excede 20MB. Alguns arquivos podem ser ignorados.`);
+      warnings.push(`[ERRO] Tamanho total excede 20MB. Alguns arquivos podem ser ignorados.`);
     }
 
     if (validFiles > 0) {
@@ -4889,7 +5081,7 @@
 
     if (warnings.length > 0) {
       fileWarnings.innerHTML = warnings.map(w =>
-        `<div class="rounded-md border ${w.startsWith('❌') ? 'border-red-200 bg-red-50 text-red-800' : w.startsWith('⚠️') ? 'border-yellow-200 bg-yellow-50 text-yellow-800' : 'border-blue-200 bg-blue-50 text-blue-800'} p-2 text-xs">${w}</div>`
+        `<div class="rounded-md border ${w.startsWith('[ERRO]') ? 'border-red-200 bg-red-50 text-red-800' : w.startsWith('[ALERTA]') ? 'border-yellow-200 bg-yellow-50 text-yellow-800' : 'border-blue-200 bg-blue-50 text-blue-800'} p-2 text-xs">${w}</div>`
       ).join('');
       fileWarnings.classList.remove('hidden');
     } else {
@@ -4997,14 +5189,14 @@
 
       const fileType = item.file.type || 'desconhecido';
       const fileSize = (item.file.size / 1024).toFixed(1);
-      const fileTypeLabel = fileType.startsWith('image/') ? '🖼️ Imagem' :
-        fileType === 'text/plain' ? '📝 Texto' :
-          '📎 Arquivo';
+      const fileTypeLabel = fileType.startsWith('image/') ? 'Imagem' :
+        fileType === 'text/plain' ? 'Texto' :
+          'Arquivo';
 
       // Status badge
       let statusBadge = '';
       if (!item.valid) {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">❌ Inválido</span>
+        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Invalido</span>
                       <div class="text-xs text-red-600 mt-1">${item.error}</div>`;
       } else if (willBeProcessed) {
         statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado (${processingNumber}/10)</span>`;
@@ -5658,19 +5850,19 @@
   const DEFAULT_PROMPT_TEMPLATE =
     `Produto: "{product}"
 Marketplace: {marketplace}
-Especificações agregadas (parciais e possivelmente ruidosas): {specs}
+Especificacoes agregadas (parciais e possivelmente ruidosas): {specs}
 
 Tarefas:
-1) TÍTULO (apenas texto, 1 linha) — incluir marca, atributo-chave e variante quando relevante.
-2) DESCRIÇÃO (sem emojis; clara, escaneável; 3-6 bullets iniciais + 3-5 parágrafos).
-3) FAQ (10 pares Q->A) – foque objeções reais, uso, compatibilidades, garantia, manutenção, devolução.
-4) CARDS (11 itens) – para imagens 1200x1200: cada item = { "title": "...", "text": "..." } curto e direto.
+1) TITULO (apenas texto, 1 linha) - incluir marca, atributo-chave e variante quando relevante.
+2) DESCRICAO (sem emojis; clara, escaneavel; 3-6 bullets iniciais + 3-5 paragrafos).
+3) FAQ (10 pares Q->A) - focar objecoes reais, uso, compatibilidades, garantia, manutencao, devolucao.
+4) CARDS (11 itens) - para imagens 1200x1200: cada item = { "title": "...", "text": "..." } curto e direto.
 
-Restrições:
-- Sem "frete grátis", "brinde", "promoção" ou equivalentes.
-- Não use emojis. Escreva em português do Brasil.
-- Adapte o tom ao marketplace especificado.
-- Responda em JSON com as chaves: title, description, faq (array de objetos {q,a}), cards (array de objetos {title,text}).
+Restricoes:
+- Sem "frete gratis", "brinde", "promocao" ou equivalentes.
+- Nao usar emojis. Escrever em portugues do Brasil.
+- Adaptar o tom ao marketplace especificado.
+- Responder em JSON com as chaves: title, description, faq (array de objetos {q,a}), cards (array de objetos {title,text}).
 `;
 
   // Config Section Navigation
@@ -6051,6 +6243,10 @@ Restrições:
       field.readOnly = !isSimple;
       field.classList.toggle("bg-gray-50", !isSimple);
     });
+    [tinyGTIN, tinySKUDisplay].forEach((field) => {
+      field.readOnly = !isSimple;
+      field.classList.toggle("bg-gray-50", !isSimple);
+    });
     if (btnAutoFillCost) {
       const shouldShowAutoCost = isSimple && integrationMode === "tiny" && tinyProductData !== null;
       btnAutoFillCost.style.display = shouldShowAutoCost ? "" : "none";
@@ -6073,6 +6269,7 @@ Restrições:
       tinyWidth.value = history.widthSnapshot || "";
       tinyWeight.value = history.weightSnapshot || "";
     }
+    applyCatalogIdentityForActiveVariant();
 
     const announceMin = document.getElementById("tinyAnnouncePriceMin");
     const announceMax = document.getElementById("tinyAnnouncePriceMax");
@@ -6112,11 +6309,32 @@ Restrições:
     applyVariantInputMode();
   }
 
+  function snapshotWindowScroll() {
+    return {
+      x: Number(window.scrollX || window.pageXOffset || 0),
+      y: Number(window.scrollY || window.pageYOffset || 0)
+    };
+  }
+
+  function restoreWindowScrollIfNeeded(scrollSnapshot) {
+    if (!scrollSnapshot) return;
+    const currentX = Number(window.scrollX || window.pageXOffset || 0);
+    const currentY = Number(window.scrollY || window.pageYOffset || 0);
+    if (Math.abs(currentX - scrollSnapshot.x) <= 1 && Math.abs(currentY - scrollSnapshot.y) <= 1) {
+      return;
+    }
+    window.scrollTo(scrollSnapshot.x, scrollSnapshot.y);
+  }
+
   async function switchVariantTab(targetVariantKey, options = {}) {
     const { skipPersist = false, force = false, triggerPricing = true } = options;
     const nextKey = normalizeVariantKey(targetVariantKey);
     if (variantSwitchInProgress && !force) return;
     if (!force && nextKey === activeVariantKey) return;
+    if (typeof window.stopTtsPlayback === "function") {
+      window.stopTtsPlayback({ resetIndex: true });
+    }
+    const scrollSnapshot = snapshotWindowScroll();
     const preservedSimpleSnapshots = nextKey === "simple"
       ? {
         costPriceSnapshot: variantStore.simple.costPriceSnapshot || "",
@@ -6139,6 +6357,7 @@ Restrições:
       hydrateActiveVariantVolatileState();
       updateVariantTabsUi();
       syncRegenBusyUiForActiveVariant();
+      restoreWindowScrollIfNeeded(scrollSnapshot);
 
       if (activeVariantKey === "simple") {
         const simple = variantStore.simple;
@@ -6153,6 +6372,7 @@ Restrições:
         tinyWidth.value = simple.widthSnapshot || "";
         tinyWeight.value = simple.weightSnapshot || "";
       }
+      restoreWindowScrollIfNeeded(scrollSnapshot);
 
       if (triggerPricing && integrationMode === "tiny") {
         const hasCost = (parseFloat(tinyCostPrice.value) || 0) > 0;
@@ -6164,12 +6384,14 @@ Restrições:
           });
         }
       }
+      restoreWindowScrollIfNeeded(scrollSnapshot);
 
       if (!skipPersist) {
         persistState("variant_nav");
       }
     } finally {
       variantSwitchInProgress = false;
+      requestAnimationFrame(() => restoreWindowScrollIfNeeded(scrollSnapshot));
     }
   }
 
@@ -7061,6 +7283,28 @@ Restrições:
     ttsPauseFloat.classList.remove("tts-active");
     window.speechSynthesis.speak(utter);
   }
+
+  function stopTtsPlayback(options = {}) {
+    const { resetIndex = true, force = false } = options;
+    const shouldStop = force || window.speechSynthesis.speaking || window.speechSynthesis.paused || isPaused;
+    if (!shouldStop) return;
+    autoplay = false;
+    ttsAuto.textContent = "Autoplay OFF";
+    $("#ttsPlay").classList.remove("tts-active");
+    ttsPlayFloat.classList.remove("tts-active");
+    $("#ttsPause").classList.remove("tts-active");
+    ttsPauseFloat.classList.remove("tts-active");
+    isPaused = false;
+    window.speechSynthesis.cancel();
+    clearHighlight();
+    ttsNow.textContent = "";
+    if (resetIndex) {
+      curIdx = 0;
+    }
+  }
+
+  window.stopTtsPlayback = stopTtsPlayback;
+
   $("#ttsPlay").addEventListener("click", () => {
     if (curIdx < 0 && playlist.length) { curIdx = 0; }
     autoplay = true;
@@ -7090,18 +7334,7 @@ Restrições:
     window.speechSynthesis.pause();
   });
   $("#ttsStop").addEventListener("click", () => {
-    autoplay = false;
-    ttsAuto.textContent = "Autoplay OFF";
-    $("#ttsPlay").classList.remove("tts-active");
-    ttsPlayFloat.classList.remove("tts-active");
-    $("#ttsPause").classList.remove("tts-active");
-    ttsPauseFloat.classList.remove("tts-active");
-    isPaused = false;
-    window.speechSynthesis.cancel();
-    clearHighlight();
-    ttsNow.textContent = "";
-    // Voltar ao início (título)
-    curIdx = 0;
+    stopTtsPlayback({ resetIndex: true, force: true });
   });
   ttsRateBtn.addEventListener("click", () => {
     let next = 1;

@@ -25,6 +25,8 @@ MOJIBAKE_PATTERNS = {
     ),
     "replacement_char": re.compile(r"\uFFFD"),
     "c1_control_chars": re.compile(r"[\u0080-\u009F]"),
+    # Typical mojibake of emoji bytes (e.g. F0 9F 94 8A -> ðŸ”Š)
+    "emoji_mojibake_seq": re.compile(r"\u00F0\u0178[\u2018-\u201F][\u0152-\u0178]"),
 }
 
 
@@ -35,6 +37,10 @@ def _line_hits(text: str):
         if found:
             hits.append((i, found, line))
     return hits
+
+
+def _full_text_hits(text: str):
+    return [name for name, pattern in MOJIBAKE_PATTERNS.items() if pattern.search(text)]
 
 
 def test_text_files_are_utf8_without_bom_and_without_mojibake():
@@ -58,3 +64,16 @@ def test_text_files_are_utf8_without_bom_and_without_mojibake():
             )
 
     assert not failures, "Problemas de encoding/mojibake encontrados:\n" + "\n".join(failures)
+
+
+def test_main_html_is_guarded_for_encoding():
+    candidates = set(_candidate_files())
+    main_html = ROOT / "static" / "main.html"
+    assert main_html in candidates, f"{main_html} deve ser checado no encoding guard."
+
+
+def test_main_html_full_content_has_no_mojibake():
+    main_html = ROOT / "static" / "main.html"
+    text = main_html.read_text(encoding="utf-8")
+    full_hits = _full_text_hits(text)
+    assert not full_hits, f"{main_html} contém padrões de mojibake no conteúdo completo: {full_hits}"
