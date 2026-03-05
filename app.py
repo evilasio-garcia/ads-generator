@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+import httpx
 import requests
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -2993,6 +2994,18 @@ class CanvaExportIn(BaseModel):
 CANVA_EXPORT_TASKS: Dict[str, Dict[str, Any]] = {}
 CANVA_EXPORT_TASK_TTL_SECONDS = 3600
 
+# Jobs de publicação ML em memória
+ML_PUBLISH_JOBS: Dict[str, Any] = {}
+ML_PUBLISH_JOB_TTL = 600  # 10 minutos
+
+
+def _cleanup_ml_publish_jobs() -> None:
+    now = time.time()
+    expired = [k for k, v in ML_PUBLISH_JOBS.items() if now - v.get("created_at", 0) > ML_PUBLISH_JOB_TTL]
+    for k in expired:
+        del ML_PUBLISH_JOBS[k]
+
+
 # Cache em memória de designs do Canva por usuário.
 # Estratégia:
 # - guarda todas as páginas já varridas
@@ -3621,6 +3634,372 @@ async def ml_disconnect_account(
     cfg.data = current_data
     db.commit()
     return JSONResponse(content={"ok": True})
+
+
+# ─── Mercado Livre — Publicação ──────────────────────────────────────────────
+
+
+class MLPublishRequest(BaseModel):
+    sku: str
+    marketplace: str = "mercadolivre"
+    ml_user_id: str
+    variant: str = "simple"
+
+
+@app.post("/api/ml/publish")
+async def ml_publish(
+    payload: MLPublishRequest,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """
+    Inicia publicação de anúncio no ML.
+    Retorna job_id imediatamente; progresso via GET /api/ml/publish/{job_id}/events
+    """
+    _cleanup_ml_publish_jobs()
+    user_id = str(current_user.user_id)
+
+    sku_normalized = payload.sku.strip().upper()
+    marketplace_normalized = "mercadolivre"
+    workspace = db.query(SkuWorkspace).filter(
+        SkuWorkspace.sku_normalized == sku_normalized,
+        SkuWorkspace.marketplace_normalized == marketplace_normalized,
+    ).first()
+
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace não encontrado para este SKU.")
+
+    ws_state = {
+        "base_state": workspace.base_state or {},
+        "versioned_state": workspace.versioned_state_current or {},
+    }
+
+    missing = mercadolivre_service.validate_workspace_for_publish(ws_state)
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Campos obrigatórios não preenchidos.", "missing_fields": missing},
+        )
+
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    ml_accounts = list((cfg.data if cfg else {}).get("ml_accounts") or [])
+    account = next((a for a in ml_accounts if str(a.get("ml_user_id")) == payload.ml_user_id), None)
+    if not account:
+        raise HTTPException(status_code=400, detail="Conta ML não encontrada. Conecte a conta em Configurações.")
+
+    user_pricing_config = list((cfg.data if cfg else {}).get("pricing_config") or [])
+
+    job_id = uuid4().hex
+    ML_PUBLISH_JOBS[job_id] = {
+        "user_id": user_id,
+        "status": "queued",
+        "events": [],
+        "created_at": time.time(),
+        "listing_id": None,
+        "error": None,
+    }
+
+    asyncio.create_task(
+        _run_ml_publish_job(
+            job_id=job_id,
+            user_id=user_id,
+            workspace=ws_state,
+            account=account,
+            ml_accounts=ml_accounts,
+            pricing_config=user_pricing_config,
+            variant=payload.variant,
+            db_user_id=user_id,
+        )
+    )
+
+    return JSONResponse(content={"job_id": job_id})
+
+
+def _emit_ml_event(job_id: str, step: str, message: str, **extra) -> None:
+    """Registra um evento SSE no job em memória."""
+    job = ML_PUBLISH_JOBS.get(job_id)
+    if not job:
+        return
+    event = {"step": step, "message": message, **extra}
+    job["events"].append(event)
+    job["status"] = step
+
+
+def _build_pricing_ctx_for_ml(pricing_config: list) -> Dict[str, Any]:
+    """Extrai o contexto de precificação para o canal mercadolivre da config do usuário."""
+    for entry in (pricing_config or []):
+        if entry.get("channel") in ("mercadolivre", "meli", "ml"):
+            return dict(entry)
+    return {}
+
+
+async def _run_ml_publish_job(
+    job_id: str,
+    user_id: str,
+    workspace: Dict[str, Any],
+    account: Dict[str, Any],
+    ml_accounts: list,
+    pricing_config: list,
+    variant: str,
+    db_user_id: str,
+) -> None:
+    """
+    Executa o fluxo completo de publicação no ML.
+    Emite eventos SSE via _emit_ml_event.
+    Nunca lança exceção — captura tudo e emite evento de erro.
+    """
+    listing_id = None
+
+    try:
+        # ── 1. Renovar token ML se necessário ────────────────────────────
+        _emit_ml_event(job_id, "token_refresh", "Verificando credenciais ML...")
+        try:
+            access_token, updated_account = await mercadolivre_service.get_valid_access_token(
+                account=account,
+                client_id=settings.ml_client_id,
+                client_secret=settings.ml_client_secret,
+            )
+        except mercadolivre_service.MLAuthError as exc:
+            _emit_ml_event(job_id, "error", str(exc) + " Reconecte a conta ML em Configurações.", failed_at="token_refresh")
+            return
+
+        if updated_account:
+            def _persist_token():
+                db_session = SessionLocal()
+                try:
+                    cfg_row = db_session.query(UserConfig).filter(UserConfig.user_id == db_user_id).first()
+                    if cfg_row:
+                        current_data = dict(cfg_row.data or {})
+                        accounts = list(current_data.get("ml_accounts") or [])
+                        updated_ml_user_id = updated_account.get("ml_user_id")
+                        accounts = [a for a in accounts if str(a.get("ml_user_id")) != updated_ml_user_id]
+                        accounts.append(updated_account)
+                        current_data["ml_accounts"] = accounts
+                        cfg_row.data = current_data
+                        db_session.commit()
+                finally:
+                    db_session.close()
+            await asyncio.to_thread(_persist_token)
+            account = updated_account
+
+        # ── 2. Montar payload do anúncio ──────────────────────────────────
+        base = workspace.get("base_state") or {}
+        fields = base.get("product_fields") or {}
+        versioned = workspace.get("versioned_state") or {}
+        variants_state = versioned.get("variants") or {}
+        variant_state = variants_state.get(variant) or variants_state.get("simple") or {}
+        prices = versioned.get("prices") or {}
+
+        title_block = variant_state.get("title") or {}
+        title_versions = title_block.get("versions") or []
+        title_idx = title_block.get("current_index", -1)
+        title_text = title_versions[title_idx] if 0 <= title_idx < len(title_versions) else ""
+
+        desc_block = variant_state.get("description") or {}
+        desc_versions = desc_block.get("versions") or []
+        desc_idx = desc_block.get("current_index", -1)
+        desc_text = desc_versions[desc_idx] if 0 <= desc_idx < len(desc_versions) else ""
+
+        listing_price = float(prices.get("listing") or 0.0)
+        weight_kg = float(fields.get("weight_kg") or 0)
+        length_cm = float(fields.get("length_cm") or 0)
+        width_cm = float(fields.get("width_cm") or 0)
+        height_cm = float(fields.get("height_cm") or 0)
+        category_id = str(fields.get("ml_category_id") or "")
+        ml_attributes = fields.get("ml_attributes") or []
+        listing_type_id = str(fields.get("ml_listing_type_id") or "gold_special")
+
+        listing_payload = {
+            "title": title_text,
+            "category_id": category_id,
+            "price": listing_price,
+            "currency_id": "BRL",
+            "available_quantity": 1,
+            "condition": "new",
+            "listing_type_id": listing_type_id,
+            "status": "paused",
+            "description": {"plain_text": desc_text},
+            "shipping": {
+                "mode": "me2",
+                "local_pick_up": False,
+                "free_shipping": False,
+                "dimensions": {
+                    "width": int(width_cm),
+                    "height": int(height_cm),
+                    "length": int(length_cm),
+                    "weight": int(weight_kg * 1000),
+                },
+            },
+        }
+        if ml_attributes:
+            listing_payload["attributes"] = ml_attributes
+
+        # ── 3. Criar anúncio pausado ──────────────────────────────────────
+        _emit_ml_event(job_id, "creating_listing", "Criando anúncio pausado no Mercado Livre...")
+        try:
+            listing_id = await mercadolivre_service.create_listing(access_token, listing_payload)
+            ML_PUBLISH_JOBS[job_id]["listing_id"] = listing_id
+        except mercadolivre_service.MLAPIError as exc:
+            _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {exc}", failed_at="creating_listing")
+            return
+
+        # ── 4. Download imagens do Drive ──────────────────────────────────
+        image_urls = list(fields.get("image_urls") or fields.get("drive_image_ids") or [])
+        _emit_ml_event(job_id, "downloading_images", f"Baixando imagens do Google Drive... ({len(image_urls)} imagens)")
+
+        image_bytes_list: list = []
+        try:
+            drive_cfg = {}
+            def _load_drive_cfg():
+                db_session = SessionLocal()
+                try:
+                    cfg_row = db_session.query(UserConfig).filter(UserConfig.user_id == db_user_id).first()
+                    return dict((cfg_row.data or {}).get("google_drive") or {}) if cfg_row else {}
+                finally:
+                    db_session.close()
+            drive_cfg = await asyncio.to_thread(_load_drive_cfg)
+
+            credentials_json = drive_cfg.get("credentials_json", "")
+            if not credentials_json:
+                raise Exception("Google Drive não configurado. Configure as credenciais em Configurações.")
+
+            service = await asyncio.to_thread(_build_drive_service, credentials_json)
+            for img_ref in image_urls:
+                file_id = img_ref if not img_ref.startswith("http") else img_ref.split("/d/")[-1].split("/")[0]
+                content = await asyncio.to_thread(
+                    lambda fid=file_id: service.files().get_media(fileId=fid, supportsAllDrives=True).execute()
+                )
+                filename = f"image_{len(image_bytes_list) + 1:03d}.jpg"
+                image_bytes_list.append((filename, content))
+        except Exception as exc:
+            _emit_ml_event(
+                job_id, "error",
+                f"Falha ao baixar imagens do Drive: {exc}",
+                failed_at="downloading_images",
+                listing_id=listing_id,
+            )
+            return
+
+        # ── 5. Upload imagens ao ML ───────────────────────────────────────
+        _emit_ml_event(job_id, "uploading_images", "Enviando imagens ao Mercado Livre...")
+        picture_ids: list = []
+        for idx, (filename, img_bytes) in enumerate(image_bytes_list, start=1):
+            try:
+                pic_id = await mercadolivre_service.upload_image(access_token, img_bytes, filename)
+                picture_ids.append(pic_id)
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(
+                    job_id, "error",
+                    f"Falha ao enviar imagem {idx}/{len(image_bytes_list)}: {exc}",
+                    failed_at="uploading_images",
+                    listing_id=listing_id,
+                )
+                return
+
+        if picture_ids:
+            try:
+                await mercadolivre_service.attach_pictures_to_listing(access_token, listing_id, picture_ids)
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(
+                    job_id, "error",
+                    f"Falha ao associar imagens ao anúncio: {exc}",
+                    failed_at="uploading_images",
+                    listing_id=listing_id,
+                )
+                return
+
+        # ── 6. Consultar frete ML ─────────────────────────────────────────
+        _emit_ml_event(job_id, "checking_freight", "Consultando custo de frete no Mercado Livre...")
+        try:
+            ml_freight = await mercadolivre_service.get_listing_shipping_cost(access_token, listing_id)
+        except mercadolivre_service.MLAPIError as exc:
+            _emit_ml_event(
+                job_id, "error",
+                f"Falha ao consultar frete: {exc}",
+                failed_at="checking_freight",
+                listing_id=listing_id,
+            )
+            return
+
+        shipping_cache = base.get("shipping_cost_cache") or {}
+        adsgen_freight = float(shipping_cache.get("value") or 0.0)
+        freight_result = mercadolivre_service.compare_freight(ml_freight, adsgen_freight)
+
+        # ── 7. Comparar frete e ajustar se necessário ─────────────────────
+        if freight_result["divergent"]:
+            _emit_ml_event(
+                job_id, "adjusting_price",
+                f"Frete divergente (Ads Gen R$ {adsgen_freight:.2f} → ML R$ {ml_freight:.2f}) — recalculando preços...",
+            )
+            cost_price = float(fields.get("cost_price") or 0.0)
+            pricing_ctx = _build_pricing_ctx_for_ml(pricing_config)
+            new_price = mercadolivre_service.recalculate_price_with_new_freight(
+                cost_price=cost_price,
+                new_freight=ml_freight,
+                pricing_ctx=pricing_ctx,
+            )
+
+            _emit_ml_event(job_id, "updating_listing", "Atualizando preço no anúncio...")
+            try:
+                await mercadolivre_service.update_listing_price(access_token, listing_id, new_price)
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(
+                    job_id, "error",
+                    f"Falha ao atualizar preço: {exc}",
+                    failed_at="updating_listing",
+                    listing_id=listing_id,
+                )
+                return
+
+            if settings.whatsapp_service_url and settings.whatsapp_notify_phone:
+                _emit_ml_event(job_id, "notifying_whatsapp", "Enviando notificação de divergência via WhatsApp...")
+                try:
+                    async with httpx.AsyncClient() as client:
+                        await client.post(
+                            settings.whatsapp_service_url,
+                            json={
+                                "phone": settings.whatsapp_notify_phone,
+                                "message": (
+                                    f"⚠️ Divergência de frete no anúncio {listing_id}:\n"
+                                    f"Ads Gen: R$ {adsgen_freight:.2f} → ML: R$ {ml_freight:.2f}\n"
+                                    f"Preço ajustado para R$ {new_price:.2f}"
+                                ),
+                            },
+                            headers={"Authorization": f"Bearer {settings.whatsapp_service_token}"},
+                            timeout=10.0,
+                        )
+                except Exception as exc:
+                    logger.warning("Falha ao enviar notificação WhatsApp: %s", exc)
+
+        # ── 8. Ativar anúncio ─────────────────────────────────────────────
+        _emit_ml_event(job_id, "activating", "Ativando anúncio no Mercado Livre...")
+        try:
+            await mercadolivre_service.activate_listing(access_token, listing_id)
+        except mercadolivre_service.MLAPIError as exc:
+            _emit_ml_event(
+                job_id, "error",
+                f"Falha ao ativar anúncio: {exc}",
+                failed_at="activating",
+                listing_id=listing_id,
+            )
+            return
+
+        listing_url = f"https://www.mercadolivre.com.br/anuncio/{listing_id}"
+        _emit_ml_event(
+            job_id, "done",
+            "Anúncio publicado com sucesso!",
+            listing_id=listing_id,
+            listing_url=listing_url,
+        )
+
+    except Exception as exc:
+        logger.exception("Erro inesperado no job ML %s: %s", job_id, exc)
+        _emit_ml_event(
+            job_id, "error",
+            f"Erro inesperado: {exc}",
+            failed_at="unknown",
+            listing_id=listing_id,
+        )
 
 
 # ========= MAIN PARA RODAR DEBUGANDO =========

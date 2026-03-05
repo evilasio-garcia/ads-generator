@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     jwt_expires_minutes: int = 60
     ml_client_id: str = ""
     ml_client_secret: str = ""
+    whatsapp_service_url: str = ""
+    whatsapp_service_token: str = ""
+    whatsapp_notify_phone: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
