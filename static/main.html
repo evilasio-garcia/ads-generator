@@ -2768,11 +2768,21 @@
         throw err;
       }
 
+      const resolvedSku = String(data.resolved_sku || "").trim();
+      const normalizedStatus = String(
+        data.status || (resolvedSku ? "found" : "missing")
+      ).toLowerCase();
+      const isFound = normalizedStatus === "found" && !!resolvedSku;
+      // Defensive behavior: for any "missing" response we keep auto-create available.
+      // This avoids UI dead-ends when upstream returns inconsistent create_available flags.
+      const createAvailable = isFound
+        ? false
+        : (normalizedStatus === "missing" ? true : !!data.create_available);
       kitResolveRequests[targetKey] = {
         checking: false,
-        status: data.status || "missing",
-        resolvedSku: String(data.resolved_sku || "").trim(),
-        createAvailable: !!data.create_available,
+        status: normalizedStatus || "missing",
+        resolvedSku,
+        createAvailable,
         fromCache: !!data.from_cache
       };
     } catch (err) {

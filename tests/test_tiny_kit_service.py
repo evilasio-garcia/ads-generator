@@ -106,7 +106,6 @@ def test_build_tiny_kit_payload_exact_shape():
         "preco_promocional": 0.0,
         "peso_bruto": 0.0,
         "peso_liquido": 0.0,
-        "volumes": 1,
         "altura_embalagem": 0.0,
         "largura_embalagem": 0.0,
         "comprimento_embalagem": 0.0,
@@ -284,7 +283,6 @@ def test_create_kit_product_sends_expected_include_payload(monkeypatch):
     assert product_payload["preco_promocional"] == 0.0
     assert product_payload["peso_bruto"] == 0.0
     assert product_payload["peso_liquido"] == 0.0
-    assert product_payload["volumes"] == 1
     assert product_payload["altura_embalagem"] == 0.0
     assert product_payload["largura_embalagem"] == 0.0
     assert product_payload["comprimento_embalagem"] == 0.0
@@ -501,7 +499,6 @@ def test_build_tiny_kit_payload_applies_ads_gen_context_fields():
     assert payload["altura_embalagem"] == 13.0
     assert payload["largura_embalagem"] == 22.0
     assert payload["comprimento_embalagem"] == 18.0
-    assert payload["volumes"] == 1
     assert payload["descricao_complementar"] == "Descricao da aba kit 2"
 
 

@@ -1036,7 +1036,7 @@ def _build_tiny_kit_payload(
     if not base_product_id:
         raise TinyServiceError("Produto base sem id no Tiny; nao foi possivel montar estrutura do kit.")
 
-    unidade = str(base_unit_override or base_product_full.get("unidade") or "UN").strip()[:3] or "UN"
+    unidade = str(base_unit_override or base_product_full.get("unidade") or "UN").strip() or "UN"
     origem = str(base_product_full.get("origem") or "0").strip()[:1] or "0"
     situacao = str(base_product_full.get("situacao") or "A").strip().upper()[:1] or "A"
     tipo = str(base_product_full.get("tipo") or "P").strip().upper()[:1] or "P"
@@ -1073,7 +1073,6 @@ def _build_tiny_kit_payload(
         "preco_promocional": combo_promo_price,
         "peso_bruto": peso if peso > 0 else 0.0,
         "peso_liquido": peso if peso > 0 else 0.0,
-        "volumes": volumes if volumes > 0 else 1,
         "altura_embalagem": altura if altura > 0 else 0.0,
         "largura_embalagem": largura if largura > 0 else 0.0,
         "comprimento_embalagem": comprimento if comprimento > 0 else 0.0,

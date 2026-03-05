@@ -694,3 +694,150 @@ def test_gui_kit_create_upstream_validation_error_shows_clear_toast_message():
 
             context.close()
             browser.close()
+
+
+@pytest.mark.skipif(sync_playwright is None, reason="playwright is not installed")
+def test_gui_kit5_create_button_reappears_after_revisiting_tab():
+    """
+    Reproduces reported bug:
+    - first access to kit5 shows create button
+    - after leaving and returning to kit5, button should still be visible
+    """
+    root_dir = Path(__file__).resolve().parents[2]
+    product = _load_fixture_product()
+    workspace = _make_workspace(product)
+    kit5_calls = {"count": 0}
+
+    with _static_server(root_dir) as base_url:
+        with sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(headless=True)
+            except Exception as exc:  # pragma: no cover
+                pytest.skip(f"Chromium not available: {exc}")
+
+            context = browser.new_context()
+            page = context.new_page()
+
+            def handle_routes(route, request):
+                path = urlparse(request.url).path
+                method = request.method.upper()
+
+                if path == "/api/config" and method == "GET":
+                    return _json_response(
+                        route,
+                        {
+                            "tiny_tokens": [{"label": "Tiny SP", "token": "token-sp"}],
+                            "pricing_config": [
+                                {
+                                    "marketplace": "mercadolivre",
+                                    "comissao_min": 12,
+                                    "comissao_max": 17,
+                                    "tacos": 5,
+                                    "margem_contribuicao": 15,
+                                    "lucro": 10,
+                                    "impostos": 8,
+                                }
+                            ],
+                        },
+                    )
+
+                if path == "/api/sku/workspace/load" and method == "POST":
+                    return _json_response(route, {"source": "tiny", "workspace": workspace})
+
+                if path == "/api/sku/workspace/save" and method == "POST":
+                    return _json_response(
+                        route,
+                        {"ok": True, "saved": True, "workspace_id": workspace["id"], "history_id": "h-1", "reason": None},
+                    )
+
+                if path == "/api/canva/list" and method == "POST":
+                    return _json_response(route, {"design": None})
+
+                if path == "/pricing/quote" and method == "POST":
+                    body = request.post_data_json or {}
+                    return _json_response(route, _quote_payload(float(body.get("cost_price") or 0), float(body.get("shipping_cost") or 0)))
+
+                if path == "/api/shipping/calculate_ml" and method == "POST":
+                    return _json_response(route, {"shipping_cost": 0.0})
+
+                if path == "/api/tiny/kit/resolve" and method == "POST":
+                    body = request.post_data_json or {}
+                    qty = int(body.get("kit_quantity") or 0)
+                    if qty == 5:
+                        kit5_calls["count"] += 1
+                        if kit5_calls["count"] == 1:
+                            # First access: backend returns explicit not_found (404)
+                            return _json_response(
+                                route,
+                                {
+                                    "detail": {
+                                        "status": "error",
+                                        "type": "not_found",
+                                        "message": "Kit nao encontrado para o SKU base informado.",
+                                    }
+                                },
+                                status=404,
+                            )
+                        # Subsequent access: backend returns missing with create_available false
+                        # (current frontend must still keep button available for missing/not_found flows).
+                        return _json_response(
+                            route,
+                            {
+                                "status": "missing",
+                                "resolved_sku": None,
+                                "searched_candidates": ["NEWGD60C7CB5", "NEWGD60C7-CB5"],
+                                "from_cache": False,
+                                "create_available": False,
+                                "validation": None,
+                                "message": "Nenhum kit valido",
+                            },
+                        )
+                    return _json_response(route, {"status": "found", "resolved_sku": f"NEWGD60C7CB{qty}", "create_available": False})
+
+                if path == "/api/tiny/kit/create" and method == "POST":
+                    return _json_response(route, {"detail": {"message": "not used"}}, status=500)
+
+                if path == "/api/tiny/kit/suggest-name" and method == "POST":
+                    body = request.post_data_json or {}
+                    qty = int(body.get("kit_quantity") or 0)
+                    unit_plural = str(body.get("unit_plural_override") or "PACOTES").strip().upper() or "PACOTES"
+                    return _json_response(
+                        route,
+                        {
+                            "status": "ok",
+                            "combo_name": f"COMBO COM {qty} {unit_plural}: Produto Base Sugerido",
+                            "unit_plural": unit_plural,
+                        },
+                    )
+
+                return route.continue_()
+
+            context.route("**/*", handle_routes)
+
+            def switch_variant(variant_key: str):
+                page.wait_for_function("() => (typeof variantSwitchInProgress === 'undefined') || !variantSwitchInProgress")
+                page.click(f"button.variant-tab-btn[data-variant='{variant_key}']")
+                page.wait_for_function(
+                    "(target) => (typeof activeVariantKey !== 'undefined' ? activeVariantKey : '') === target",
+                    arg=variant_key,
+                )
+                page.wait_for_function("() => (typeof variantSwitchInProgress === 'undefined') || !variantSwitchInProgress")
+
+            page.goto(base_url + "/static/main.html", wait_until="domcontentloaded")
+            page.wait_for_selector("#tinyInstance")
+            page.select_option("#tinyInstance", "0")
+            page.fill("#tinySKU", SKU)
+            page.press("#tinySKU", "Enter")
+            page.wait_for_function("() => document.querySelector('#productName').value.trim().length > 0")
+
+            switch_variant("kit5")
+            page.wait_for_function("() => (document.querySelector('#btnTinyCreateKit')?.style.display || '') !== 'none'")
+
+            switch_variant("simple")
+            switch_variant("kit5")
+            page.wait_for_function("() => (document.querySelector('#btnTinyCreateKit')?.style.display || '') !== 'none'")
+
+            assert kit5_calls["count"] >= 2, f"Expected resolve for kit5 to be called twice, got {kit5_calls['count']}"
+
+            context.close()
+            browser.close()
