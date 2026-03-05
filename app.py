@@ -3746,6 +3746,8 @@ class MLPublishRequest(BaseModel):
     catalog_product_id: Optional[str] = None
     description: Optional[str] = None
     image_urls: Optional[list] = None
+    # Aba de precificação ativa na UI: "classic" (% Min) → gold_special | "premium" (% Max) → gold_pro
+    pricing_tab: Optional[str] = None  # "classic" or "premium"
 
 
 @app.post("/api/ml/publish")
@@ -3800,6 +3802,9 @@ async def ml_publish(
         base_fields["image_urls"] = ["__drive_auto__"]
     if payload.catalog_product_id is not None:
         base_fields["ml_catalog_product_id"] = payload.catalog_product_id
+    if payload.pricing_tab is not None:
+        _LISTING_TYPE_MAP = {"classic": "gold_special", "premium": "gold_pro"}
+        base_fields["ml_listing_type_id"] = _LISTING_TYPE_MAP.get(payload.pricing_tab, "gold_special")
     ws_state["base_state"] = dict(ws_state["base_state"])
     ws_state["base_state"]["product_fields"] = base_fields
 
