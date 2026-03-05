@@ -2,9 +2,12 @@
 """Mercado Livre API integration — OAuth2, listings, images, shipping."""
 
 import httpx
+import logging
 import urllib.parse
 import time
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 ML_AUTH_URL = "https://auth.mercadolivre.com.br/authorization"
 ML_TOKEN_URL = "https://api.mercadolibre.com/oauth/token"
@@ -160,13 +163,46 @@ async def create_listing(access_token: str, payload: Dict[str, Any]) -> str:
                 body = exc.response.json()
             except Exception:
                 pass
-            raise MLAPIError(
-                body.get("message") or f"Erro {exc.response.status_code} ao criar anúncio",
-                status_code=exc.response.status_code,
-            ) from exc
+            logger.error("[ML create_listing] status=%s body=%s", exc.response.status_code, exc.response.text)
+            msg = body.get("message") or f"Erro {exc.response.status_code} ao criar anúncio"
+            cause = body.get("cause") or body.get("causes") or ""
+            if cause:
+                msg = f"{msg} | cause: {cause}"
+            raise MLAPIError(msg, status_code=exc.response.status_code) from exc
         except Exception as exc:
             raise MLAPIError(f"Erro de comunicação ao criar anúncio: {exc}") from exc
     return resp.json()["id"]
+
+
+async def update_description(access_token: str, item_id: str, plain_text: str) -> None:
+    """Cria ou atualiza a descrição de um anúncio no ML."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                f"{ML_API_BASE}/items/{item_id}/description",
+                json={"plain_text": plain_text},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15.0,
+            )
+            # 400 may mean description already exists — try PUT
+            if resp.status_code == 400:
+                resp = await client.put(
+                    f"{ML_API_BASE}/items/{item_id}/description",
+                    json={"plain_text": plain_text},
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=15.0,
+                )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            body = {}
+            try:
+                body = exc.response.json()
+            except Exception:
+                pass
+            raise MLAPIError(
+                body.get("message") or f"Erro {exc.response.status_code} ao atualizar descrição",
+                status_code=exc.response.status_code,
+            ) from exc
 
 
 async def upload_image(access_token: str, image_bytes: bytes, filename: str) -> str:
