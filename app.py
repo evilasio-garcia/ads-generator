@@ -16,7 +16,7 @@ import httpx
 import requests
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, create_engine, inspect
@@ -4000,6 +4000,57 @@ async def _run_ml_publish_job(
             failed_at="unknown",
             listing_id=listing_id,
         )
+
+
+@app.get("/api/ml/publish/{job_id}/events")
+async def ml_publish_events(
+    job_id: str,
+    current_user: CurrentUser = Depends(get_current_user_master),
+):
+    """Stream SSE de progresso da publicação ML."""
+    _cleanup_ml_publish_jobs()
+    user_id = str(current_user.user_id)
+
+    job = ML_PUBLISH_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job não encontrado.")
+    if job.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+
+    async def event_generator():
+        sent_index = 0
+        max_wait_seconds = ML_PUBLISH_JOB_TTL
+        waited = 0.0
+        poll_interval = 0.3
+
+        while waited < max_wait_seconds:
+            job = ML_PUBLISH_JOBS.get(job_id)
+            if not job:
+                yield "data: {\"step\": \"error\", \"message\": \"Job expirado.\"}\n\n"
+                return
+
+            events = job.get("events") or []
+            while sent_index < len(events):
+                event_data = json.dumps(events[sent_index], ensure_ascii=False)
+                yield f"data: {event_data}\n\n"
+                step = events[sent_index].get("step")
+                sent_index += 1
+                if step in ("done", "error"):
+                    return
+
+            await asyncio.sleep(poll_interval)
+            waited += poll_interval
+
+        yield "data: {\"step\": \"error\", \"message\": \"Timeout: job excedeu 10 minutos.\"}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ========= MAIN PARA RODAR DEBUGANDO =========
