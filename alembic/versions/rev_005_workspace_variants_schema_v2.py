@@ -143,6 +143,9 @@ def _migrate_column_to_v1(table_name: str, column_name: str) -> None:
 
 
 def upgrade() -> None:
+    # Alguns ambientes legados possuem alembic_version.version_num como VARCHAR(32),
+    # mas os revision IDs atuais excedem esse limite.
+    op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
     _migrate_column_to_v2("sku_workspace", "versioned_state_current")
     _migrate_column_to_v2("sku_workspace_history", "versioned_state_snapshot")
 

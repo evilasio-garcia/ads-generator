@@ -1103,10 +1103,30 @@
             </div>
           </div>
           <div>
-            <label class="text-sm text-gray-600 font-medium">SKU</label>
+            <label class="text-sm text-gray-600 font-medium inline-flex items-center gap-1">
+              <span>SKU</span>
+              <button
+                type="button"
+                class="info-popover-trigger inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                data-info-template="#infoTemplateTinyKitCreateMapping"
+                aria-label="Como os dados do Ads Gen sao enviados para cadastro de KIT no Tiny"
+                aria-expanded="false">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
+                  <path d="M12 10v6m0-9h.01" stroke-width="1.8" stroke-linecap="round"></path>
+                </svg>
+              </button>
+            </label>
             <div class="flex gap-1 mt-1">
               <input id="tinySKUDisplay" type="text"
                 class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="PROD-12345">
+              <button id="btnTinyCreateKit" class="btn text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" title="Cadastrar KIT automaticamente" style="display:none">
+                <svg class="icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M12 4v16m8-8H4" />
+                </svg>
+                <span class="ml-1">Cadastrar KIT</span>
+              </button>
               <button class="btn text-xs copy-field-btn" data-copy-field="tinySKUDisplay" title="Copiar conteúdo">
                 <svg class="icon w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -1664,6 +1684,16 @@
               </svg>
               Precificação
             </button>
+            <button
+              class="cfg-nav-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+              data-section="general">
+              <svg class="inline-block w-4 h-4 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 6h16M4 12h16M4 18h16">
+                </path>
+              </svg>
+              Geral
+            </button>
           </nav>
         </div>
 
@@ -1880,6 +1910,37 @@
                 </table>
               </div>
             </div>
+
+            <!-- Section: Geral -->
+            <div class="cfg-section p-5" data-section="general" style="display: none;">
+              <h4 class="text-md font-semibold text-gray-800 mb-4">Configurações Gerais</h4>
+              <p class="text-xs text-gray-500 mb-3">
+                Regras DE/PARA usadas para pré-preencher o nome do KIT no cadastro automático.
+              </p>
+
+              <div class="mb-3">
+                <button id="cfgAddKitNameReplacement" class="btn text-xs" title="Adicionar regra DE/PARA">
+                  + Adicionar regra DE/PARA
+                </button>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs border border-gray-200 rounded-md">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-2 py-2 text-left font-medium text-gray-700">DE</th>
+                      <th class="px-2 py-2 text-left font-medium text-gray-700">PARA</th>
+                      <th class="px-2 py-2 text-center font-medium text-gray-700 w-16">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cfgKitNameReplacementBody">
+                    <tr>
+                      <td colspan="3" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma regra cadastrada</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
         </div>
       </div> <!-- /Body with Sidebar + Content -->
 
@@ -1943,6 +2004,22 @@
     </ul>
     <p>Sem esse cuidado, um undo longo pode voltar para outro campo e salvar dados no SKU errado.</p>
   </template>
+  <template id="infoTemplateTinyKitCreateMapping" data-info-title="Cadastro de KIT no Tiny: mapeamento de campos">
+    <p>No cadastro automatico de KIT, os dados enviados para o Tiny seguem o mapeamento abaixo:</p>
+    <ul>
+      <li><strong>codigo</strong>: `SKUCB{qtd}` (ex.: SKU001CB2)</li>
+      <li><strong>nome</strong>: `COMBO COM {QTD} {UNIDADE_PLURAL}: {NOME_DO_PRODUTO_SIMPLES}`</li>
+      <li><strong>preco</strong>: valor de <strong>Preco do Anuncio (R$)</strong> da aba de kit ativa</li>
+      <li><strong>preco_promocional</strong>: `0.00`; se o Tiny rejeitar, o sistema tenta novamente com o valor do preco do anuncio</li>
+      <li><strong>unidade</strong>: mesma unidade do produto simples</li>
+      <li><strong>peso_liquido / peso_bruto</strong>: valor do campo <strong>Peso (kg)</strong> da aba ativa</li>
+      <li><strong>volumes</strong>: sempre `1`</li>
+      <li><strong>altura / largura / comprimento</strong>: campos da secao cadastral da aba ativa</li>
+      <li><strong>descricao_complementar</strong>: texto de <strong>Descricao</strong> da aba ativa</li>
+      <li><strong>estrutura do KIT</strong>: apenas o SKU simples com quantidade igual ao kit (2..5)</li>
+    </ul>
+    <p>Esse mapeamento e aplicado somente ao clicar em <strong>Cadastrar KIT</strong>.</p>
+  </template>
 
 </body>
 <script>
@@ -1988,7 +2065,8 @@
     tiny_tokens: [],
     pricing_config: [],
     image_search: { api_key: "", cx: "" },
-    google_drive: { folder_id: "", credentials_json: "" }
+    google_drive: { folder_id: "", credentials_json: "" },
+    general: { kit_name_replacements: [] }
   };
 
   const productName = $("#productName"), marketplace = $("#marketplace"), llm = $("#llm");
@@ -2012,6 +2090,10 @@
   const KIT_VARIANT_KEYS = VARIANT_DEFS.filter((item) => item.quantity > 1).map((item) => item.key);
   let activeVariantKey = "simple";
   let variantSwitchInProgress = false;
+  let kitCreateInFlight = false;
+  const kitResolveRequests = Object.fromEntries(
+    KIT_VARIANT_KEYS.map((key) => [key, { checking: false, status: "idle", resolvedSku: "", createAvailable: false, fromCache: false }])
+  );
 
   // Image Gallery Elements
   const btnSearchImages = $("#btnSearchImages");
@@ -2060,6 +2142,7 @@
   // Campos de informações cadastrais
   const tinyGTIN = $("#tinyGTIN");
   const tinySKUDisplay = $("#tinySKUDisplay");
+  const btnTinyCreateKit = $("#btnTinyCreateKit");
   const tinyHeight = $("#tinyHeight");
   const tinyWidth = $("#tinyWidth");
   const tinyLength = $("#tinyLength");
@@ -2279,7 +2362,7 @@
 
   // Dados do produto Tiny (dados reais da API)
   let tinyProductData = null;
-  let simpleCatalogIdentity = { gtin: "", sku: "" };
+  let simpleCatalogIdentity = { gtin: "", sku: "", unit: "" };
   let isFetchingTinyData = false;
   let currentWorkspaceId = null;
   let currentWorkspaceSku = null;
@@ -2538,10 +2621,11 @@
     return "";
   }
 
-  function setSimpleCatalogIdentity(gtinValue, skuValue) {
+  function setSimpleCatalogIdentity(gtinValue, skuValue, unitValue = "") {
     simpleCatalogIdentity = {
       gtin: String(gtinValue || "").trim(),
-      sku: String(skuValue || "").trim()
+      sku: String(skuValue || "").trim(),
+      unit: String(unitValue || "").trim().toUpperCase()
     };
   }
 
@@ -2562,12 +2646,64 @@
     };
   }
 
+  function getSimpleCatalogUnit() {
+    return String(pickFirstNonEmptyValue(
+      simpleCatalogIdentity.unit,
+      tinyProductData?.unit,
+      tinyProductData?.raw_data?.unidade,
+      ""
+    ) || "").toUpperCase();
+  }
+
   function buildVariantCatalogSku(variantKey = activeVariantKey) {
     const { sku } = getSimpleCatalogIdentity();
     if (!sku) return "";
-    const variantDef = VARIANT_BY_KEY[normalizeVariantKey(variantKey)] || VARIANT_BY_KEY.simple;
+    const normalizedKey = normalizeVariantKey(variantKey);
+    const variantDef = VARIANT_BY_KEY[normalizedKey] || VARIANT_BY_KEY.simple;
     if ((variantDef.quantity || 1) <= 1) return sku;
+    const resolved = kitResolveRequests[normalizedKey];
+    if (resolved && resolved.status === "found" && resolved.resolvedSku) {
+      return String(resolved.resolvedSku).trim();
+    }
     return `${sku}CB${variantDef.quantity}`;
+  }
+
+  function getSelectedTinySourceLabel() {
+    const idx = parseInt(String(tinyInstance?.value || ""), 10);
+    const tokens = getTinyTokens();
+    if (Number.isNaN(idx) || idx < 0 || idx >= tokens.length) return "";
+    const label = String(tokens[idx]?.label || "").trim();
+    if (label) return label;
+    return `Instância ${idx + 1}`;
+  }
+
+  function getKitCreateHintText() {
+    const sourceLabel = getSelectedTinySourceLabel();
+    return sourceLabel
+      ? `Cadastrar KIT automaticamente ${sourceLabel}`
+      : "Cadastrar KIT automaticamente";
+  }
+
+  function updateKitCreateButtonState() {
+    if (!btnTinyCreateKit) return;
+    const baseHint = getKitCreateHintText();
+    if (activeVariantKey === "simple") {
+      btnTinyCreateKit.style.display = "none";
+      btnTinyCreateKit.disabled = true;
+      btnTinyCreateKit.title = "Cadastro automatico de KIT disponivel apenas nas abas de kit.";
+      return;
+    }
+    const state = kitResolveRequests[activeVariantKey] || {};
+    const shouldShow = !!state.createAvailable;
+    btnTinyCreateKit.style.display = shouldShow ? "" : "none";
+    btnTinyCreateKit.disabled = !!state.checking || kitCreateInFlight;
+    if (state.checking) {
+      btnTinyCreateKit.title = "Verificando KIT no Tiny...";
+    } else if (kitCreateInFlight) {
+      btnTinyCreateKit.title = "Cadastrando KIT no Tiny...";
+    } else {
+      btnTinyCreateKit.title = baseHint;
+    }
   }
 
   function applyCatalogIdentityForActiveVariant() {
@@ -2575,10 +2711,186 @@
       const { gtin, sku } = getSimpleCatalogIdentity();
       tinyGTIN.value = gtin;
       tinySKUDisplay.value = sku;
+      updateKitCreateButtonState();
       return;
     }
     tinyGTIN.value = "";
     tinySKUDisplay.value = buildVariantCatalogSku(activeVariantKey);
+    updateKitCreateButtonState();
+  }
+
+  async function resolveKitSkuForVariant(variantKey, options = {}) {
+    const targetKey = normalizeVariantKey(variantKey);
+    if (!KIT_VARIANT_KEYS.includes(targetKey)) return;
+    const forceRefresh = !!options.forceRefresh;
+    const state = kitResolveRequests[targetKey] || {};
+    if (state.checking) return;
+
+    const baseSku = normalizeSkuValue(getSimpleCatalogIdentity().sku);
+    const token = getActiveTinyToken();
+    const quantity = Number(VARIANT_BY_KEY[targetKey]?.quantity || 0);
+    if (!baseSku || !token || quantity < 2) {
+      kitResolveRequests[targetKey] = {
+        checking: false,
+        status: "missing",
+        resolvedSku: "",
+        createAvailable: false,
+        fromCache: false
+      };
+      if (activeVariantKey === targetKey) {
+        applyCatalogIdentityForActiveVariant();
+      }
+      return;
+    }
+
+    kitResolveRequests[targetKey] = {
+      ...state,
+      checking: true
+    };
+    if (activeVariantKey === targetKey) {
+      updateKitCreateButtonState();
+    }
+
+    try {
+      const res = await fetchWithAuth("/api/tiny/kit/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          base_sku: baseSku,
+          kit_quantity: quantity,
+          force_refresh: forceRefresh
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = createApiError(res, data, "Falha ao validar SKU de KIT no Tiny.");
+        throw err;
+      }
+
+      kitResolveRequests[targetKey] = {
+        checking: false,
+        status: data.status || "missing",
+        resolvedSku: String(data.resolved_sku || "").trim(),
+        createAvailable: !!data.create_available,
+        fromCache: !!data.from_cache
+      };
+    } catch (err) {
+      console.warn("Falha ao resolver SKU de kit:", err);
+      const isKitNotFound =
+        Number(err?.status || 0) === 404 ||
+        String(err?.type || "").toLowerCase().includes("not_found");
+      kitResolveRequests[targetKey] = isKitNotFound
+        ? {
+          checking: false,
+          status: "missing",
+          resolvedSku: "",
+          createAvailable: true,
+          fromCache: false
+        }
+        : {
+          checking: false,
+          status: "error",
+          resolvedSku: "",
+          createAvailable: false,
+          fromCache: false
+        };
+    } finally {
+      if (activeVariantKey === targetKey) {
+        applyCatalogIdentityForActiveVariant();
+      }
+    }
+  }
+
+  function getActivePriceTabName() {
+    const activeTab = document.querySelector(".price-tab-content.active")?.dataset?.tab;
+    return activeTab === "max" ? "max" : "min";
+  }
+
+  function getAnnouncementPriceForKitCreate() {
+    const activeTab = getActivePriceTabName();
+    const preferredId = activeTab === "max" ? "tinyAnnouncePriceMax" : "tinyAnnouncePriceMin";
+    const preferredValue = parseFloat(document.getElementById(preferredId)?.value || 0);
+    if (preferredValue > 0) return Number(preferredValue.toFixed(2));
+
+    const minValue = parseFloat(document.getElementById("tinyAnnouncePriceMin")?.value || 0);
+    if (minValue > 0) return Number(minValue.toFixed(2));
+    const maxValue = parseFloat(document.getElementById("tinyAnnouncePriceMax")?.value || 0);
+    if (maxValue > 0) return Number(maxValue.toFixed(2));
+    return null;
+  }
+
+  function collectKitCreateContext() {
+    const parsePositive = (raw) => {
+      const n = parseFloat(raw);
+      return Number.isFinite(n) && n > 0 ? Number(n.toFixed(4)) : null;
+    };
+    const announcementPrice = getAnnouncementPriceForKitCreate();
+    const weightKg = parsePositive(tinyWeight?.value || "");
+    const heightCm = parsePositive(tinyHeight?.value || "");
+    const widthCm = parsePositive(tinyWidth?.value || "");
+    const lengthCm = parsePositive(tinyLength?.value || "");
+    const description = String(outDesc?.value || "").trim();
+    const baseUnit = String(getSimpleCatalogUnit() || "").trim().toUpperCase();
+
+    return {
+      announcement_price: announcementPrice,
+      promotional_price: 0,
+      base_unit_override: baseUnit || null,
+      kit_weight_kg: weightKg,
+      kit_height_cm: heightCm,
+      kit_width_cm: widthCm,
+      kit_length_cm: lengthCm,
+      kit_volumes: 1,
+      kit_description: description || null
+    };
+  }
+
+  async function createKitForActiveVariant(options = {}) {
+    const opts = options && typeof options === "object" ? options : {};
+    const unitOverride = opts.unitOverride || null;
+    const nameOverride = opts.nameOverride || null;
+    const targetKey = normalizeVariantKey(activeVariantKey);
+    if (!KIT_VARIANT_KEYS.includes(targetKey)) return null;
+    const baseSku = normalizeSkuValue(getSimpleCatalogIdentity().sku);
+    const token = getActiveTinyToken();
+    const quantity = Number(VARIANT_BY_KEY[targetKey]?.quantity || 0);
+    if (!baseSku || !token || quantity < 2) {
+      throw new Error("Nao foi possivel identificar token/SKU base para cadastrar o KIT.");
+    }
+
+    const payload = {
+      token,
+      base_sku: baseSku,
+      kit_quantity: quantity
+    };
+    if (unitOverride) {
+      payload.unit_plural_override = String(unitOverride).trim().toUpperCase();
+    }
+    if (nameOverride) {
+      payload.combo_name_override = String(nameOverride).trim();
+    }
+    const kitContext = collectKitCreateContext();
+    if (kitContext.announcement_price !== null) payload.announcement_price = kitContext.announcement_price;
+    payload.promotional_price = kitContext.promotional_price;
+    if (kitContext.base_unit_override) payload.base_unit_override = kitContext.base_unit_override;
+    if (kitContext.kit_weight_kg !== null) payload.kit_weight_kg = kitContext.kit_weight_kg;
+    if (kitContext.kit_height_cm !== null) payload.kit_height_cm = kitContext.kit_height_cm;
+    if (kitContext.kit_width_cm !== null) payload.kit_width_cm = kitContext.kit_width_cm;
+    if (kitContext.kit_length_cm !== null) payload.kit_length_cm = kitContext.kit_length_cm;
+    payload.kit_volumes = 1;
+    if (kitContext.kit_description) payload.kit_description = kitContext.kit_description;
+
+    const response = await fetchWithAuth("/api/tiny/kit/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw createApiError(response, data, "Falha ao cadastrar KIT automaticamente no Tiny.");
+    }
+    return data;
   }
 
   function buildWorkspaceBaseState() {
@@ -2607,6 +2919,7 @@
         product_name: productName.value || "",
         tiny_gtin: catalogIdentity.gtin || "",
         tiny_sku_display: catalogIdentity.sku || "",
+        tiny_unit: getSimpleCatalogUnit() || "",
         tiny_height: tinyHeight.value || "",
         tiny_width: simpleWidth || "",
         tiny_length: tinyLength.value || "",
@@ -2748,6 +3061,7 @@
     const resolvedWeight = pickFirstNonEmptyValue(fields.tiny_weight, tinyData.weight_kg);
     const resolvedCatalogGtin = pickFirstNonEmptyValue(fields.tiny_gtin, tinyData.gtin);
     const resolvedCatalogSku = pickFirstNonEmptyValue(fields.tiny_sku_display, tinyData.sku);
+    const resolvedCatalogUnit = pickFirstNonEmptyValue(fields.tiny_unit, tinyData.unit, tinyData?.raw_data?.unidade);
     if (!tinyProductData) {
       productName.value = fields.product_name || "";
       tinyHeight.value = fields.tiny_height || "";
@@ -2772,7 +3086,7 @@
       simpleState.pricesDirty = true;
       simpleState.derivedSignature = "";
     }
-    setSimpleCatalogIdentity(resolvedCatalogGtin, resolvedCatalogSku);
+    setSimpleCatalogIdentity(resolvedCatalogGtin, resolvedCatalogSku, resolvedCatalogUnit);
     applyCatalogIdentityForActiveVariant();
   }
 
@@ -3483,7 +3797,11 @@
     if (hasTinyData) {
       // Modo Tiny ou Híbrido: preencher campos do produto com dados reais da API
       productName.value = tinyProductData.title || "";
-      setSimpleCatalogIdentity(tinyProductData.gtin || "", tinyProductData.sku || "");
+      setSimpleCatalogIdentity(
+        tinyProductData.gtin || "",
+        tinyProductData.sku || "",
+        tinyProductData.unit || tinyProductData?.raw_data?.unidade || ""
+      );
       tinyHeight.value = tinyProductData.height_cm || "";
       tinyLength.value = tinyProductData.length_cm || "";
 
@@ -3566,7 +3884,7 @@
 
     } else {
       // Modo Manual PURO: LIMPAR valores e habilitar
-      setSimpleCatalogIdentity("", "");
+      setSimpleCatalogIdentity("", "", "");
       tinyHeight.value = "";
       tinyWidth.value = "";
       tinyLength.value = "";
@@ -3641,7 +3959,7 @@
         </td>
         <td class="px-3 py-2">
           <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600"
-                 value="${multiple >= 0 && multiple < 999 ? multiple.toFixed(2) + 'x' : '∞'}" readonly>
+                 value="${multiple >= 0 && multiple < 999 ? multiple.toFixed(2) + 'x' : '∞x'}" readonly>
         </td>
         <td class="px-3 py-2">
           <input type="text" class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-center text-gray-600"
@@ -3716,6 +4034,7 @@
   tinyInstance.addEventListener('change', () => {
     resetExternalSkuActions({ disableDrive: true, clearCanva: true });
     updateIntegrationMode();
+    updateKitCreateButtonState();
   });
   tinySKU.addEventListener('input', () => {
     const normalizedSku = normalizeSkuValue(tinySKU.value);
@@ -3869,7 +4188,7 @@
 
     // 3. Calcular e preencher análises para cada preço
     // Nota: querySelectorAll('.grid') retorna TODOS os grids, incluindo o wrapper principal
-    // Índices: [0]=wrapper principal, [1]=métricas anúncio, [2]=métricas agressivo, [3]=métricas promo
+    // Índices: [0]=wrapper principal, [1]=metricas anuncio, [2]=metricas agressivo, [3]=metricas promo
     const prices = [
       { input: announcePrice, container: tabContainer.querySelectorAll('.grid')[1] },
       { input: aggressivePrice, container: tabContainer.querySelectorAll('.grid')[2] },
@@ -3890,7 +4209,7 @@
         marginField.value = `${analysis.marginPct.toFixed(2)}%`;
         multipleField.value = analysis.valueMultiple >= 0 && analysis.valueMultiple < 999
           ? `${analysis.valueMultiple.toFixed(2)}x`
-          : (analysis.valueMultiple >= 999 ? '∞' : '-');
+          : (analysis.valueMultiple >= 999 ? '∞x' : '-');
         valueField.value = `R$ ${analysis.valueAmount.toFixed(2)}`;
 
         // Aplicar estilos de destaque
@@ -3941,7 +4260,7 @@
     marginField.value = `${metrics.margin_percent.toFixed(2)}%`;
     multipleField.value = metrics.value_multiple >= 0 && metrics.value_multiple < 999
       ? `${metrics.value_multiple.toFixed(2)}x`
-      : (metrics.value_multiple >= 999 ? '∞' : '-');
+      : (metrics.value_multiple >= 999 ? '∞x' : '-');
     valueField.value = `R$ ${metrics.value_amount.toFixed(2)}`;
 
     // Aplicar estilos de aviso
@@ -5076,7 +5395,7 @@
     }
 
     if (validFiles > 0) {
-      warnings.push(`✓ <strong>${enabledFiles} de ${validFiles}</strong> arquivo(s) válido(s) será(ão) usado(s) na geração.`);
+      warnings.push(`✅ <strong>${enabledFiles} de ${validFiles}</strong> arquivo(s) válido(s) será(ão) usado(s) na geração.`);
     }
 
     if (warnings.length > 0) {
@@ -5199,10 +5518,10 @@
         statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Invalido</span>
                       <div class="text-xs text-red-600 mt-1">${item.error}</div>`;
       } else if (willBeProcessed) {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Será usado (${processingNumber}/10)</span>`;
+        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✅ Será usado (${processingNumber}/10)</span>`;
       } else if (item.valid && isInTop10Slots && !item.enabled) {
         // Arquivo tem slot disponível mas não foi marcado pelo usuário
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">○ Aguardando seleção</span>
+        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Aguardando seleção</span>
                       <div class="text-xs text-blue-600 mt-1">Marque o checkbox para usar</div>`;
       } else {
         statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Não será usado</span>
@@ -5240,7 +5559,7 @@
         </td>
         <td class="px-3 py-2">
           <div class="text-gray-900 font-medium">${item.file.name}</div>
-          <div class="text-xs text-gray-500">${fileTypeLabel} · ${fileSize} KB</div>
+          <div class="text-xs text-gray-500">${fileTypeLabel} - ${fileSize} KB</div>
         </td>
         <td class="px-3 py-2">
           ${statusBadge}
@@ -5466,9 +5785,134 @@
   // Prompt Modal
   const promptModal = $("#promptModal"); const promptTitleEl = $("#promptTitle"); const promptTextEl = $("#promptText");
   const promptOk = $("#promptOk"); const promptCancel = $("#promptCancel"); let promptResolve = null;
-  function openPrompt(title) { promptTitleEl.textContent = title || "Instruções adicionais"; promptTextEl.value = ""; promptModal.classList.add("open"); return new Promise(res => { promptResolve = res }); }
-  promptCancel.addEventListener("click", () => { promptModal.classList.remove("open"); if (promptResolve) promptResolve(null); });
-  promptOk.addEventListener("click", () => { promptModal.classList.remove("open"); if (promptResolve) promptResolve(promptTextEl.value); });
+  const defaultPromptPlaceholder = promptTextEl?.getAttribute("placeholder") || "";
+  const defaultPromptRows = promptTextEl ? Number(promptTextEl.getAttribute("rows") || 6) : 6;
+  const defaultPromptOkText = promptOk ? promptOk.textContent : "Aplicar";
+  let promptSubmitOnEnter = false;
+
+  function closePromptModalWith(value) {
+    if (!promptModal) return;
+    promptModal.classList.remove("open");
+    if (promptResolve) {
+      const resolver = promptResolve;
+      promptResolve = null;
+      resolver(value);
+    }
+  }
+
+  function openPrompt(title, options = {}) {
+    if (!promptModal || !promptTextEl || !promptTitleEl || !promptOk) return Promise.resolve(null);
+    const opts = options && typeof options === "object" ? options : {};
+    promptTitleEl.textContent = title || "Instruções adicionais";
+    promptTextEl.value = String(opts.initialValue ?? "");
+    promptTextEl.setAttribute("placeholder", String(opts.placeholder ?? defaultPromptPlaceholder));
+    promptTextEl.setAttribute("rows", String(Number(opts.rows || defaultPromptRows) || defaultPromptRows));
+    promptOk.textContent = String(opts.okText || defaultPromptOkText || "Aplicar");
+    promptSubmitOnEnter = !!opts.submitOnEnter;
+    promptModal.classList.add("open");
+    setTimeout(() => {
+      promptTextEl.focus();
+      promptTextEl.select();
+    }, 0);
+    return new Promise((res) => { promptResolve = res; });
+  }
+
+  promptCancel.addEventListener("click", () => {
+    closePromptModalWith(null);
+  });
+  promptOk.addEventListener("click", () => {
+    closePromptModalWith(promptTextEl ? promptTextEl.value : "");
+  });
+  if (promptTextEl) {
+    promptTextEl.addEventListener("keydown", (e) => {
+      if (!promptModal || !promptModal.classList.contains("open")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closePromptModalWith(null);
+        return;
+      }
+      if (promptSubmitOnEnter && e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        closePromptModalWith(promptTextEl.value);
+      }
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (!promptModal || !promptModal.classList.contains("open")) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closePromptModalWith(null);
+    }
+  });
+
+  async function requestKitUnitPlural() {
+    if (!promptTextEl) return null;
+    const raw = await openPrompt("Informe a unidade no plural para nomear o KIT", {
+      placeholder: "Ex.: PACOTES, UNIDADES, CAIXAS",
+      submitOnEnter: true,
+      okText: "OK",
+      rows: 3
+    });
+    if (raw === null || raw === undefined) return null;
+    const cleaned = String(raw).trim().toUpperCase();
+    return cleaned || null;
+  }
+
+  async function fetchKitNameSuggestion(targetKey, options = {}) {
+    const opts = options && typeof options === "object" ? options : {};
+    const unitOverride = String(opts.unitOverride || "").trim().toUpperCase() || null;
+    const token = getActiveTinyToken();
+    const baseSku = normalizeSkuValue(getSimpleCatalogIdentity().sku);
+    const quantity = Number(VARIANT_BY_KEY[normalizeVariantKey(targetKey)]?.quantity || 0);
+
+    if (!token || !baseSku || quantity < 2) {
+      throw new Error("Nao foi possivel montar sugestao de nome: token/SKU base indisponivel.");
+    }
+
+    const payload = {
+      token,
+      base_sku: baseSku,
+      kit_quantity: quantity
+    };
+    if (unitOverride) {
+      payload.unit_plural_override = unitOverride;
+    }
+
+    const response = await fetchWithAuth("/api/tiny/kit/suggest-name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw createApiError(response, data, "Falha ao buscar sugestao de nome do KIT.");
+    }
+    return {
+      comboName: String(data.combo_name || "").trim(),
+      unitPlural: String(data.unit_plural || "").trim().toUpperCase()
+    };
+  }
+
+  async function requestKitNameForCreate(targetKey, options = {}) {
+    let suggestedName = "";
+    try {
+      const suggestion = await fetchKitNameSuggestion(targetKey, options);
+      suggestedName = String(suggestion.comboName || "").trim();
+    } catch (err) {
+      console.warn("Falha ao carregar sugestao de nome do KIT:", err);
+    }
+
+    const value = await openPrompt("Nome do KIT no Tiny", {
+      initialValue: suggestedName,
+      placeholder: "COMBO COM {QTD} {UNIDADE_PLURAL}: {NOME_DO_PRODUTO_SIMPLES}",
+      submitOnEnter: true,
+      okText: "OK",
+      rows: 3
+    });
+    if (value === null || value === undefined) return null;
+    const cleaned = String(value).replace(/\s{2,}/g, " ").trim();
+    return cleaned || null;
+  }
 
   // Config Modal
   const cfgModal = $("#configModal"); const btnConfig = $("#btnConfig");
@@ -5477,6 +5921,8 @@
   const cfgRules = $("#cfgRules"), cfgPromptTpl = $("#cfgPromptTpl");
   const cfgSave = $("#cfgSave"), cfgCancel = $("#cfgCancel"), cfgClose = $("#cfgClose");
   const cfgAddTiny = $("#cfgAddTiny"), cfgTinyTokensList = $("#cfgTinyTokensList");
+  const cfgAddKitNameReplacement = $("#cfgAddKitNameReplacement");
+  const cfgKitNameReplacementBody = $("#cfgKitNameReplacementBody");
 
   // API Fields
   const cfgImageSearchApiKey = $("#cfgImageSearchApiKey");
@@ -5488,15 +5934,134 @@
   const btnAuthCanva = $("#btnAuthCanva"), canvaRedirectUriDisplay = $("#canvaRedirectUriDisplay");
   let isImageSearchValid = false;
 
+  const DEFAULT_KIT_NAME_REPLACEMENTS = [
+    { from: " C/ ", to: " COM " },
+    { from: " S/ ", to: " SEM " },
+    { from: " PCT ", to: " PACOTE " },
+    { from: " CX ", to: " CAIXA " },
+    { from: " UNID ", to: " UNIDADE " }
+  ];
+
   // Funções para gerenciar tokens Tiny
   function getTinyTokens() {
     if (!appConfig || !Array.isArray(appConfig.tiny_tokens)) return [];
     return appConfig.tiny_tokens;
   }
 
+  function getActiveTinyToken() {
+    const tokens = getTinyTokens();
+    const idx = parseInt(String(tinyInstance.value || ""), 10);
+    if (Number.isNaN(idx) || idx < 0 || idx >= tokens.length) return "";
+    return String(tokens[idx]?.token || "").trim();
+  }
+
+  function resetKitResolutionState() {
+    KIT_VARIANT_KEYS.forEach((key) => {
+      kitResolveRequests[key] = {
+        checking: false,
+        status: "idle",
+        resolvedSku: "",
+        createAvailable: false,
+        fromCache: false
+      };
+    });
+    updateKitCreateButtonState();
+  }
+
   function saveTinyTokens(tokens) {
     if (!appConfig) appConfig = {};
     appConfig.tiny_tokens = tokens || [];
+  }
+
+  function normalizeKitNameReplacements(items, keepEmpty = false) {
+    const src = Array.isArray(items) ? items : [];
+    const normalized = [];
+    src.forEach((item) => {
+      const from = String(item?.from || "");
+      const to = String(item?.to || "");
+      if (!keepEmpty && !from.trim() && !to.trim()) return;
+      normalized.push({ from, to });
+    });
+    return normalized;
+  }
+
+  function getGeneralConfig() {
+    if (!appConfig || typeof appConfig !== "object") return { kit_name_replacements: [...DEFAULT_KIT_NAME_REPLACEMENTS] };
+    const rawGeneral = appConfig.general && typeof appConfig.general === "object" ? appConfig.general : {};
+    const fromCfg = normalizeKitNameReplacements(rawGeneral.kit_name_replacements, true);
+    const effective = fromCfg.length > 0 ? fromCfg : [...DEFAULT_KIT_NAME_REPLACEMENTS];
+    return { kit_name_replacements: effective };
+  }
+
+  function saveGeneralConfig(nextGeneral) {
+    if (!appConfig || typeof appConfig !== "object") appConfig = {};
+    const safe = nextGeneral && typeof nextGeneral === "object" ? nextGeneral : {};
+    appConfig.general = {
+      kit_name_replacements: normalizeKitNameReplacements(safe.kit_name_replacements, true)
+    };
+  }
+
+  function renderKitNameReplacementTable() {
+    if (!cfgKitNameReplacementBody) return;
+    const general = getGeneralConfig();
+    const rows = normalizeKitNameReplacements(general.kit_name_replacements, true);
+    if (!rows.length) {
+      cfgKitNameReplacementBody.innerHTML = '<tr><td colspan="3" class="px-3 py-4 text-center text-gray-500 italic">Nenhuma regra cadastrada</td></tr>';
+      return;
+    }
+
+    cfgKitNameReplacementBody.innerHTML = rows.map((item, idx) => `
+      <tr class="hover:bg-gray-50">
+        <td class="px-2 py-2">
+          <input type="text" class="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                 value="${String(item.from || "").replace(/"/g, '&quot;')}" data-idx="${idx}" data-field="from" placeholder="Ex.: C/">
+        </td>
+        <td class="px-2 py-2">
+          <input type="text" class="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                 value="${String(item.to || "").replace(/"/g, '&quot;')}" data-idx="${idx}" data-field="to" placeholder="Ex.: COM">
+        </td>
+        <td class="px-2 py-2 text-center">
+          <button class="btn text-xs p-1" data-remove-kit-name-replacement="${idx}" title="Remover">
+            <svg class="icon w-4 h-4" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="1.5"/></svg>
+          </button>
+        </td>
+      </tr>
+    `).join("");
+
+    cfgKitNameReplacementBody.querySelectorAll("input").forEach((input) => {
+      input.addEventListener("change", (e) => {
+        const idx = parseInt(e.target.dataset.idx, 10);
+        const field = String(e.target.dataset.field || "");
+        if (Number.isNaN(idx) || !field) return;
+        const generalCfg = getGeneralConfig();
+        const list = normalizeKitNameReplacements(generalCfg.kit_name_replacements, true);
+        if (!list[idx]) return;
+        list[idx][field] = e.target.value;
+        saveGeneralConfig({ kit_name_replacements: list });
+      });
+    });
+
+    cfgKitNameReplacementBody.querySelectorAll("[data-remove-kit-name-replacement]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const idx = parseInt(e.currentTarget.dataset.removeKitNameReplacement, 10);
+        if (Number.isNaN(idx)) return;
+        const generalCfg = getGeneralConfig();
+        const list = normalizeKitNameReplacements(generalCfg.kit_name_replacements, true);
+        list.splice(idx, 1);
+        saveGeneralConfig({ kit_name_replacements: list });
+        renderKitNameReplacementTable();
+      });
+    });
+  }
+
+  if (cfgAddKitNameReplacement) {
+    cfgAddKitNameReplacement.addEventListener("click", () => {
+      const generalCfg = getGeneralConfig();
+      const list = normalizeKitNameReplacements(generalCfg.kit_name_replacements, true);
+      list.push({ from: "", to: "" });
+      saveGeneralConfig({ kit_name_replacements: list });
+      renderKitNameReplacementTable();
+    });
   }
 
   function renderTinyTokensList() {
@@ -5562,6 +6127,7 @@
     }
 
     updateIntegrationMode();
+    updateKitCreateButtonState();
   }
 
   // ============================================================================
@@ -5693,6 +6259,7 @@
       }
       const data = await r.json();
       appConfig = data || {};
+      saveGeneralConfig(getGeneralConfig());
       updateTinyInstanceSelect();
       updateSearchButtonStatus();
     } catch (e) {
@@ -5705,14 +6272,14 @@
     const apiKey = cfgImageSearchApiKey.value.trim();
 
     if (!apiKey) {
-      statusImageSearch.innerText = "✖ Informe a API Key primeiro";
+      statusImageSearch.innerText = "Informe a API Key primeiro";
       statusImageSearch.className = "text-xs font-medium text-red-600";
       return;
     }
 
     try {
       btnValidateImageSearch.disabled = true;
-      statusImageSearch.innerText = "⌛ Validando...";
+      statusImageSearch.innerText = "Validando...";
       statusImageSearch.className = "text-xs font-medium text-gray-500";
 
       const r = await fetchWithAuth("/api/images/validate-search", {
@@ -5723,14 +6290,14 @@
 
       const data = await r.json();
       if (r.ok && data.valid) {
-        statusImageSearch.innerText = "✔ Válido!";
+        statusImageSearch.innerText = "✅ Válido!";
         statusImageSearch.className = "text-xs font-medium text-green-600";
         isImageSearchValid = true;
       } else {
         throw new Error(data.detail || "Configuração inválida");
       }
     } catch (e) {
-      statusImageSearch.innerText = "✖ " + e.message;
+      statusImageSearch.innerText = e.message;
       statusImageSearch.className = "text-xs font-medium text-red-600";
       isImageSearchValid = false;
     } finally {
@@ -5749,14 +6316,14 @@
   async function validateDriveCreds() {
     const jsonStr = cfgDriveCredentials.value.trim();
     if (!jsonStr) {
-      statusDriveCreds.innerText = "✖ Cole o JSON primeiro";
+      statusDriveCreds.innerText = "❌ Cole o JSON primeiro";
       statusDriveCreds.className = "text-xs font-medium text-red-600";
       return;
     }
 
     try {
       btnValidateDriveCreds.disabled = true;
-      statusDriveCreds.innerText = "⌛ Validando...";
+      statusDriveCreds.innerText = "Validando...";
       statusDriveCreds.className = "text-xs font-medium text-gray-500";
 
       const r = await fetch("/api/drive/validate-credentials", {
@@ -5767,7 +6334,7 @@
 
       const data = await r.json();
       if (r.ok && data.valid) {
-        statusDriveCreds.innerText = "✔ Válido!";
+        statusDriveCreds.innerText = "✅ Válido!";
         statusDriveCreds.className = "text-xs font-medium text-green-600";
         isCredsValid = true;
         folderIdWrapper.classList.remove('opacity-50', 'pointer-events-none');
@@ -5778,7 +6345,7 @@
         throw new Error(data.detail || "Credenciais inválidas");
       }
     } catch (e) {
-      statusDriveCreds.innerText = "✖ " + e.message;
+      statusDriveCreds.innerText = e.message;
       statusDriveCreds.className = "text-xs font-medium text-red-600";
       isCredsValid = false;
       disableFolderValidation();
@@ -5791,14 +6358,14 @@
     const folderId = cfgDriveFolderId.value.trim();
     const jsonStr = cfgDriveCredentials.value.trim();
     if (!folderId) {
-      statusDriveFolder.innerText = "✖ Informe o ID da pasta";
+      statusDriveFolder.innerText = "❌ Informe o ID da pasta";
       statusDriveFolder.className = "text-xs font-medium text-red-600";
       return;
     }
 
     try {
       btnValidateDriveFolder.disabled = true;
-      statusDriveFolder.innerText = "⌛ Validando...";
+      statusDriveFolder.innerText = "Validando...";
       statusDriveFolder.className = "text-xs font-medium text-gray-500";
 
       const r = await fetch("/api/drive/validate-folder", {
@@ -5809,14 +6376,14 @@
 
       const data = await r.json();
       if (r.ok && data.valid) {
-        statusDriveFolder.innerText = `✔ ${data.folder_name}`;
+        statusDriveFolder.innerText = `✅ ${data.folder_name}`;
         statusDriveFolder.className = "text-xs font-medium text-green-600";
         isFolderValid = true;
       } else {
         throw new Error(data.detail || "Pasta não acessível");
       }
     } catch (e) {
-      statusDriveFolder.innerText = "✖ " + e.message;
+      statusDriveFolder.innerText = e.message;
       statusDriveFolder.className = "text-xs font-medium text-red-600";
       isFolderValid = false;
     } finally {
@@ -5904,6 +6471,7 @@ Restricoes:
     // Canva Fields
     cfgCanvaClientId.value = (saved.canva && saved.canva.client_id) || "";
     cfgCanvaClientSecret.value = (saved.canva && saved.canva.client_secret) || "";
+    saveGeneralConfig(saved.general || getGeneralConfig());
 
     // Atualizar Display do Redirect URI dinamicamente
     if (canvaRedirectUriDisplay) {
@@ -5929,6 +6497,7 @@ Restricoes:
     }
 
     renderTinyTokensList();
+    renderKitNameReplacementTable();
     renderPricingTable(); // Renderizar tabela de precificação
     switchConfigSection('llm'); // Sempre abrir na seção LLM
     cfgModal.classList.add("open");
@@ -6024,7 +6593,8 @@ Restricoes:
       canva: {
         client_id: cfgCanvaClientId.value.trim(),
         client_secret: cfgCanvaClientSecret.value.trim()
-      }
+      },
+      general: getGeneralConfig()
     };
 
     try {
@@ -6359,6 +6929,13 @@ Restricoes:
       syncRegenBusyUiForActiveVariant();
       restoreWindowScrollIfNeeded(scrollSnapshot);
 
+      if (KIT_VARIANT_KEYS.includes(activeVariantKey)) {
+        const localResolve = kitResolveRequests[activeVariantKey];
+        if (!(localResolve && localResolve.status === "found" && localResolve.resolvedSku)) {
+          await resolveKitSkuForVariant(activeVariantKey);
+        }
+      }
+
       if (activeVariantKey === "simple") {
         const simple = variantStore.simple;
         if (preservedSimpleSnapshots) {
@@ -6410,6 +6987,82 @@ Restricoes:
     });
   });
 
+  if (btnTinyCreateKit) {
+    btnTinyCreateKit.addEventListener("click", async () => {
+      const targetKey = normalizeVariantKey(activeVariantKey);
+      if (!KIT_VARIANT_KEYS.includes(targetKey)) return;
+      if (kitCreateInFlight) return;
+
+      kitCreateInFlight = true;
+      updateKitCreateButtonState();
+      const targetLabel = VARIANT_BY_KEY[targetKey]?.label || targetKey;
+
+      try {
+        const comboName = await requestKitNameForCreate(targetKey);
+        if (!comboName) {
+          showToast("Cadastro de KIT cancelado.", "warning");
+          return;
+        }
+        const created = await createKitForActiveVariant({ nameOverride: comboName });
+        const resolvedSku = String(created?.resolved_sku || "").trim();
+        kitResolveRequests[targetKey] = {
+          checking: false,
+          status: "found",
+          resolvedSku,
+          createAvailable: false,
+          fromCache: false
+        };
+        applyCatalogIdentityForActiveVariant();
+        showToast(created?.message || `KIT ${targetLabel} cadastrado com sucesso no Tiny (${resolvedSku}).`, "success");
+      } catch (err) {
+        const status = Number(err?.status || 0);
+        const type = String(err?.type || "").toLowerCase();
+        if (status === 422 && type === "unit_required") {
+          const unit = await requestKitUnitPlural();
+          if (!unit) {
+            showToast("Cadastro de KIT cancelado: unidade no plural nao informada.", "warning");
+          } else {
+            try {
+              const comboName = await requestKitNameForCreate(targetKey, { unitOverride: unit });
+              if (!comboName) {
+                showToast("Cadastro de KIT cancelado.", "warning");
+                return;
+              }
+              const created = await createKitForActiveVariant({ unitOverride: unit, nameOverride: comboName });
+              const resolvedSku = String(created?.resolved_sku || "").trim();
+              kitResolveRequests[targetKey] = {
+                checking: false,
+                status: "found",
+                resolvedSku,
+                createAvailable: false,
+                fromCache: false
+              };
+              applyCatalogIdentityForActiveVariant();
+              showToast(created?.message || `KIT ${targetLabel} cadastrado com sucesso no Tiny (${resolvedSku}).`, "success");
+            } catch (retryErr) {
+              const retryMsg = String(retryErr?.message || "Falha ao cadastrar KIT.");
+              if (Number(retryErr?.status || 0) === 409 || String(retryErr?.type || "").toLowerCase() === "kit_sku_collision") {
+                showToast(retryMsg, "error");
+              } else {
+                showToast(`Erro ao cadastrar KIT no Tiny: ${retryMsg}`, "error");
+              }
+            }
+          }
+        } else {
+          const msg = String(err?.message || "Falha ao cadastrar KIT.");
+          if (status === 409 || type === "kit_sku_collision") {
+            showToast(msg, "error");
+          } else {
+            showToast(`Erro ao cadastrar KIT no Tiny: ${msg}`, "error");
+          }
+        }
+      } finally {
+        kitCreateInFlight = false;
+        updateKitCreateButtonState();
+      }
+    });
+  }
+
   function legacyPersistState() {
     // Persistência desabilitada: não usamos mais cache no navegador.
   }
@@ -6459,6 +7112,7 @@ Restricoes:
   function resetAllVariantHistories() {
     manualFieldVersionDrafts.title = null;
     manualFieldVersionDrafts.description = null;
+    resetKitResolutionState();
     VARIANT_DEFS.forEach((variant) => {
       const state = variantStore[variant.key];
       state.title = [];

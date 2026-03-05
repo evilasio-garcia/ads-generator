@@ -80,3 +80,43 @@ This document tracks manual-to-automated GUI scenarios to be implemented in the 
   - Switch variants multiple times (`simple -> kit5 -> kit2 -> simple`).
   - Assert `scrollY` delta remains minimal (no jump).
   - Assert no page reload (runtime boot marker/counter unchanged).
+
+9. `Tiny KIT auto-discovery + auto-create by variant tab`
+- Open a SKU with Tiny integration active and switch to `kit2`.
+- Backend resolve flow:
+  - when no valid kit exists, assert `create_available=true` and UI shows `Cadastrar KIT` button.
+  - when valid kit exists, assert UI uses resolved SKU and hides create button.
+- Auto-create flow:
+  - click create button in a missing-kit tab and assert:
+    - POST `/api/tiny/kit/create` is called with `base_sku` + `kit_quantity`,
+    - resolved SKU is rendered in cadastral SKU field,
+    - button is hidden after success.
+- Cache behavior:
+  - switch away and back to the same kit tab,
+  - assert resolved SKU remains and no fresh full scan is required.
+- Collision behavior:
+  - force backend `409 kit_sku_collision`,
+  - assert red error toast with a clear message containing the colliding code.
+- Validation behavior:
+  - if resolve returns a false-positive candidate (wrong class/structure), assert UI still exposes create button.
+
+10. `Tiny KIT create payload mapping from active variant`
+- On a kit tab (`kit2..kit5`), trigger `Cadastrar KIT`.
+- Assert request payload includes:
+  - `announcement_price` from active variant announce field (`% Min/% Max` active tab aware),
+  - `promotional_price=0`,
+  - `base_unit_override` matching simple product unit,
+  - `kit_weight_kg`, `kit_height_cm`, `kit_width_cm`, `kit_length_cm`,
+  - `kit_volumes=1`,
+  - `kit_description` from active variant description.
+- Assert `combo_name_override` keeps the expected `COMBO COM {QTD} ...: ...` format.
+
+11. `Tiny include edge cases (cold, mocked)`
+- Simulate Tiny include returning validation error (`status=Erro`, e.g. missing price):
+  - assert frontend toast shows upstream message clearly (not generic 502-only text).
+- Simulate Tiny include returning `OK` with empty `registros` and delayed SKU visibility:
+  - assert service retries post-include confirmation lookup before failing,
+  - assert success if SKU appears within retry window,
+  - assert explicit error if SKU never appears.
+- Simulate Tiny requiring promo price when sent as zero:
+  - assert service retries once with `preco_promocional = preco` and succeeds.

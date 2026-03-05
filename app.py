@@ -113,6 +113,28 @@ class SkuWorkspaceHistory(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class TinyKitResolution(Base):
+    __tablename__ = "tiny_kit_resolution"
+    __table_args__ = (
+        UniqueConstraint("sku_root_normalized", "kit_quantity", name="ux_tiny_kit_resolution_sku_qty"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: uuid4().hex)
+    sku_root_normalized = Column(String, index=True, nullable=False)
+    kit_quantity = Column(Integer, nullable=False)
+    resolved_sku = Column(String, nullable=False)
+    validation_source = Column(String, nullable=False, default="pattern_skucb")
+    unit_plural_override = Column(String, nullable=True)
+    tiny_product_id = Column(String, nullable=True)
+    validation_snapshot = Column(JSONB, nullable=False, default=dict)
+    validated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_checked_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 def get_db():
     db: Session = SessionLocal()
     try:
@@ -123,7 +145,7 @@ def get_db():
 
 def _ensure_schema_ready() -> None:
     inspector = inspect(engine)
-    required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history"}
+    required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history", "tiny_kit_resolution"}
     existing = set(inspector.get_table_names())
     missing = sorted(required - existing)
     if missing:
@@ -209,6 +231,7 @@ class ConfigPayload(BaseModel):
     image_search: Dict[str, Any] = Field(default_factory=dict)
     google_drive: Dict[str, Any] = Field(default_factory=dict)
     canva: Dict[str, Any] = Field(default_factory=dict)
+    general: Dict[str, Any] = Field(default_factory=dict)
 
 
 def _default_config_payload() -> Dict[str, Any]:
@@ -224,7 +247,54 @@ def _default_config_payload() -> Dict[str, Any]:
         "image_search": {"api_key": "", "cx": ""},
         "google_drive": {"folder_id": "", "credentials_json": "", "auth_type": "service_account"},
         "canva": {"client_id": "", "client_secret": ""},
+        "general": {
+            "kit_name_replacements": [
+                {"from": " C/ ", "to": " COM "},
+                {"from": " S/ ", "to": " SEM "},
+                {"from": " PCT ", "to": " PACOTE "},
+                {"from": " CX ", "to": " CAIXA "},
+                {"from": " UNID ", "to": " UNIDADE "},
+            ]
+        },
     }
+
+
+def _extract_kit_name_replacements_from_config(
+    raw_config: Optional[Dict[str, Any]],
+) -> List[Dict[str, str]]:
+    default_items = (
+        _default_config_payload()
+        .get("general", {})
+        .get("kit_name_replacements", [])
+    )
+    cfg = raw_config if isinstance(raw_config, dict) else {}
+    general = cfg.get("general") if isinstance(cfg.get("general"), dict) else {}
+    raw_items = general.get("kit_name_replacements")
+
+    normalized: List[Dict[str, str]] = []
+    if isinstance(raw_items, list):
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            from_text = str(item.get("from") or "")
+            to_text = str(item.get("to") or "")
+            if not from_text.strip():
+                continue
+            normalized.append({"from": from_text, "to": to_text})
+
+    if normalized:
+        return normalized
+
+    fallback: List[Dict[str, str]] = []
+    for item in default_items:
+        if not isinstance(item, dict):
+            continue
+        from_text = str(item.get("from") or "")
+        to_text = str(item.get("to") or "")
+        if not from_text.strip():
+            continue
+        fallback.append({"from": from_text, "to": to_text})
+    return fallback
 
 
 def render_prompt_template(tpl: str, product: str, marketplace: str, specs: str) -> str:
@@ -687,6 +757,88 @@ def _normalize_marketplace(marketplace: Any) -> str:
     if compact in aliases:
         return aliases[compact]
     return compact
+
+
+def _normalize_kit_quantity(value: Any) -> int:
+    try:
+        qty = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return qty
+
+
+def _kit_sku_candidates(base_sku: str, qty: int) -> List[str]:
+    sku_norm = _normalize_sku(base_sku)
+    quantity = _normalize_kit_quantity(qty)
+    if not sku_norm or quantity < 2:
+        return []
+    return [f"{sku_norm}CB{quantity}", f"{sku_norm}-CB{quantity}"]
+
+
+def _tiny_kit_resolution_to_payload(
+    record: TinyKitResolution,
+    *,
+    from_cache: bool,
+    message: str,
+) -> Dict[str, Any]:
+    validation = _to_safe_dict(record.validation_snapshot)
+    return {
+        "status": "found",
+        "resolved_sku": record.resolved_sku,
+        "searched_candidates": _kit_sku_candidates(record.sku_root_normalized, record.kit_quantity),
+        "from_cache": bool(from_cache),
+        "create_available": False,
+        "validation": validation or None,
+        "message": message,
+    }
+
+
+def _upsert_tiny_kit_resolution(
+    db: Session,
+    *,
+    sku_root_normalized: str,
+    kit_quantity: int,
+    resolved_sku: str,
+    validation_source: str,
+    validation_snapshot: Optional[Dict[str, Any]] = None,
+    unit_plural_override: Optional[str] = None,
+    tiny_product_id: Optional[str] = None,
+) -> TinyKitResolution:
+    record = (
+        db.query(TinyKitResolution)
+        .filter(
+            TinyKitResolution.sku_root_normalized == sku_root_normalized,
+            TinyKitResolution.kit_quantity == kit_quantity,
+        )
+        .first()
+    )
+    now = datetime.utcnow()
+    if record is None:
+        record = TinyKitResolution(
+            sku_root_normalized=sku_root_normalized,
+            kit_quantity=kit_quantity,
+            resolved_sku=resolved_sku,
+            validation_source=validation_source or "pattern_skucb",
+            unit_plural_override=unit_plural_override,
+            tiny_product_id=tiny_product_id,
+            validation_snapshot=_to_safe_dict(validation_snapshot),
+            validated_at=now,
+            last_checked_at=now,
+        )
+        db.add(record)
+    else:
+        record.resolved_sku = resolved_sku
+        record.validation_source = validation_source or record.validation_source or "pattern_skucb"
+        if unit_plural_override:
+            record.unit_plural_override = unit_plural_override
+        if tiny_product_id:
+            record.tiny_product_id = tiny_product_id
+        record.validation_snapshot = _to_safe_dict(validation_snapshot)
+        record.validated_at = now
+        record.last_checked_at = now
+        record.updated_at = now
+    db.flush()
+    return record
 
 
 def _to_safe_dict(value: Any) -> Dict[str, Any]:
@@ -1458,6 +1610,37 @@ class TinyValidateTokenIn(BaseModel):
     token: str = Field(..., description="Token API do Tiny ERP para validar")
 
 
+class TinyResolveKitIn(BaseModel):
+    token: str = Field(..., description="Token API do Tiny ERP")
+    base_sku: str = Field(..., description="SKU raiz (anuncio simples)")
+    kit_quantity: int = Field(..., description="Quantidade do kit (2..5)")
+    force_refresh: bool = Field(False, description="Ignora cache global e reconsulta Tiny")
+
+
+class TinyCreateKitIn(BaseModel):
+    token: str = Field(..., description="Token API do Tiny ERP")
+    base_sku: str = Field(..., description="SKU raiz (anuncio simples)")
+    kit_quantity: int = Field(..., description="Quantidade do kit (2..5)")
+    unit_plural_override: Optional[str] = Field(None, description="Unidade no plural para nome do combo")
+    combo_name_override: Optional[str] = Field(None, description="Nome final do combo a ser cadastrado no Tiny")
+    announcement_price: Optional[float] = Field(None, description="Preco do anuncio da aba ativa do kit")
+    promotional_price: Optional[float] = Field(0.0, description="Preco promocional para cadastro no Tiny")
+    base_unit_override: Optional[str] = Field(None, description="Unidade do produto simples para reutilizar no KIT")
+    kit_weight_kg: Optional[float] = Field(None, description="Peso liquido/bruto do kit")
+    kit_height_cm: Optional[float] = Field(None, description="Altura do kit")
+    kit_width_cm: Optional[float] = Field(None, description="Largura do kit")
+    kit_length_cm: Optional[float] = Field(None, description="Comprimento do kit")
+    kit_volumes: Optional[int] = Field(1, description="Numero de volumes do kit")
+    kit_description: Optional[str] = Field(None, description="Descricao complementar do kit")
+
+
+class TinySuggestKitNameIn(BaseModel):
+    token: str = Field(..., description="Token API do Tiny ERP")
+    base_sku: str = Field(..., description="SKU raiz (anuncio simples)")
+    kit_quantity: int = Field(..., description="Quantidade do kit (2..5)")
+    unit_plural_override: Optional[str] = Field(None, description="Unidade no plural para sugestao de nome")
+
+
 @app.post("/api/tiny/product")
 async def tiny_get_product(request: TinyGetProductIn, current_user: CurrentUser = Depends(get_current_user_master)):
     """
@@ -1575,6 +1758,261 @@ async def tiny_validate_token(
                 "message": f"Erro ao validar: {str(e)}"
             }
         )
+
+
+@app.post("/api/tiny/kit/resolve")
+async def tiny_resolve_kit(
+    payload: TinyResolveKitIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    _ = current_user
+    sku_root = _normalize_sku(payload.base_sku)
+    kit_quantity = _normalize_kit_quantity(payload.kit_quantity)
+    if not sku_root:
+        raise HTTPException(
+            status_code=400,
+            detail={"status": "error", "type": "base_sku_required", "message": "SKU base obrigatorio."},
+        )
+    if kit_quantity < 2 or kit_quantity > 5:
+        raise HTTPException(
+            status_code=422,
+            detail={"status": "error", "type": "kit_quantity_invalid", "message": "Quantidade de kit invalida (2..5)."},
+        )
+
+    if not payload.force_refresh:
+        cached = (
+            db.query(TinyKitResolution)
+            .filter(
+                TinyKitResolution.sku_root_normalized == sku_root,
+                TinyKitResolution.kit_quantity == kit_quantity,
+            )
+            .first()
+        )
+        if cached:
+            cached.last_checked_at = datetime.utcnow()
+            db.commit()
+            db.refresh(cached)
+            return JSONResponse(
+                content=_tiny_kit_resolution_to_payload(
+                    cached,
+                    from_cache=True,
+                    message=f"SKU de kit recuperado do cache global: {cached.resolved_sku}",
+                )
+            )
+
+    try:
+        result = await tiny_service.resolve_kit_candidate(
+            token=payload.token,
+            base_sku=sku_root,
+            kit_quantity=kit_quantity,
+        )
+        if result.get("status") == "found":
+            record = _upsert_tiny_kit_resolution(
+                db,
+                sku_root_normalized=sku_root,
+                kit_quantity=kit_quantity,
+                resolved_sku=str(result.get("resolved_sku") or ""),
+                validation_source="pattern_skucb"
+                if str(result.get("resolved_sku") or "").upper() == f"{sku_root}CB{kit_quantity}"
+                else "pattern_sku_dash_cb",
+                validation_snapshot=_to_safe_dict(result.get("validation")),
+            )
+            db.commit()
+            db.refresh(record)
+            response = _tiny_kit_resolution_to_payload(
+                record,
+                from_cache=False,
+                message=str(result.get("message") or f"Kit valido encontrado: {record.resolved_sku}"),
+            )
+            response["searched_candidates"] = result.get("searched_candidates") or response["searched_candidates"]
+            return JSONResponse(content=response)
+
+        return JSONResponse(
+            content={
+                "status": "missing",
+                "resolved_sku": None,
+                "searched_candidates": result.get("searched_candidates") or _kit_sku_candidates(sku_root, kit_quantity),
+                "from_cache": False,
+                "create_available": True,
+                "validation": result.get("validation"),
+                "message": result.get("message") or "Nenhum kit valido encontrado.",
+            }
+        )
+    except tiny_service.TinyAuthError as e:
+        raise HTTPException(status_code=401, detail={"status": "error", "type": "auth_error", "message": str(e)})
+    except tiny_service.TinyNotFoundError as e:
+        raise HTTPException(status_code=404, detail={"status": "error", "type": "not_found", "message": str(e)})
+    except tiny_service.TinyValidationError as e:
+        raise HTTPException(status_code=422, detail={"status": "error", "type": e.code, "message": str(e)})
+    except tiny_service.TinyRateLimitError as e:
+        raise HTTPException(status_code=429, detail={"status": "error", "type": "rate_limit", "message": str(e)})
+    except tiny_service.TinyTimeoutError as e:
+        raise HTTPException(status_code=408, detail={"status": "error", "type": "timeout", "message": str(e)})
+    except tiny_service.TinyServiceError as e:
+        raise HTTPException(status_code=502, detail={"status": "error", "type": "upstream_error", "message": str(e)})
+
+
+@app.post("/api/tiny/kit/create")
+async def tiny_create_kit(
+    payload: TinyCreateKitIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    user_id = str(current_user.user_id)
+    sku_root = _normalize_sku(payload.base_sku)
+    kit_quantity = _normalize_kit_quantity(payload.kit_quantity)
+    if not sku_root:
+        raise HTTPException(
+            status_code=400,
+            detail={"status": "error", "type": "base_sku_required", "message": "SKU base obrigatorio."},
+        )
+    if kit_quantity < 2 or kit_quantity > 5:
+        raise HTTPException(
+            status_code=422,
+            detail={"status": "error", "type": "kit_quantity_invalid", "message": "Quantidade de kit invalida (2..5)."},
+        )
+
+    cached = (
+        db.query(TinyKitResolution)
+        .filter(
+            TinyKitResolution.sku_root_normalized == sku_root,
+            TinyKitResolution.kit_quantity == kit_quantity,
+        )
+        .first()
+    )
+    if cached:
+        cached.last_checked_at = datetime.utcnow()
+        db.commit()
+        db.refresh(cached)
+        return JSONResponse(
+            content={
+                "status": "already_exists",
+                "resolved_sku": cached.resolved_sku,
+                "tiny_product_id": cached.tiny_product_id,
+                "validation": _to_safe_dict(cached.validation_snapshot) or None,
+                "message": f"SKU de kit ja validado no cache global: {cached.resolved_sku}",
+            }
+        )
+
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    user_config_data = cfg.data if cfg and isinstance(cfg.data, dict) else {}
+    kit_name_replacements = _extract_kit_name_replacements_from_config(user_config_data)
+
+    try:
+        created = await tiny_service.create_kit_product(
+            token=payload.token,
+            base_sku=sku_root,
+            kit_quantity=kit_quantity,
+            unit_plural_override=payload.unit_plural_override,
+            combo_name_override=payload.combo_name_override,
+            kit_name_replacements=kit_name_replacements,
+            announcement_price=payload.announcement_price,
+            promotional_price=payload.promotional_price,
+            base_unit_override=payload.base_unit_override,
+            kit_weight_kg=payload.kit_weight_kg,
+            kit_height_cm=payload.kit_height_cm,
+            kit_width_cm=payload.kit_width_cm,
+            kit_length_cm=payload.kit_length_cm,
+            kit_volumes=payload.kit_volumes,
+            kit_description=payload.kit_description,
+        )
+        record = _upsert_tiny_kit_resolution(
+            db,
+            sku_root_normalized=sku_root,
+            kit_quantity=kit_quantity,
+            resolved_sku=str(created.get("resolved_sku") or f"{sku_root}CB{kit_quantity}"),
+            validation_source="auto_create",
+            validation_snapshot=_to_safe_dict(created.get("validation")),
+            unit_plural_override=str(created.get("unit_plural") or payload.unit_plural_override or "").strip().upper() or None,
+            tiny_product_id=str(created.get("tiny_product_id") or "").strip() or None,
+        )
+        db.commit()
+        db.refresh(record)
+        return JSONResponse(
+            content={
+                "status": "created",
+                "resolved_sku": record.resolved_sku,
+                "tiny_product_id": record.tiny_product_id,
+                "validation": _to_safe_dict(record.validation_snapshot) or None,
+                "message": f"KIT cadastrado com sucesso no Tiny: {record.resolved_sku}",
+            }
+        )
+    except tiny_service.TinyConflictError:
+        conflict_sku = f"{sku_root}CB{kit_quantity}"
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "status": "error",
+                "type": "kit_sku_collision",
+                "message": f"Nao foi possivel cadastrar o KIT automaticamente: o codigo {conflict_sku} ja existe no Tiny.",
+            },
+        )
+    except tiny_service.TinyAuthError as e:
+        raise HTTPException(status_code=401, detail={"status": "error", "type": "auth_error", "message": str(e)})
+    except tiny_service.TinyNotFoundError as e:
+        raise HTTPException(status_code=404, detail={"status": "error", "type": "not_found", "message": str(e)})
+    except tiny_service.TinyValidationError as e:
+        raise HTTPException(status_code=422, detail={"status": "error", "type": e.code, "message": str(e)})
+    except tiny_service.TinyRateLimitError as e:
+        raise HTTPException(status_code=429, detail={"status": "error", "type": "rate_limit", "message": str(e)})
+    except tiny_service.TinyTimeoutError as e:
+        raise HTTPException(status_code=408, detail={"status": "error", "type": "timeout", "message": str(e)})
+    except tiny_service.TinyServiceError as e:
+        raise HTTPException(status_code=502, detail={"status": "error", "type": "upstream_error", "message": str(e)})
+
+
+@app.post("/api/tiny/kit/suggest-name")
+async def tiny_suggest_kit_name(
+    payload: TinySuggestKitNameIn,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    user_id = str(current_user.user_id)
+    sku_root = _normalize_sku(payload.base_sku)
+    kit_quantity = _normalize_kit_quantity(payload.kit_quantity)
+    if not sku_root:
+        raise HTTPException(
+            status_code=400,
+            detail={"status": "error", "type": "base_sku_required", "message": "SKU base obrigatorio."},
+        )
+    if kit_quantity < 2 or kit_quantity > 5:
+        raise HTTPException(
+            status_code=422,
+            detail={"status": "error", "type": "kit_quantity_invalid", "message": "Quantidade de kit invalida (2..5)."},
+        )
+
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    user_config_data = cfg.data if cfg and isinstance(cfg.data, dict) else {}
+    kit_name_replacements = _extract_kit_name_replacements_from_config(user_config_data)
+
+    try:
+        suggestion = await tiny_service.suggest_kit_name(
+            token=payload.token,
+            base_sku=sku_root,
+            kit_quantity=kit_quantity,
+            unit_plural_override=payload.unit_plural_override,
+            kit_name_replacements=kit_name_replacements,
+        )
+        return JSONResponse(
+            content={
+                "status": "ok",
+                "combo_name": str(suggestion.get("combo_name") or ""),
+                "unit_plural": str(suggestion.get("unit_plural") or ""),
+            }
+        )
+    except tiny_service.TinyAuthError as e:
+        raise HTTPException(status_code=401, detail={"status": "error", "type": "auth_error", "message": str(e)})
+    except tiny_service.TinyNotFoundError as e:
+        raise HTTPException(status_code=404, detail={"status": "error", "type": "not_found", "message": str(e)})
+    except tiny_service.TinyValidationError as e:
+        raise HTTPException(status_code=422, detail={"status": "error", "type": e.code, "message": str(e)})
+    except tiny_service.TinyRateLimitError as e:
+        raise HTTPException(status_code=429, detail={"status": "error", "type": "rate_limit", "message": str(e)})
+    except tiny_service.TinyTimeoutError as e:
+        raise HTTPException(status_code=408, detail={"status": "error", "type": "timeout", "message": str(e)})
+    except tiny_service.TinyServiceError as e:
+        raise HTTPException(status_code=502, detail={"status": "error", "type": "upstream_error", "message": str(e)})
 
 
 # ============================================================================
