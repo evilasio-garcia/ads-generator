@@ -2409,6 +2409,32 @@ def _find_file_in_folder(service, folder_id: str, filename: str) -> Optional[str
     return files[0]["id"] if files else None
 
 
+ML_MAX_IMAGES = 12
+
+def _list_drive_images_for_sku(service, root_folder_id: str, sku: str) -> list:
+    """
+    Lists image file IDs directly inside {root_folder}/{sku}/ (no subdirectories),
+    sorted alphabetically, capped at ML_MAX_IMAGES.
+    Returns list of Drive file IDs.
+    """
+    sku_folder_id = _get_or_create_subfolder(service, root_folder_id, sku)
+    query = (
+        f"'{sku_folder_id}' in parents and trashed=false and "
+        "mimeType contains 'image/' and "
+        "mimeType != 'application/vnd.google-apps.folder'"
+    )
+    results = service.files().list(
+        q=query,
+        fields="files(id, name)",
+        orderBy="name",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
+    files = results.get("files", [])
+    files.sort(key=lambda f: f["name"])
+    return [f["id"] for f in files[:ML_MAX_IMAGES]]
+
+
 # ---- Validation Endpoints ----
 
 class ValidateCredentialsIn(BaseModel):
@@ -3515,7 +3541,7 @@ async def canva_export_to_drive(
 @app.get("/api/ml/auth")
 async def ml_auth(
     request: Request,
-    #current_user: CurrentUser = Depends(get_current_user_master),
+    current_user: CurrentUser = Depends(get_current_user_master),
 ):
     if not settings.ml_client_id or not settings.ml_client_secret:
         return JSONResponse(
@@ -3528,7 +3554,7 @@ async def ml_auth(
     from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
     parsed = urlparse(auth_url)
     params = dict(parse_qs(parsed.query, keep_blank_values=True))
-    params["state"] = [str(1)]
+    params["state"] = [current_user.user_id]
     new_query = urlencode({k: v[0] for k, v in params.items()})
     auth_url_with_state = urlunparse(parsed._replace(query=new_query))
     return RedirectResponse(url=auth_url_with_state)
@@ -3616,6 +3642,69 @@ async def ml_list_accounts(
     return JSONResponse(content={"accounts": accounts})
 
 
+@app.get("/api/ml/debug/item-sample/{ml_user_id}")
+async def ml_debug_item_sample(
+    ml_user_id: str,
+    category_id: str = "MLB178930",
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """Temp debug: fetches one existing item from seller to inspect ML structure."""
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == str(current_user.user_id)).first()
+    ml_accounts = list((cfg.data if cfg else {}).get("ml_accounts") or [])
+    account = next((a for a in ml_accounts if str(a.get("ml_user_id")) == ml_user_id), None)
+    if not account:
+        raise HTTPException(status_code=404, detail="Conta ML não encontrada.")
+    access_token, _ = await mercadolivre_service.get_valid_access_token(
+        account=account, client_id=settings.ml_client_id, client_secret=settings.ml_client_secret
+    )
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            f"https://api.mercadolibre.com/users/{ml_user_id}/items/search",
+            params={"category_id": category_id, "limit": 1},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10.0,
+        )
+        if r.status_code != 200:
+            return JSONResponse({"error": r.text})
+        item_ids = r.json().get("results", [])
+        if not item_ids:
+            return JSONResponse({"message": "Nenhum item encontrado nessa categoria."})
+        item_r = await client.get(
+            f"https://api.mercadolibre.com/items/{item_ids[0]}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10.0,
+        )
+        return JSONResponse(item_r.json())
+
+
+@app.get("/api/ml/debug/catalog-search/{ml_user_id}")
+async def ml_debug_catalog_search(
+    ml_user_id: str,
+    q: str = "",
+    domain_id: str = "MLB-DOG_POTTY_PADS",
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """Temp debug: search ML product catalog."""
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == str(current_user.user_id)).first()
+    ml_accounts = list((cfg.data if cfg else {}).get("ml_accounts") or [])
+    account = next((a for a in ml_accounts if str(a.get("ml_user_id")) == ml_user_id), None)
+    if not account:
+        raise HTTPException(status_code=404, detail="Conta ML não encontrada.")
+    access_token, _ = await mercadolivre_service.get_valid_access_token(
+        account=account, client_id=settings.ml_client_id, client_secret=settings.ml_client_secret
+    )
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            "https://api.mercadolibre.com/products/search",
+            params={"site_id": "MLB", "q": q, "domain_id": domain_id, "limit": 5},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10.0,
+        )
+        return JSONResponse({"status": r.status_code, "body": r.json()})
+
+
 @app.delete("/api/ml/accounts/{ml_user_id}")
 async def ml_disconnect_account(
     ml_user_id: str,
@@ -3644,6 +3733,19 @@ class MLPublishRequest(BaseModel):
     marketplace: str = "mercadolivre"
     ml_user_id: str
     variant: str = "simple"
+    # UI-calculated fields — override whatever is in the DB
+    title: Optional[str] = None
+    price: Optional[float] = None
+    cost_price: Optional[float] = None
+    shipping_cost: Optional[float] = None
+    weight_kg: Optional[float] = None
+    length_cm: Optional[float] = None
+    width_cm: Optional[float] = None
+    height_cm: Optional[float] = None
+    category_id: Optional[str] = None
+    catalog_product_id: Optional[str] = None
+    description: Optional[str] = None
+    image_urls: Optional[list] = None
 
 
 @app.post("/api/ml/publish")
@@ -3673,6 +3775,47 @@ async def ml_publish(
         "base_state": workspace.base_state or {},
         "versioned_state": workspace.versioned_state_current or {},
     }
+
+    # Inject UI-supplied overrides into ws_state so validation and job use them
+    base_fields = dict((ws_state["base_state"].get("product_fields") or {}))
+    if payload.cost_price is not None:
+        base_fields["cost_price"] = payload.cost_price
+    if payload.shipping_cost is not None:
+        ws_state["base_state"] = dict(ws_state["base_state"])
+        ws_state["base_state"]["shipping_cost_cache"] = {"value": payload.shipping_cost}
+    if payload.weight_kg is not None:
+        base_fields["weight_kg"] = payload.weight_kg
+    if payload.length_cm is not None:
+        base_fields["length_cm"] = payload.length_cm
+    if payload.width_cm is not None:
+        base_fields["width_cm"] = payload.width_cm
+    if payload.height_cm is not None:
+        base_fields["height_cm"] = payload.height_cm
+    if payload.category_id is not None:
+        base_fields["ml_category_id"] = payload.category_id
+    if payload.image_urls is not None:
+        base_fields["image_urls"] = payload.image_urls
+    elif not base_fields.get("image_urls") and not base_fields.get("drive_image_ids"):
+        # Images will be auto-discovered from Drive/{SKU}/ at job time
+        base_fields["image_urls"] = ["__drive_auto__"]
+    if payload.catalog_product_id is not None:
+        base_fields["ml_catalog_product_id"] = payload.catalog_product_id
+    ws_state["base_state"] = dict(ws_state["base_state"])
+    ws_state["base_state"]["product_fields"] = base_fields
+
+    versioned = dict(ws_state["versioned_state"])
+    if payload.price is not None:
+        versioned["prices"] = {"listing": payload.price}
+    if payload.title is not None or payload.description is not None:
+        variants = dict(versioned.get("variants") or {})
+        simple = dict(variants.get("simple") or {})
+        if payload.title is not None:
+            simple["title"] = {"versions": [payload.title], "current_index": 0}
+        if payload.description is not None:
+            simple["description"] = {"versions": [payload.description], "current_index": 0}
+        variants["simple"] = simple
+        versioned["variants"] = variants
+    ws_state["versioned_state"] = versioned
 
     missing = mercadolivre_service.validate_workspace_for_publish(ws_state)
     if missing:
@@ -3709,6 +3852,9 @@ async def ml_publish(
             pricing_config=user_pricing_config,
             variant=payload.variant,
             db_user_id=user_id,
+            sku_normalized=sku_normalized,
+            title_override=payload.title,
+            description_override=payload.description,
         )
     )
 
@@ -3742,6 +3888,9 @@ async def _run_ml_publish_job(
     pricing_config: list,
     variant: str,
     db_user_id: str,
+    sku_normalized: str = "",
+    title_override: Optional[str] = None,
+    description_override: Optional[str] = None,
 ) -> None:
     """
     Executa o fluxo completo de publicação no ML.
@@ -3793,12 +3942,12 @@ async def _run_ml_publish_job(
         title_block = variant_state.get("title") or {}
         title_versions = title_block.get("versions") or []
         title_idx = title_block.get("current_index", -1)
-        title_text = title_versions[title_idx] if 0 <= title_idx < len(title_versions) else ""
+        title_text = title_override or (title_versions[title_idx] if 0 <= title_idx < len(title_versions) else "")
 
         desc_block = variant_state.get("description") or {}
         desc_versions = desc_block.get("versions") or []
         desc_idx = desc_block.get("current_index", -1)
-        desc_text = desc_versions[desc_idx] if 0 <= desc_idx < len(desc_versions) else ""
+        desc_text = description_override or (desc_versions[desc_idx] if 0 <= desc_idx < len(desc_versions) else "")
 
         listing_price = float(prices.get("listing") or 0.0)
         weight_kg = float(fields.get("weight_kg") or 0)
@@ -3808,44 +3957,49 @@ async def _run_ml_publish_job(
         category_id = str(fields.get("ml_category_id") or "")
         ml_attributes = fields.get("ml_attributes") or []
         listing_type_id = str(fields.get("ml_listing_type_id") or "gold_special")
+        catalog_product_id = str(fields.get("ml_catalog_product_id") or "")
 
-        listing_payload = {
-            "title": title_text,
-            "category_id": category_id,
-            "price": listing_price,
-            "currency_id": "BRL",
-            "available_quantity": 1,
-            "condition": "new",
-            "listing_type_id": listing_type_id,
-            "status": "paused",
-            "description": {"plain_text": desc_text},
-            "shipping": {
-                "mode": "me2",
-                "local_pick_up": False,
-                "free_shipping": False,
-                "dimensions": {
-                    "width": int(width_cm),
-                    "height": int(height_cm),
-                    "length": int(length_cm),
-                    "weight": int(weight_kg * 1000),
+        if catalog_product_id:
+            # Catalog listing: title comes from catalog, not settable
+            listing_payload = {
+                "catalog_product_id": catalog_product_id,
+                "family_name": title_text,
+                "category_id": category_id,
+                "price": listing_price,
+                "currency_id": "BRL",
+                "available_quantity": 1,
+                "condition": "new",
+                "listing_type_id": listing_type_id,
+                "status": "paused",
+            }
+        else:
+            # Free-form listing
+            listing_payload = {
+                "title": title_text,
+                "category_id": category_id,
+                "price": listing_price,
+                "currency_id": "BRL",
+                "available_quantity": 1,
+                "condition": "new",
+                "listing_type_id": listing_type_id,
+                "status": "paused",
+                "shipping": {
+                    "mode": "me2",
+                    "local_pick_up": False,
+                    "free_shipping": False,
+                    "dimensions": {
+                        "width": int(width_cm),
+                        "height": int(height_cm),
+                        "length": int(length_cm),
+                        "weight": int(weight_kg * 1000),
+                    },
                 },
-            },
-        }
-        if ml_attributes:
-            listing_payload["attributes"] = ml_attributes
+            }
+            if ml_attributes:
+                listing_payload["attributes"] = ml_attributes
 
-        # ── 3. Criar anúncio pausado ──────────────────────────────────────
-        _emit_ml_event(job_id, "creating_listing", "Criando anúncio pausado no Mercado Livre...")
-        try:
-            listing_id = await mercadolivre_service.create_listing(access_token, listing_payload)
-            ML_PUBLISH_JOBS[job_id]["listing_id"] = listing_id
-        except mercadolivre_service.MLAPIError as exc:
-            _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {exc}", failed_at="creating_listing")
-            return
-
-        # ── 4. Download imagens do Drive ──────────────────────────────────
+        # ── 3. Download imagens do Drive ──────────────────────────────────
         image_urls = list(fields.get("image_urls") or fields.get("drive_image_ids") or [])
-        _emit_ml_event(job_id, "downloading_images", f"Baixando imagens do Google Drive... ({len(image_urls)} imagens)")
 
         image_bytes_list: list = []
         try:
@@ -3864,6 +4018,20 @@ async def _run_ml_publish_job(
                 raise Exception("Google Drive não configurado. Configure as credenciais em Configurações.")
 
             service = await asyncio.to_thread(_build_drive_service, credentials_json)
+
+            # Auto-discover images from Drive/{SKU}/ when none provided
+            if not image_urls or image_urls == ["__drive_auto__"]:
+                root_folder_id = drive_cfg.get("folder_id", "")
+                if not root_folder_id:
+                    raise Exception("Pasta raíz do Google Drive não configurada.")
+                image_urls = await asyncio.to_thread(
+                    _list_drive_images_for_sku, service, root_folder_id, sku_normalized
+                )
+                if not image_urls:
+                    raise Exception(f"Nenhuma imagem encontrada em Drive/{sku_normalized}/")
+
+            _emit_ml_event(job_id, "downloading_images", f"Baixando imagens do Google Drive... ({len(image_urls)} imagens)")
+
             for img_ref in image_urls:
                 file_id = img_ref if not img_ref.startswith("http") else img_ref.split("/d/")[-1].split("/")[0]
                 content = await asyncio.to_thread(
@@ -3876,11 +4044,10 @@ async def _run_ml_publish_job(
                 job_id, "error",
                 f"Falha ao baixar imagens do Drive: {exc}",
                 failed_at="downloading_images",
-                listing_id=listing_id,
             )
             return
 
-        # ── 5. Upload imagens ao ML ───────────────────────────────────────
+        # ── 4. Upload imagens ao ML (antes de criar o anúncio) ───────────
         _emit_ml_event(job_id, "uploading_images", "Enviando imagens ao Mercado Livre...")
         picture_ids: list = []
         for idx, (filename, img_bytes) in enumerate(image_bytes_list, start=1):
@@ -3892,21 +4059,27 @@ async def _run_ml_publish_job(
                     job_id, "error",
                     f"Falha ao enviar imagem {idx}/{len(image_bytes_list)}: {exc}",
                     failed_at="uploading_images",
-                    listing_id=listing_id,
                 )
                 return
 
         if picture_ids:
+            listing_payload["pictures"] = [{"id": pic_id} for pic_id in picture_ids]
+
+        # ── 5. Criar anúncio pausado (com imagens) ────────────────────────
+        _emit_ml_event(job_id, "creating_listing", "Criando anúncio pausado no Mercado Livre...")
+        try:
+            listing_id = await mercadolivre_service.create_listing(access_token, listing_payload)
+            ML_PUBLISH_JOBS[job_id]["listing_id"] = listing_id
+        except mercadolivre_service.MLAPIError as exc:
+            _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {exc}", failed_at="creating_listing")
+            return
+
+        # ── 5b. Adicionar descrição (API separada) ────────────────────────
+        if desc_text:
             try:
-                await mercadolivre_service.attach_pictures_to_listing(access_token, listing_id, picture_ids)
-            except mercadolivre_service.MLAPIError as exc:
-                _emit_ml_event(
-                    job_id, "error",
-                    f"Falha ao associar imagens ao anúncio: {exc}",
-                    failed_at="uploading_images",
-                    listing_id=listing_id,
-                )
-                return
+                await mercadolivre_service.update_description(access_token, listing_id, desc_text)
+            except mercadolivre_service.MLAPIError:
+                pass  # descrição não bloqueia o fluxo
 
         # ── 6. Consultar frete ML ─────────────────────────────────────────
         _emit_ml_event(job_id, "checking_freight", "Consultando custo de frete no Mercado Livre...")
