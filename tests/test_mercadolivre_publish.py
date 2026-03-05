@@ -173,3 +173,74 @@ async def test_update_listing_price_calls_put_with_new_price():
 
         call_kwargs = mock_client.put.call_args
         assert "149.99" in str(call_kwargs) or 149.99 in str(call_kwargs)
+
+
+def _full_workspace():
+    """Retorna um workspace válido e completo."""
+    return {
+        "base_state": {
+            "product_fields": {
+                "cost_price": 50.0,
+                "weight_kg": 0.5,
+                "length_cm": 15.0,
+                "width_cm": 10.0,
+                "height_cm": 5.0,
+                "ml_category_id": "MLB1051",
+                "image_urls": ["https://drive.google.com/img1.png"],
+            },
+            "shipping_cost_cache": {"value": 18.5},
+        },
+        "versioned_state": {
+            "variants": {
+                "simple": {
+                    "title": {"versions": ["Produto Incrível"], "current_index": 0},
+                    "description": {"versions": ["Descrição completa"], "current_index": 0},
+                    "faq_lines": [],
+                    "card_lines": [],
+                }
+            },
+            "prices": {"listing": 149.99},
+        },
+    }
+
+
+def test_validate_workspace_passes_when_all_fields_present():
+    missing = mercadolivre_service.validate_workspace_for_publish(_full_workspace())
+    assert missing == []
+
+
+def test_validate_workspace_reports_missing_title():
+    ws = _full_workspace()
+    ws["versioned_state"]["variants"]["simple"]["title"] = {"versions": [], "current_index": -1}
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert any("título" in m.lower() for m in missing)
+
+
+def test_validate_workspace_reports_missing_images():
+    ws = _full_workspace()
+    ws["base_state"]["product_fields"]["image_urls"] = []
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert any("imagem" in m.lower() for m in missing)
+
+
+def test_validate_workspace_reports_missing_weight():
+    ws = _full_workspace()
+    ws["base_state"]["product_fields"]["weight_kg"] = 0
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert any("peso" in m.lower() for m in missing)
+
+
+def test_validate_workspace_reports_missing_category():
+    ws = _full_workspace()
+    ws["base_state"]["product_fields"]["ml_category_id"] = ""
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert any("categoria" in m.lower() for m in missing)
+
+
+def test_validate_workspace_reports_multiple_missing():
+    ws = _full_workspace()
+    ws["base_state"]["product_fields"]["weight_kg"] = 0
+    ws["base_state"]["product_fields"]["ml_category_id"] = ""
+    ws["base_state"]["product_fields"]["image_urls"] = []
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert len(missing) >= 3
