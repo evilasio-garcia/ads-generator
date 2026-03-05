@@ -101,3 +101,39 @@ def apply_token_data(
     else:
         updated.pop("expires_at", None)
     return updated
+
+
+TOKEN_REFRESH_BUFFER_SECONDS = 300  # renova se faltar < 5 minutos
+
+
+async def get_valid_access_token(
+    account: Dict[str, Any],
+    client_id: str,
+    client_secret: str,
+) -> tuple:
+    """
+    Retorna (access_token, updated_account_or_None).
+    Se o token estiver proximo de expirar, renova automaticamente.
+    updated_account_or_None e nao-nulo apenas se houve renovacao -- o chamador
+    deve persistir o updated_account no banco.
+    """
+    now_ts = time.time()
+    expires_at = account.get("expires_at")
+    access_token = account.get("access_token", "")
+    refresh_token = account.get("refresh_token", "")
+
+    needs_refresh = (
+        not access_token
+        or expires_at is None
+        or now_ts >= (float(expires_at) - TOKEN_REFRESH_BUFFER_SECONDS)
+    )
+
+    if not needs_refresh:
+        return access_token, None
+
+    if not refresh_token:
+        raise MLAuthError("Refresh token ausente. Reconecte a conta ML.")
+
+    token_data = await refresh_access_token(client_id, client_secret, refresh_token)
+    updated = apply_token_data(account, token_data)
+    return updated["access_token"], updated
