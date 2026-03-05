@@ -26,6 +26,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 # Importar serviço Tiny
 import tiny_service
 import canva_service
+import mercadolivre_service
 from auth_helpers import gateway_login_helper, CurrentUser, get_current_user_master
 from config import settings
 # Importar pricing module
@@ -3493,6 +3494,133 @@ async def canva_export_to_drive(
         raise HTTPException(status_code=502, detail=f"Erro do Google Drive API: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro durante exportacao: {str(e)}")
+
+
+# ─── Mercado Livre OAuth ────────────────────────────────────────────────────
+
+
+@app.get("/api/ml/auth")
+async def ml_auth(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user_master),
+):
+    if not settings.ml_client_id or not settings.ml_client_secret:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "App ML não configurado. Defina ML_CLIENT_ID e ML_CLIENT_SECRET no ambiente."}
+        )
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/api/ml/callback"
+    auth_url = mercadolivre_service.get_auth_url(settings.ml_client_id, redirect_uri)
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+    parsed = urlparse(auth_url)
+    params = dict(parse_qs(parsed.query, keep_blank_values=True))
+    params["state"] = [str(current_user.user_id)]
+    new_query = urlencode({k: v[0] for k, v in params.items()})
+    auth_url_with_state = urlunparse(parsed._replace(query=new_query))
+    return RedirectResponse(url=auth_url_with_state)
+
+
+@app.get("/api/ml/callback")
+async def ml_callback(
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    if error:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"OAuth ML retornou erro: {error}"}
+        )
+    if not code or not state:
+        return JSONResponse(status_code=400, content={"error": "Parâmetros OAuth ausentes."})
+
+    user_id = state
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/api/ml/callback"
+
+    try:
+        token_data = await mercadolivre_service.exchange_code(
+            client_id=settings.ml_client_id,
+            client_secret=settings.ml_client_secret,
+            code=code,
+            redirect_uri=redirect_uri,
+        )
+    except mercadolivre_service.MLAuthError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+
+    ml_user_id = str(token_data.get("user_id", ""))
+    nickname = ""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.mercadolivre.com/users/{ml_user_id}",
+                headers={"Authorization": f"Bearer {token_data['access_token']}"},
+                timeout=10.0,
+            )
+            if resp.status_code == 200:
+                nickname = resp.json().get("nickname", "")
+    except Exception:
+        pass
+
+    account = mercadolivre_service.apply_token_data(
+        {"ml_user_id": ml_user_id, "nickname": nickname},
+        token_data,
+    )
+
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    if not cfg:
+        cfg = UserConfig(user_id=user_id, data={})
+        db.add(cfg)
+    current_data = dict(cfg.data or {})
+    ml_accounts: list = list(current_data.get("ml_accounts") or [])
+    ml_accounts = [a for a in ml_accounts if str(a.get("ml_user_id")) != ml_user_id]
+    ml_accounts.append(account)
+    current_data["ml_accounts"] = ml_accounts
+    cfg.data = current_data
+    db.commit()
+
+    return RedirectResponse(url="/?ml_auth=success")
+
+
+@app.get("/api/ml/accounts")
+async def ml_list_accounts(
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == str(current_user.user_id)).first()
+    accounts = []
+    if cfg:
+        raw = list((cfg.data or {}).get("ml_accounts") or [])
+        for a in raw:
+            accounts.append({
+                "ml_user_id": a.get("ml_user_id"),
+                "nickname": a.get("nickname"),
+                "expires_at": a.get("expires_at"),
+            })
+    return JSONResponse(content={"accounts": accounts})
+
+
+@app.delete("/api/ml/accounts/{ml_user_id}")
+async def ml_disconnect_account(
+    ml_user_id: str,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == str(current_user.user_id)).first()
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Configuração não encontrada.")
+    current_data = dict(cfg.data or {})
+    ml_accounts = [
+        a for a in (current_data.get("ml_accounts") or [])
+        if str(a.get("ml_user_id")) != ml_user_id
+    ]
+    current_data["ml_accounts"] = ml_accounts
+    cfg.data = current_data
+    db.commit()
+    return JSONResponse(content={"ok": True})
 
 
 # ========= MAIN PARA RODAR DEBUGANDO =========
