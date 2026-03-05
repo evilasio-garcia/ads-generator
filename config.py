@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     secret_key: str = "replit-dev-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60
+    ml_client_id: str = ""
+    ml_client_secret: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
