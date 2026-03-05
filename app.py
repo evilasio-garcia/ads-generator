@@ -2314,12 +2314,12 @@ async def gateway_info():
         "slug": settings.app_slug,
         "description": "Gerador de anúncios",
         "icon_url":
-            "http://127.0.0.1:5002/static/favicon.svg"
+            "https://fraction-proxy-considers-coupon.trycloudflare.com/static/favicon.svg"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/static/favicon.svg",
         "tooltip": "Gerador de anúncios",
         "app_url":
-            "http://127.0.0.1:5002/auth/gateway-login"
+            "https://fraction-proxy-considers-coupon.trycloudflare.com/auth/gateway-login"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/auth/gateway-login",
         "auth_type": "GATEWAY_TOKEN",
@@ -3515,7 +3515,7 @@ async def canva_export_to_drive(
 @app.get("/api/ml/auth")
 async def ml_auth(
     request: Request,
-    current_user: CurrentUser = Depends(get_current_user_master),
+    #current_user: CurrentUser = Depends(get_current_user_master),
 ):
     if not settings.ml_client_id or not settings.ml_client_secret:
         return JSONResponse(
@@ -3528,7 +3528,7 @@ async def ml_auth(
     from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
     parsed = urlparse(auth_url)
     params = dict(parse_qs(parsed.query, keep_blank_values=True))
-    params["state"] = [str(current_user.user_id)]
+    params["state"] = [str(1)]
     new_query = urlencode({k: v[0] for k, v in params.items()})
     auth_url_with_state = urlunparse(parsed._replace(query=new_query))
     return RedirectResponse(url=auth_url_with_state)
@@ -3569,7 +3569,7 @@ async def ml_callback(
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"https://api.mercadolivre.com/users/{ml_user_id}",
+                f"https://api.mercadolibre.com/users/{ml_user_id}",
                 headers={"Authorization": f"Bearer {token_data['access_token']}"},
                 timeout=10.0,
             )
@@ -4118,7 +4118,7 @@ async def ml_search_categories(
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            "https://api.mercadolivre.com/sites/MLB/domain_discovery/search",
+            "https://api.mercadolibre.com/sites/MLB/domain_discovery/search",
             params={"q": q, "limit": 10},
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10.0,
@@ -4178,7 +4178,7 @@ async def ml_auto_populate_categories(
         limit = 50
         while True:
             resp = await client.get(
-                f"https://api.mercadolivre.com/users/{ml_user_id}/items/search",
+                f"https://api.mercadolibre.com/users/{ml_user_id}/items/search",
                 params={"offset": offset, "limit": limit},
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=15.0,
@@ -4194,7 +4194,7 @@ async def ml_auto_populate_categories(
                 batch = item_ids[i:i+20]
                 ids_param = ",".join(batch)
                 detail_resp = await client.get(
-                    "https://api.mercadolivre.com/items",
+                    "https://api.mercadolibre.com/items",
                     params={"ids": ids_param, "attributes": "id,category_id"},
                     headers={"Authorization": f"Bearer {access_token}"},
                     timeout=15.0,
@@ -4206,7 +4206,7 @@ async def ml_auto_populate_categories(
                     cat_id = body.get("category_id")
                     if cat_id and cat_id not in discovered:
                         cat_resp = await client.get(
-                            f"https://api.mercadolivre.com/categories/{cat_id}",
+                            f"https://api.mercadolibre.com/categories/{cat_id}",
                             timeout=10.0,
                         )
                         cat_name = cat_id

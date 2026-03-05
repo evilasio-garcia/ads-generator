@@ -37,3 +37,4 @@ logs/
 *.db
 attached_assets/
 .agent/
+.claude/settings.local.json

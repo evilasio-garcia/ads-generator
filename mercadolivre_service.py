@@ -7,8 +7,8 @@ import time
 from typing import Any, Dict, Optional
 
 ML_AUTH_URL = "https://auth.mercadolivre.com.br/authorization"
-ML_TOKEN_URL = "https://api.mercadolivre.com/oauth/token"
-ML_API_BASE = "https://api.mercadolivre.com"
+ML_TOKEN_URL = "https://api.mercadolibre.com/oauth/token"
+ML_API_BASE = "https://api.mercadolibre.com"
 ML_SCOPES = "read write offline_access"
 
 
