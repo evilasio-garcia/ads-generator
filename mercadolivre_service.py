@@ -374,3 +374,15 @@ def recalculate_price_with_new_freight(
         shipping_cost=float(new_freight),
         ctx=pricing_ctx or {},
     )
+
+
+def find_ml_category_id(
+    mappings: list,
+    adsgen_name: str,
+) -> Optional[str]:
+    """Busca o ml_category_id pelo nome Ads Gen (case-insensitive)."""
+    needle = str(adsgen_name or "").strip().lower()
+    for m in (mappings or []):
+        if str(m.get("adsgen_name") or "").strip().lower() == needle:
+            return m.get("ml_category_id")
+    return None

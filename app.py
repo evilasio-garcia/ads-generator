@@ -4053,6 +4053,193 @@ async def ml_publish_events(
     )
 
 
+# ─── Mercado Livre — Categorias ──────────────────────────────────────────────
+
+
+class MLCategoryMapping(BaseModel):
+    adsgen_name: str
+    ml_category_id: str
+    ml_category_name: str = ""
+
+
+@app.get("/api/ml/categories")
+async def ml_list_categories(
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == str(current_user.user_id)).first()
+    mappings = list(((cfg.data if cfg else {}) or {}).get("ml_category_mappings") or [])
+    return JSONResponse(content={"mappings": mappings})
+
+
+@app.post("/api/ml/categories")
+async def ml_add_category(
+    payload: MLCategoryMapping,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    if not cfg:
+        cfg = UserConfig(user_id=user_id, data={})
+        db.add(cfg)
+    current_data = dict(cfg.data or {})
+    mappings = list(current_data.get("ml_category_mappings") or [])
+    mappings = [m for m in mappings if m.get("adsgen_name") != payload.adsgen_name]
+    mappings.append(payload.model_dump())
+    current_data["ml_category_mappings"] = mappings
+    cfg.data = current_data
+    db.commit()
+    return JSONResponse(content={"ok": True})
+
+
+@app.get("/api/ml/categories/search")
+async def ml_search_categories(
+    q: str,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """Busca categorias ML por texto. Requer conta ML conectada."""
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    ml_accounts = list(((cfg.data if cfg else {}) or {}).get("ml_accounts") or [])
+    if not ml_accounts:
+        raise HTTPException(status_code=400, detail="Nenhuma conta ML conectada.")
+
+    account = ml_accounts[0]
+    try:
+        access_token, updated = await mercadolivre_service.get_valid_access_token(
+            account=account,
+            client_id=settings.ml_client_id,
+            client_secret=settings.ml_client_secret,
+        )
+    except mercadolivre_service.MLAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            "https://api.mercadolivre.com/sites/MLB/domain_discovery/search",
+            params={"q": q, "limit": 10},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10.0,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail="Erro ao buscar categorias no ML.")
+    return JSONResponse(content=resp.json())
+
+
+@app.delete("/api/ml/categories/{adsgen_name}")
+async def ml_remove_category(
+    adsgen_name: str,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Configuração não encontrada.")
+    current_data = dict(cfg.data or {})
+    mappings = [m for m in (current_data.get("ml_category_mappings") or []) if m.get("adsgen_name") != adsgen_name]
+    current_data["ml_category_mappings"] = mappings
+    cfg.data = current_data
+    db.commit()
+    return JSONResponse(content={"ok": True})
+
+
+@app.post("/api/ml/categories/auto-populate")
+async def ml_auto_populate_categories(
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """
+    Escaneia os anúncios existentes da conta ML e pré-popula a tabela de categorias.
+    """
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    ml_accounts = list(((cfg.data if cfg else {}) or {}).get("ml_accounts") or [])
+    if not ml_accounts:
+        raise HTTPException(status_code=400, detail="Nenhuma conta ML conectada.")
+
+    account = ml_accounts[0]
+    try:
+        access_token, _ = await mercadolivre_service.get_valid_access_token(
+            account=account,
+            client_id=settings.ml_client_id,
+            client_secret=settings.ml_client_secret,
+        )
+    except mercadolivre_service.MLAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    ml_user_id = account.get("ml_user_id")
+    discovered: Dict[str, Dict[str, str]] = {}
+
+    async with httpx.AsyncClient() as client:
+        offset = 0
+        limit = 50
+        while True:
+            resp = await client.get(
+                f"https://api.mercadolivre.com/users/{ml_user_id}/items/search",
+                params={"offset": offset, "limit": limit},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15.0,
+            )
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            item_ids = data.get("results") or []
+            if not item_ids:
+                break
+
+            for i in range(0, len(item_ids), 20):
+                batch = item_ids[i:i+20]
+                ids_param = ",".join(batch)
+                detail_resp = await client.get(
+                    "https://api.mercadolivre.com/items",
+                    params={"ids": ids_param, "attributes": "id,category_id"},
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=15.0,
+                )
+                if detail_resp.status_code != 200:
+                    continue
+                for entry in detail_resp.json():
+                    body = entry.get("body") or {}
+                    cat_id = body.get("category_id")
+                    if cat_id and cat_id not in discovered:
+                        cat_resp = await client.get(
+                            f"https://api.mercadolivre.com/categories/{cat_id}",
+                            timeout=10.0,
+                        )
+                        cat_name = cat_id
+                        if cat_resp.status_code == 200:
+                            cat_name = cat_resp.json().get("name", cat_id)
+                        discovered[cat_id] = {"ml_category_id": cat_id, "ml_category_name": cat_name}
+
+            paging = data.get("paging") or {}
+            total = paging.get("total", 0)
+            offset += limit
+            if offset >= total:
+                break
+
+    current_data = dict((cfg.data if cfg else {}) or {})
+    existing = {m["ml_category_id"]: m for m in current_data.get("ml_category_mappings") or []}
+    for cat_id, cat_info in discovered.items():
+        if cat_id not in existing:
+            existing[cat_id] = {
+                "adsgen_name": cat_info["ml_category_name"],
+                "ml_category_id": cat_id,
+                "ml_category_name": cat_info["ml_category_name"],
+            }
+
+    current_data["ml_category_mappings"] = list(existing.values())
+    cfg.data = current_data
+    db.commit()
+
+    return JSONResponse(content={
+        "discovered": len(discovered),
+        "total_mappings": len(existing),
+    })
+
+
 # ========= MAIN PARA RODAR DEBUGANDO =========
 
 
