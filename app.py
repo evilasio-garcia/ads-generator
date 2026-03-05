@@ -3024,6 +3024,10 @@ CANVA_EXPORT_TASK_TTL_SECONDS = 3600
 ML_PUBLISH_JOBS: Dict[str, Any] = {}
 ML_PUBLISH_JOB_TTL = 600  # 10 minutos
 
+# Mapeamento aba de precificação da UI → listing_type_id do ML
+# "classic" (% Min) → gold_special | "premium" (% Max) → gold_pro
+ML_LISTING_TYPE_MAP = {"classic": "gold_special", "premium": "gold_pro"}
+
 
 def _cleanup_ml_publish_jobs() -> None:
     now = time.time()
@@ -3763,7 +3767,7 @@ async def ml_publish(
     _cleanup_ml_publish_jobs()
     user_id = str(current_user.user_id)
 
-    sku_normalized = payload.sku.strip().upper()
+    sku_normalized = _normalize_sku(payload.sku)
     marketplace_normalized = "mercadolivre"
     workspace = db.query(SkuWorkspace).filter(
         SkuWorkspace.sku_normalized == sku_normalized,
@@ -3803,8 +3807,7 @@ async def ml_publish(
     if payload.catalog_product_id is not None:
         base_fields["ml_catalog_product_id"] = payload.catalog_product_id
     if payload.pricing_tab is not None:
-        _LISTING_TYPE_MAP = {"classic": "gold_special", "premium": "gold_pro"}
-        base_fields["ml_listing_type_id"] = _LISTING_TYPE_MAP.get(payload.pricing_tab, "gold_special")
+        base_fields["ml_listing_type_id"] = ML_LISTING_TYPE_MAP.get(payload.pricing_tab, "gold_special")
     ws_state["base_state"] = dict(ws_state["base_state"])
     ws_state["base_state"]["product_fields"] = base_fields
 
@@ -4083,8 +4086,8 @@ async def _run_ml_publish_job(
         if desc_text:
             try:
                 await mercadolivre_service.update_description(access_token, listing_id, desc_text)
-            except mercadolivre_service.MLAPIError:
-                pass  # descrição não bloqueia o fluxo
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(job_id, "warning", f"Descrição não adicionada: {exc}", listing_id=listing_id)
 
         # ── 6. Consultar frete ML ─────────────────────────────────────────
         _emit_ml_event(job_id, "checking_freight", "Consultando custo de frete no Mercado Livre...")
