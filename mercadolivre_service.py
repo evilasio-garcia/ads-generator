@@ -275,3 +275,102 @@ async def activate_listing(access_token: str, item_id: str) -> None:
                 f"Erro {exc.response.status_code} ao ativar anúncio",
                 status_code=exc.response.status_code,
             ) from exc
+
+
+def validate_workspace_for_publish(workspace: Dict[str, Any]) -> list[str]:
+    """
+    Valida se todos os campos obrigatórios do Ads Gen estão preenchidos.
+    Retorna lista de mensagens de erro (vazia = tudo ok).
+    Perspectiva do Ads Gen: o anúncio precisa estar 100% completo antes de publicar.
+    """
+    missing = []
+    base = workspace.get("base_state") or {}
+    fields = base.get("product_fields") or {}
+    shipping_cache = base.get("shipping_cost_cache") or {}
+    versioned = workspace.get("versioned_state") or {}
+    variants = versioned.get("variants") or {}
+    simple = variants.get("simple") or {}
+    prices = versioned.get("prices") or {}
+
+    # Título
+    title_block = simple.get("title") or {}
+    title_versions = title_block.get("versions") or []
+    title_idx = title_block.get("current_index", -1)
+    title_text = title_versions[title_idx] if 0 <= title_idx < len(title_versions) else ""
+    if not str(title_text).strip():
+        missing.append("Título do anúncio não preenchido")
+
+    # Descrição
+    desc_block = simple.get("description") or {}
+    desc_versions = desc_block.get("versions") or []
+    desc_idx = desc_block.get("current_index", -1)
+    desc_text = desc_versions[desc_idx] if 0 <= desc_idx < len(desc_versions) else ""
+    if not str(desc_text).strip():
+        missing.append("Descrição do anúncio não preenchida")
+
+    # Imagens
+    image_urls = fields.get("image_urls") or fields.get("drive_image_ids") or []
+    if not isinstance(image_urls, list) or len(image_urls) == 0:
+        missing.append("Nenhuma imagem do anúncio encontrada (verifique o Google Drive / Canva)")
+
+    # Preço
+    listing_price = prices.get("listing") or 0.0
+    if float(listing_price) <= 0:
+        missing.append("Preço de venda não calculado")
+
+    # Custo
+    cost_price = fields.get("cost_price") or 0.0
+    if float(cost_price) <= 0:
+        missing.append("Custo do produto não informado")
+
+    # Frete Ads Gen
+    shipping_value = shipping_cache.get("value") or 0.0
+    if float(shipping_value) <= 0:
+        missing.append("Custo de frete do Ads Gen não calculado")
+
+    # Peso e dimensões
+    if not float(fields.get("weight_kg") or 0):
+        missing.append("Peso do produto (weight_kg) não informado")
+    if not float(fields.get("length_cm") or 0):
+        missing.append("Comprimento do produto (length_cm) não informado")
+    if not float(fields.get("width_cm") or 0):
+        missing.append("Largura do produto (width_cm) não informada")
+    if not float(fields.get("height_cm") or 0):
+        missing.append("Altura do produto (height_cm) não informada")
+
+    # Categoria ML
+    if not str(fields.get("ml_category_id") or "").strip():
+        missing.append("Categoria Mercado Livre não mapeada (configure em Integrações > Mercado Livre)")
+
+    return missing
+
+
+from pricing.calculators.mercadolivre import MercadoLivrePriceCalculator as _MLPriceCalc
+
+_ml_price_calculator = _MLPriceCalc()
+
+
+def compare_freight(ml_freight: float, adsgen_freight: float) -> Dict[str, Any]:
+    """
+    Compara o custo de frete do ML com o do Ads Gen.
+    Retorna dict com 'divergent' (bool), 'ml_freight' e 'adsgen_freight'.
+    """
+    divergent = float(ml_freight) > float(adsgen_freight)
+    return {
+        "divergent": divergent,
+        "ml_freight": float(ml_freight),
+        "adsgen_freight": float(adsgen_freight),
+    }
+
+
+def recalculate_price_with_new_freight(
+    cost_price: float,
+    new_freight: float,
+    pricing_ctx: Optional[Dict[str, Any]],
+) -> float:
+    """Recalcula o preço de venda usando o novo custo de frete do ML."""
+    return _ml_price_calculator.get_promo_price(
+        cost_price=float(cost_price),
+        shipping_cost=float(new_freight),
+        ctx=pricing_ctx or {},
+    )
