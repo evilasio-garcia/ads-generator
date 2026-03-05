@@ -143,3 +143,29 @@ def test_get_shipping_cost_uses_parsed_ranges(monkeypatch):
     assert asyncio.run(
         ml_shipping.get_shipping_cost(cost_price=10.0, weight_kg=0.3, reference_price=220.0)
     ) == pytest.approx(20.95)
+
+
+def test_is_shipping_layout_valid_returns_true_for_expected_matrix(monkeypatch):
+    ml_shipping._shipping_cache["data"] = None
+    ml_shipping._shipping_cache["last_fetched"] = None
+
+    async def fake_get(self, url, headers=None, timeout=None):  # noqa: ANN001
+        return _FakeResponse(ML_MATRIX_HTML)
+
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+
+    assert asyncio.run(ml_shipping.is_shipping_layout_valid()) is True
+
+
+def test_is_shipping_layout_valid_returns_false_when_layout_changes(monkeypatch):
+    ml_shipping._shipping_cache["data"] = None
+    ml_shipping._shipping_cache["last_fetched"] = None
+
+    html_without_shipping_matrix = "<html><body><div>layout changed</div></body></html>"
+
+    async def fake_get(self, url, headers=None, timeout=None):  # noqa: ANN001
+        return _FakeResponse(html_without_shipping_matrix)
+
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+
+    assert asyncio.run(ml_shipping.is_shipping_layout_valid()) is False

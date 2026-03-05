@@ -2124,10 +2124,18 @@ async def calculate_ml_shipping_endpoint(
         current_user: CurrentUser = Depends(get_current_user_master)
 ):
     try:
+        layout_ok = await ml_shipping.is_shipping_layout_valid()
+        if not layout_ok:
+            raise HTTPException(
+                status_code=502,
+                detail="Os dados de fretes do Mercado Livre estão inconsistentes no momento. Tente novamente mais tarde."
+            )
         val = await ml_shipping.get_shipping_cost(request.cost_price, request.weight_kg, request.reference_price)
         return JSONResponse(content={"shipping_cost": val})
     except ml_shipping.MLShippingError as e:
         raise HTTPException(status_code=502, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

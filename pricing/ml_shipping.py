@@ -27,6 +27,53 @@ class MLShippingError(Exception):
     pass
 
 
+def _is_valid_numeric(value: Any) -> bool:
+    return isinstance(value, (int, float))
+
+
+def _is_shipping_tables_layout_valid(tables: Any) -> bool:
+    if not isinstance(tables, list) or not tables:
+        return False
+
+    has_applicable_price_band = False
+
+    for table in tables:
+        if not isinstance(table, dict):
+            return False
+
+        min_price = table.get("min_price")
+        max_price = table.get("max_price")
+        tiers = table.get("tiers")
+
+        if not _is_valid_numeric(min_price) or not _is_valid_numeric(max_price):
+            return False
+        if min_price < 0 or max_price < min_price:
+            return False
+        if not isinstance(tiers, list) or not tiers:
+            return False
+
+        if max_price == float("inf") or max_price > 78.99:
+            has_applicable_price_band = True
+
+        prev_weight = None
+        for tier in tiers:
+            if not isinstance(tier, dict):
+                return False
+            max_weight = tier.get("max_weight")
+            price = tier.get("price")
+            if not _is_valid_numeric(max_weight) or not _is_valid_numeric(price):
+                return False
+            if max_weight <= 0 and max_weight != float("inf"):
+                return False
+            if price < 0:
+                return False
+            if prev_weight is not None and max_weight < prev_weight:
+                return False
+            prev_weight = max_weight
+
+    return has_applicable_price_band
+
+
 def _normalize_text(value: str) -> str:
     text = (value or "").lower().strip()
     replacements = {
@@ -201,6 +248,38 @@ async def _fetch_shipping_tables() -> List[Dict[str, Any]]:
         )
     )
     return parsed_tables
+
+
+async def is_shipping_layout_valid() -> bool:
+    """
+    Validate if the Mercado Livre shipping page layout is still parseable.
+
+    Returns:
+        bool: True when parsed structure is compatible with the expected format.
+    """
+    now = datetime.now()
+    need_refresh = (
+        _shipping_cache["data"] is None
+        or _shipping_cache["last_fetched"] is None
+        or (now - _shipping_cache["last_fetched"]) > CACHE_TTL
+    )
+
+    if need_refresh:
+        try:
+            _shipping_cache["data"] = await _fetch_shipping_tables()
+            _shipping_cache["last_fetched"] = now
+        except MLShippingError as exc:
+            logger.error("Unable to validate Mercado Livre shipping layout: %s", exc)
+            return False
+        except Exception as exc:
+            logger.error("Unexpected error while validating shipping layout: %s", exc)
+            return False
+
+    tables = _shipping_cache.get("data") or []
+    is_valid = _is_shipping_tables_layout_valid(tables)
+    if not is_valid:
+        logger.error("Mercado Livre shipping layout appears incompatible with parser.")
+    return is_valid
 
 
 async def get_shipping_cost(
