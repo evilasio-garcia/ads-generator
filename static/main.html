@@ -8826,6 +8826,28 @@ Restricoes:
   updateTinyInstanceSelect();
   renderWholesaleTable();
   loadConfigFromServer();
+  // ── ML Publish Rail ──────────────────────────────────────────────────────
+  const publishRail = document.getElementById('publishRail');
+  const btnPublishMl = document.getElementById('btnPublishMl');
+  const publishPanel = document.getElementById('publishPanel');
+
+  function updatePublishRailVisibility() {
+    const mp = document.getElementById('marketplace');
+    if (!mp || !publishRail) return;
+    publishRail.style.display = mp.value === 'mercadolivre' ? '' : 'none';
+  }
+
+  if (document.getElementById('marketplace')) {
+    document.getElementById('marketplace').addEventListener('change', updatePublishRailVisibility);
+  }
+  updatePublishRailVisibility();
+
+  function getActiveListingTypeId() {
+    const activeTab = document.querySelector('.price-tab-btn.active');
+    if (!activeTab) return 'gold_special';
+    return activeTab.dataset.tab === 'max' ? 'gold_pro' : 'gold_special';
+  }
+
   setupCanvaOAuthPopupListener();
   handleCanvaOAuthReturn();
 </script>
