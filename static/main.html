@@ -1715,6 +1715,30 @@
         </div>
       </div>
         </div>
+        <!-- Publish Rail — botão de publicação por marketplace -->
+        <aside class="publish-rail" id="publishRail" style="display:none" aria-label="Publicar no marketplace">
+          <div class="publish-rail-inner">
+            <!-- Estado: botão -->
+            <button
+              class="publish-rail-btn"
+              id="btnPublishMl"
+              data-marketplace="mercadolivre"
+              title="Publicar no Mercado Livre"
+              aria-label="Publicar no Mercado Livre">
+              <span class="publish-rail-label">Publicar no ML</span>
+            </button>
+            <!-- Estado: painel (mostrado via JS quando publicação inicia) -->
+            <div class="publish-panel" id="publishPanel" style="display:none">
+              <div class="publish-panel-header" id="publishPanelHeader">
+                <div class="loader" id="publishPanelLoader" style="width:16px;height:16px;border-width:2px;border-top-color:#2D73E2;border-color:#FFE600"></div>
+                <span id="publishPanelTitle">Publicando no ML...</span>
+              </div>
+              <div class="publish-panel-context" id="publishPanelContext"></div>
+              <div class="publish-panel-steps" id="publishPanelSteps"></div>
+              <div class="publish-panel-footer" id="publishPanelFooter" style="display:none"></div>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
   </main>
