@@ -6495,6 +6495,8 @@
       }
       const data = await r.json();
       appConfig = data || {};
+      mlAccounts = Array.isArray(appConfig.ml_accounts) ? appConfig.ml_accounts : [];
+      renderMlAccounts();
       saveGeneralConfig(getGeneralConfig());
       updateTinyInstanceSelect();
       updateSearchButtonStatus();
@@ -8827,6 +8829,136 @@ Restricoes:
   renderWholesaleTable();
   loadConfigFromServer();
   // ── ML Publish Rail ──────────────────────────────────────────────────────
+
+  // ── ML Accounts ──────────────────────────────────────────────────────────
+  let mlAccounts = [];
+
+  function renderMlAccounts() {
+    const container = document.getElementById('mlAccountsList');
+    if (!container) return;
+    if (!mlAccounts || mlAccounts.length === 0) {
+      container.innerHTML = '<p class="text-xs text-gray-500 italic">Nenhuma conta ML conectada</p>';
+      return;
+    }
+    container.innerHTML = mlAccounts.map(acc => {
+      const expAt = acc.expires_at ? acc.expires_at * 1000 : null;
+      const now = Date.now();
+      const expiringMs = 30 * 60 * 1000;
+      const isExpiring = expAt && (expAt - now) < expiringMs;
+      const badgeClass = isExpiring
+        ? 'bg-orange-100 text-orange-700 border-orange-200'
+        : 'bg-green-100 text-green-700 border-green-200';
+      const badgeLabel = isExpiring ? 'Token expirando' : 'Conectada';
+      const connectedDate = acc.expires_at
+        ? new Date((acc.expires_at - 6 * 3600) * 1000).toLocaleDateString('pt-BR')
+        : '—';
+      const cats = ((appConfig && appConfig.ml_category_mappings) || [])
+        .filter(c => c.ml_user_id === acc.ml_user_id);
+      const catsHtml = cats.length > 0
+        ? cats.map(c => `
+          <tr>
+            <td class="px-2 py-1">${c.adsgen_name}</td>
+            <td class="px-2 py-1">${c.ml_category_name || ''}<br><span class="text-gray-400 text-[10px]">${c.ml_category_id}</span></td>
+            <td class="px-2 py-1 text-center">
+              <button class="text-xs text-red-500 hover:text-red-700 btn-ml-remove-cat" data-adsgen="${c.adsgen_name}">Remover</button>
+            </td>
+          </tr>`).join('')
+        : `<tr><td colspan="3" class="px-2 py-2 text-center text-gray-400 italic text-xs">Nenhuma categoria mapeada</td></tr>`;
+
+      return `
+        <div class="border border-gray-200 rounded-lg overflow-hidden" data-ml-user-id="${acc.ml_user_id}">
+          <div class="flex items-center justify-between px-3 py-2 bg-white">
+            <div class="flex items-center gap-2">
+              <span class="badge ${badgeClass} text-[10px]">${badgeLabel}</span>
+              <span class="text-sm font-medium text-gray-800">${acc.nickname || acc.ml_user_id}</span>
+              <span class="text-xs text-gray-400">(ID: ${acc.ml_user_id})</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400">Conectada em ${connectedDate}</span>
+              <button class="btn text-xs text-red-600 border-red-200 hover:bg-red-50 btn-ml-disconnect" data-ml-user-id="${acc.ml_user_id}">Desconectar</button>
+              <button class="btn text-xs btn-ml-toggle-cats" data-ml-user-id="${acc.ml_user_id}" title="Expandir/colapsar categorias">▼</button>
+            </div>
+          </div>
+          <div class="ml-cats-panel px-3 pb-3 bg-gray-50 border-t border-gray-100" data-ml-user-id="${acc.ml_user_id}" style="display:none">
+            <div class="flex items-center justify-between mt-2 mb-1">
+              <span class="text-xs font-semibold text-gray-600">Mapeamento de Categorias</span>
+              <button class="btn text-xs btn-ml-add-cat" data-ml-user-id="${acc.ml_user_id}">+ Adicionar categoria</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs border border-gray-200 rounded-md">
+                <thead class="bg-gray-100"><tr>
+                  <th class="px-2 py-1 text-left font-medium text-gray-700">Categoria Ads Gen</th>
+                  <th class="px-2 py-1 text-left font-medium text-gray-700">Categoria ML</th>
+                  <th class="px-2 py-1 text-center font-medium text-gray-700 w-20">Ações</th>
+                </tr></thead>
+                <tbody>${catsHtml}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.btn-ml-disconnect').forEach(btn => {
+      btn.addEventListener('click', () => mlDisconnectAccount(btn.dataset.mlUserId));
+    });
+    container.querySelectorAll('.btn-ml-toggle-cats').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panel = container.querySelector(`.ml-cats-panel[data-ml-user-id="${btn.dataset.mlUserId}"]`);
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+      });
+    });
+    container.querySelectorAll('.btn-ml-add-cat').forEach(btn => {
+      btn.addEventListener('click', () => mlOpenCategoryModal(btn.dataset.mlUserId));
+    });
+    container.querySelectorAll('.btn-ml-remove-cat').forEach(btn => {
+      btn.addEventListener('click', () => mlRemoveCategory(btn.dataset.adsgen));
+    });
+  }
+
+  async function mlDisconnectAccount(mlUserId) {
+    if (!confirm(`Desconectar conta ML ${mlUserId}?`)) return;
+    try {
+      const res = await fetch(`/api/ml/accounts/${mlUserId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).detail || 'Erro ao desconectar');
+      mlAccounts = mlAccounts.filter(a => String(a.ml_user_id) !== String(mlUserId));
+      renderMlAccounts();
+      showToast('Conta ML desconectada.', 'info');
+    } catch (err) {
+      showToast(`Erro: ${err.message}`, 'error');
+    }
+  }
+
+  function setupMlOAuthPopupListener() {
+    window.addEventListener('message', async (event) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || typeof data !== 'object' || data.type !== 'ml_oauth_result') return;
+      if (data.status === 'success') {
+        showToast('Conta ML conectada com sucesso!', 'success');
+        const res = await fetch('/api/ml/accounts');
+        if (res.ok) {
+          const body = await res.json();
+          mlAccounts = body.accounts || [];
+          renderMlAccounts();
+        }
+      } else {
+        showToast(String(data.message || 'Falha ao conectar conta ML.'), 'error');
+      }
+    });
+  }
+
+  const btnConnectMl = document.getElementById('btnConnectMl');
+  if (btnConnectMl) {
+    btnConnectMl.addEventListener('click', () => {
+      window.open('/api/ml/auth', '_blank');
+    });
+  }
+
+  const mlRedirectUriDisplay = document.getElementById('mlRedirectUriDisplay');
+  if (mlRedirectUriDisplay) {
+    mlRedirectUriDisplay.textContent = `${window.location.origin}/api/ml/callback`;
+  }
+
   const publishRail = document.getElementById('publishRail');
   const btnPublishMl = document.getElementById('btnPublishMl');
   const publishPanel = document.getElementById('publishPanel');
@@ -8850,6 +8982,7 @@ Restricoes:
 
   setupCanvaOAuthPopupListener();
   handleCanvaOAuthReturn();
+  setupMlOAuthPopupListener();
 </script>
 
 </html>
