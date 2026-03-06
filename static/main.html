@@ -2028,6 +2028,40 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Mercado Livre Integration Sub-group -->
+              <div class="pt-2 border-t border-gray-100 mt-4">
+                <h5 class="text-sm font-semibold text-gray-800 mb-4 flex items-center">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z">
+                    </path>
+                  </svg>
+                  Mercado Livre
+                </h5>
+
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h6 class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Mercado Livre API (OAuth)</h6>
+
+                  <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs text-gray-500">Conecte contas do Mercado Livre para publicar anúncios diretamente.</p>
+                    <button id="btnConnectMl"
+                      class="px-3 py-1.5 bg-yellow-400 text-blue-700 border border-yellow-500 rounded text-xs font-bold hover:bg-yellow-300 transition-colors flex items-center gap-1">
+                      + Conectar conta
+                    </button>
+                  </div>
+
+                  <p class="text-[10px] text-gray-500 mb-3">
+                    <strong>Redirect URI:</strong>
+                    <code class="bg-gray-200 px-1 rounded" id="mlRedirectUriDisplay">carregando...</code><br>
+                    (Copie e cole este endereço no console do App ML em "URLs de redirecionamento")
+                  </p>
+
+                  <div id="mlAccountsList" class="space-y-2">
+                    <p class="text-xs text-gray-500 italic">Nenhuma conta ML conectada</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2179,6 +2213,39 @@
     </ul>
     <p>Esse mapeamento e aplicado somente ao clicar em <strong>Cadastrar KIT</strong>.</p>
   </template>
+
+  <!-- Modal: Busca de Categoria ML -->
+  <div id="mlCategorySearchModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mlCatModalTitle">
+    <div class="modal-card card p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-800" id="mlCatModalTitle">Adicionar Categoria ML</h3>
+        <button id="mlCatModalClose" class="btn" title="Fechar">Fechar</button>
+      </div>
+      <div class="mb-3">
+        <label class="text-sm text-gray-700 font-medium">Pesquisar na árvore do Mercado Livre</label>
+        <div class="flex gap-2 mt-1">
+          <input id="mlCatSearchInput" type="text"
+            class="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            placeholder="Ex.: tapete higiênico, cama para cachorro...">
+          <button id="btnMlCatSearch"
+            class="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700">Buscar</button>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="text-sm text-gray-700 font-medium">Nome no Ads Gen (DE)</label>
+        <input id="mlCatAdsgenName" type="text"
+          class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+          placeholder="Ex.: tapete higiênico">
+      </div>
+      <div id="mlCatSearchResults" class="max-h-48 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100 mb-3" style="display:none"></div>
+      <div id="mlCatSelectedInfo" class="text-xs text-gray-600 mb-3" style="display:none"></div>
+      <div class="flex justify-end gap-2">
+        <button id="mlCatModalCancel" class="btn">Cancelar</button>
+        <button id="btnMlCatSave" disabled
+          class="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">Salvar</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 <script>
