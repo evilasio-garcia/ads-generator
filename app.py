@@ -3573,10 +3573,25 @@ async def ml_callback(
     db: Session = Depends(get_db),
 ):
     if error:
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"OAuth ML retornou erro: {error}"}
-        )
+        import json as _json
+        err_payload = _json.dumps({"type": "ml_oauth_result", "status": "error", "message": f"OAuth ML retornou erro: {error}"})
+        origin = str(request.base_url).rstrip("/")
+        html = f"""<!DOCTYPE html><html><body><script>
+        (function() {{
+            var payload = {err_payload};
+            var origin = "{origin}";
+            try {{
+                if (window.opener && !window.opener.closed) {{
+                    window.opener.postMessage(payload, origin);
+                    window.close();
+                    return;
+                }}
+            }} catch(e) {{}}
+            window.location.href = "/";
+        }})();
+        </script></body></html>"""
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html)
     if not code or not state:
         return JSONResponse(status_code=400, content={"error": "Parâmetros OAuth ausentes."})
 
@@ -3625,7 +3640,30 @@ async def ml_callback(
     cfg.data = current_data
     db.commit()
 
-    return RedirectResponse(url="/?ml_auth=success")
+    account_safe = {
+        "ml_user_id": account.get("ml_user_id"),
+        "nickname": account.get("nickname"),
+        "expires_at": account.get("expires_at"),
+    }
+    import json as _json
+    payload_js = _json.dumps({"type": "ml_oauth_result", "status": "success", "account": account_safe})
+    origin = str(request.base_url).rstrip("/")
+    html = f"""<!DOCTYPE html><html><body><script>
+    (function() {{
+        var payload = {payload_js};
+        var origin = "{origin}";
+        try {{
+            if (window.opener && !window.opener.closed) {{
+                window.opener.postMessage(payload, origin);
+                window.close();
+                return;
+            }}
+        }} catch(e) {{}}
+        window.location.href = "/?ml_auth=success";
+    }})();
+    </script></body></html>"""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html)
 
 
 @app.get("/api/ml/accounts")
