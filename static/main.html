@@ -9090,9 +9090,259 @@ Restricoes:
     return activeTab.dataset.tab === 'max' ? 'gold_pro' : 'gold_special';
   }
 
+  // ── ML Publish Flow ───────────────────────────────────────────────────────
+  const ML_STEP_LABELS = {
+    token_refresh:      'Verificando credenciais ML...',
+    downloading_images: 'Baixando imagens do Drive...',
+    uploading_images:   'Enviando imagens ao Mercado Livre...',
+    creating_listing:   'Criando anúncio no ML...',
+    checking_freight:   'Consultando custo de frete...',
+    adjusting_price:    'Frete divergente — recalculando preços...',
+    updating_listing:   'Atualizando preço no anúncio...',
+    notifying_whatsapp: 'Notificando divergência via WhatsApp...',
+    activating:         'Ativando anúncio...',
+    done:               'Anúncio publicado com sucesso!',
+    error:              'Falha na publicação',
+  };
+
+  const ML_STEP_ORDER = [
+    'token_refresh', 'downloading_images', 'uploading_images',
+    'creating_listing', 'checking_freight',
+    'adjusting_price', 'updating_listing', 'notifying_whatsapp',
+    'activating',
+  ];
+
+  function validateWorkspaceForMlPublish() {
+    const missing = [];
+    const activeTabBtn = document.querySelector('.price-tab-btn.active');
+    const isMax = activeTabBtn && activeTabBtn.dataset.tab === 'max';
+    const priceEl = document.getElementById(isMax ? 'tinyAnnouncePriceMax' : 'tinyAnnouncePriceMin');
+
+    if (!document.getElementById('outTitle').value.trim()) missing.push('Título');
+    if (!document.getElementById('outDesc').value.trim()) missing.push('Descrição');
+    if (!priceEl || !parseFloat(priceEl.value)) missing.push('Preço do anúncio');
+    if (!parseFloat(document.getElementById('tinyCostPrice').value)) missing.push('Custo base');
+    if (!parseFloat(document.getElementById('tinyShippingCost').value)) missing.push('Custo de frete');
+    if (!parseFloat(document.getElementById('tinyWeight').value)) missing.push('Peso');
+    if (!parseFloat(document.getElementById('tinyHeight').value)) missing.push('Altura');
+    if (!parseFloat(document.getElementById('tinyWidth').value)) missing.push('Largura');
+    if (!parseFloat(document.getElementById('tinyLength').value)) missing.push('Comprimento');
+    if (!mlAccounts || mlAccounts.length === 0) missing.push('Conta ML (conecte em Configurações)');
+    return missing;
+  }
+
+  let mlActiveEventSource = null;
+  let mlPanelStepStates = {};
+
+  function mlShowPanel() {
+    if (btnPublishMl) btnPublishMl.style.display = 'none';
+    if (publishPanel) publishPanel.style.display = '';
+  }
+
+  function mlHidePanel() {
+    if (publishPanel) publishPanel.style.display = 'none';
+    if (btnPublishMl) btnPublishMl.style.display = '';
+  }
+
+  function mlSetPanelContext(sku, listingTypeLabel) {
+    const ctx = document.getElementById('publishPanelContext');
+    if (ctx) ctx.textContent = `SKU: ${sku} · Tipo: ${listingTypeLabel}`;
+  }
+
+  function mlRenderSteps(currentStep, isFailed) {
+    const stepsEl = document.getElementById('publishPanelSteps');
+    if (!stepsEl) return;
+    stepsEl.innerHTML = ML_STEP_ORDER.map(step => {
+      let state = 'pending';
+      if (mlPanelStepStates[step]) {
+        state = mlPanelStepStates[step];
+      } else if (step === currentStep) {
+        state = isFailed ? 'failed' : 'running';
+      }
+      const icons = {
+        done:    '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>',
+        running: '<div class="loader shrink-0" style="width:12px;height:12px;border-width:2px;border-top-color:#2D73E2;border-color:#bfdbfe"></div>',
+        pending: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="1.5"/></svg>',
+        failed:  '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
+      };
+      return `<div class="publish-step ${state}">${icons[state] || ''}<span>${ML_STEP_LABELS[step] || step}</span></div>`;
+    }).join('');
+  }
+
+  if (btnPublishMl) {
+    btnPublishMl.addEventListener('click', async () => {
+      const missing = validateWorkspaceForMlPublish();
+      if (missing.length > 0) {
+        showToast(`Campos obrigatórios não preenchidos: ${missing.join(', ')}`, 'error', 8000);
+        return;
+      }
+
+      const listingTypeId = getActiveListingTypeId();
+      const listingTypeLabel = listingTypeId === 'gold_pro' ? 'Anúncio Premium' : 'Anúncio Clássico';
+      const skuDisplay = document.getElementById('tinySKUDisplay');
+      const skuInput = document.getElementById('tinySKU');
+      const sku = (skuDisplay && skuDisplay.value) || (skuInput && skuInput.value) || '';
+      const mlUserId = mlAccounts[0] && mlAccounts[0].ml_user_id;
+      const activeVariantBtn = document.querySelector('.variant-tab-btn.active');
+      const variant = (activeVariantBtn && activeVariantBtn.dataset.variant) || 'simple';
+
+      btnPublishMl.disabled = true;
+
+      try {
+        const res = await fetch('/api/ml/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ml_user_id: mlUserId,
+            sku,
+            variant,
+            listing_type_id: listingTypeId,
+          }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          showToast(body.detail || 'Erro ao iniciar publicação.', 'error', 8000);
+          btnPublishMl.disabled = false;
+          return;
+        }
+        const jobId = body.job_id;
+        localStorage.setItem('ml_active_job', JSON.stringify({
+          job_id: jobId,
+          started_at: Date.now(),
+          sku,
+          listing_type_id: listingTypeId,
+        }));
+        mlPanelStepStates = {};
+        // Reset header
+        const header = document.getElementById('publishPanelHeader');
+        if (header) {
+          header.className = 'publish-panel-header';
+          header.querySelector('#publishPanelTitle').textContent = 'Publicando no ML...';
+          const loader = header.querySelector('#publishPanelLoader');
+          if (loader) loader.style.display = '';
+        }
+        const footer = document.getElementById('publishPanelFooter');
+        if (footer) { footer.style.display = 'none'; footer.innerHTML = ''; }
+        mlSetPanelContext(sku, listingTypeLabel);
+        mlRenderSteps(null, false);
+        mlShowPanel();
+        mlConnectSSE(jobId);
+      } catch (err) {
+        showToast(`Erro: ${err.message}`, 'error', 8000);
+        btnPublishMl.disabled = false;
+      }
+    });
+  }
+
+  function mlConnectSSE(jobId) {
+    if (mlActiveEventSource) mlActiveEventSource.close();
+    mlActiveEventSource = new EventSource(`/api/ml/publish/${jobId}/events`);
+
+    mlActiveEventSource.onmessage = (evt) => {
+      let data;
+      try { data = JSON.parse(evt.data); } catch { return; }
+      const { step, message, listing_id, listing_url, failed_at } = data;
+
+      if (step === 'done') {
+        ML_STEP_ORDER.forEach(s => { mlPanelStepStates[s] = 'done'; });
+        mlRenderSteps(null, false);
+        const header = document.getElementById('publishPanelHeader');
+        if (header) {
+          header.className = 'publish-panel-header success';
+          const loader = document.getElementById('publishPanelLoader');
+          if (loader) loader.style.display = 'none';
+          document.getElementById('publishPanelTitle').textContent = 'Anúncio publicado!';
+        }
+        const footer = document.getElementById('publishPanelFooter');
+        if (footer) {
+          footer.style.display = '';
+          footer.innerHTML = listing_url
+            ? `<a href="${listing_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 underline">Ver anúncio no ML ↗</a>`
+            : '';
+        }
+        showToast('Anúncio publicado no ML!', 'success', 5000);
+        mlActiveEventSource.close();
+        mlActiveEventSource = null;
+        localStorage.removeItem('ml_active_job');
+        setTimeout(() => { mlHidePanel(); if (btnPublishMl) btnPublishMl.disabled = false; }, 2000);
+        return;
+      }
+
+      if (step === 'error') {
+        const failStep = failed_at || 'activating';
+        if (mlPanelStepStates[failStep] !== 'done') {
+          mlPanelStepStates[failStep] = 'failed';
+        }
+        mlRenderSteps(failStep, true);
+        const header = document.getElementById('publishPanelHeader');
+        if (header) {
+          header.className = 'publish-panel-header error';
+          const loader = document.getElementById('publishPanelLoader');
+          if (loader) loader.style.display = 'none';
+          document.getElementById('publishPanelTitle').textContent = 'Falha na publicação';
+        }
+        const footer = document.getElementById('publishPanelFooter');
+        if (footer) {
+          footer.style.display = '';
+          const listingLink = listing_id
+            ? `<a href="https://www.mercadolivre.com.br/anuncios/${listing_id}" target="_blank" rel="noopener" class="text-xs text-blue-600 underline block mb-1">Ver anúncio pausado ${listing_id} ↗</a>`
+            : '';
+          footer.innerHTML = `<p class="text-xs text-red-600 mb-1">${message || 'Erro desconhecido'}</p>${listingLink}<button id="btnMlPanelClose" class="mt-1 btn text-xs w-full">Fechar</button>`;
+          const closeBtn = footer.querySelector('#btnMlPanelClose');
+          if (closeBtn) closeBtn.addEventListener('click', () => {
+            mlHidePanel();
+            if (btnPublishMl) btnPublishMl.disabled = false;
+          });
+        }
+        showToast(message || 'Falha ao publicar no ML.', 'error', 8000);
+        mlActiveEventSource.close();
+        mlActiveEventSource = null;
+        localStorage.removeItem('ml_active_job');
+        return;
+      }
+
+      // Etapa normal
+      const idx = ML_STEP_ORDER.indexOf(step);
+      if (idx > 0) {
+        const prev = ML_STEP_ORDER[idx - 1];
+        if (mlPanelStepStates[prev] !== 'failed') mlPanelStepStates[prev] = 'done';
+      }
+      mlRenderSteps(step, false);
+    };
+
+    mlActiveEventSource.onerror = () => {
+      // EventSource tenta reconectar automaticamente — não fechar
+    };
+  }
+
+  function mlCheckActiveJobOnBoot() {
+    const raw = localStorage.getItem('ml_active_job');
+    if (!raw) return;
+    let saved;
+    try { saved = JSON.parse(raw); } catch { localStorage.removeItem('ml_active_job'); return; }
+    const { job_id, started_at, sku, listing_type_id } = saved;
+    const TEN_MIN = 10 * 60 * 1000;
+    if (!job_id || (Date.now() - started_at) > TEN_MIN) {
+      localStorage.removeItem('ml_active_job');
+      return;
+    }
+    const listingTypeLabel = listing_type_id === 'gold_pro' ? 'Anúncio Premium' : 'Anúncio Clássico';
+    mlPanelStepStates = {};
+    mlSetPanelContext(sku || '—', listingTypeLabel);
+    const titleEl = document.getElementById('publishPanelTitle');
+    if (titleEl) titleEl.textContent = 'Reconectando...';
+    const footer = document.getElementById('publishPanelFooter');
+    if (footer) { footer.style.display = 'none'; footer.innerHTML = ''; }
+    if (publishRail) publishRail.style.display = '';
+    mlShowPanel();
+    if (btnPublishMl) btnPublishMl.disabled = true;
+    mlConnectSSE(job_id);
+  }
+
   setupCanvaOAuthPopupListener();
   handleCanvaOAuthReturn();
   setupMlOAuthPopupListener();
+  mlCheckActiveJobOnBoot();
 </script>
 
 </html>
