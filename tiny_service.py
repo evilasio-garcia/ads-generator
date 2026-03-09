@@ -583,6 +583,12 @@ def map_tiny_to_product_data(raw_product: Dict[str, Any]) -> Dict[str, Any]:
     sku = safe_str(raw_product.get('codigo', ''))
     gtin = safe_str(raw_product.get('gtin', ''))
     unit = safe_str(raw_product.get('unidade', ''))
+    # Categoria do produto no Tiny (pode ser objeto {id, descricao} ou string)
+    _cat_raw = raw_product.get('categoria', '')
+    if isinstance(_cat_raw, dict):
+        categoria = safe_str(_cat_raw.get('descricao') or _cat_raw.get('nome', ''))
+    else:
+        categoria = safe_str(_cat_raw)
     
     # Dimensões (campos podem variar: altura_embalagem, largura_embalagem, etc)
     height_cm = safe_float(raw_product.get('alturaEmbalagem', 0))
@@ -606,6 +612,7 @@ def map_tiny_to_product_data(raw_product: Dict[str, Any]) -> Dict[str, Any]:
         'sku': sku,
         'gtin': gtin,
         'unit': unit,
+        'categoria': categoria,
         'height_cm': height_cm,
         'width_cm': width_cm,
         'length_cm': length_cm,

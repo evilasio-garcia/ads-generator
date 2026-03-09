@@ -55,15 +55,16 @@ async def test_create_listing_paused_returns_item_id():
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.post = AsyncMock(return_value=_mock_http_post({"id": "MLB123456789"}))
+        mock_client.post = AsyncMock(return_value=_mock_http_post({"id": "MLB123456789", "permalink": "https://www.mercadolivre.com.br/produto/p/MLB12345"}))
         mock_cls.return_value = mock_client
 
-        item_id = await mercadolivre_service.create_listing(
+        item_id, permalink = await mercadolivre_service.create_listing(
             access_token="TOKEN",
             payload=listing_payload,
         )
 
     assert item_id == "MLB123456789"
+    assert permalink == "https://www.mercadolivre.com.br/produto/p/MLB12345"
 
 
 @pytest.mark.asyncio

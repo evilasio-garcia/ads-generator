@@ -683,12 +683,12 @@
     /* ── Publish Rail (ML e futuros marketplaces) ── */
     .publish-rail {
       position: absolute;
-      right: -54px;
+      right: -21px;
       top: 0;
       bottom: 0;
       width: 0;
       overflow: visible;
-      z-index: 8;
+      z-index: 30;
     }
 
     .publish-rail-inner {
@@ -702,31 +702,40 @@
     .publish-rail-btn {
       position: relative;
       display: inline-flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 0.3rem;
       width: auto;
-      min-width: 2.1rem;
-      min-height: 4.2rem;
-      padding: 0.55rem 0.34rem;
-      background: #FFE600;
+      min-width: 2.3rem;
+      min-height: 6rem;
+      padding: 0.6rem 0.38rem;
+      background: linear-gradient(180deg, #FFE600 0%, #FFD000 100%);
       color: #2D73E2;
       border: 2px solid #F0D800;
       border-radius: 0.7rem;
       font-weight: 700;
-      box-shadow: 2px 2px 10px rgba(45, 115, 226, 0.20);
+      box-shadow: 2px 2px 12px rgba(45, 115, 226, 0.25), inset 0 1px 0 rgba(255,255,255,0.4);
       transition: background 0.18s ease, box-shadow 0.2s ease, opacity 0.18s ease;
       cursor: pointer;
     }
 
     .publish-rail-btn:hover {
-      background: #F0D800;
-      box-shadow: 2px 4px 16px rgba(45, 115, 226, 0.35);
+      background: linear-gradient(180deg, #FFD000 0%, #FFBB00 100%);
+      box-shadow: 2px 4px 18px rgba(45, 115, 226, 0.42), inset 0 1px 0 rgba(255,255,255,0.4);
     }
 
     .publish-rail-btn:disabled {
       opacity: 0.45;
       cursor: not-allowed;
       pointer-events: none;
+    }
+
+    .publish-rail-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      transform: rotate(90deg);
     }
 
     .publish-rail-label {
@@ -737,15 +746,16 @@
       text-orientation: mixed;
       transform: rotate(180deg);
       white-space: nowrap;
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.015em;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
       line-height: 1;
     }
 
     /* ── Publish Panel ── */
     .publish-panel {
       width: 280px;
+      flex-shrink: 0;
       background: #FFF9E0;
       border: 2px solid #FFE600;
       border-radius: 0.9rem;
@@ -875,12 +885,22 @@
         </div>
       </div>
 
-      <div class="mt-4 grid sm:grid-cols-2 gap-4">
+      <div class="mt-4 grid sm:grid-cols-3 gap-4">
         <div>
           <label class="text-sm text-gray-700 font-medium">Produto</label>
           <input id="productName" type="text"
             class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder="Ex.: Tapete higiênico 80x60 lavanda">
+        </div>
+        <div id="mlCategoryField" style="display:none">
+          <label class="text-sm text-gray-700 font-medium">
+            Categoria ML
+            <span id="mlCategoryMatchBadge" class="hidden text-[10px] font-semibold px-1.5 py-0.5 rounded-full ml-1"></span>
+          </label>
+          <select id="mlCategorySelect"
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">— selecione —</option>
+          </select>
         </div>
         <div>
           <label class="text-sm text-gray-700 font-medium">Marketplace</label>
@@ -892,6 +912,44 @@
             <option value="magalu">Magalu</option>
             <option value="shein">Shein</option>
           </select>
+        </div>
+      </div>
+
+      <!-- Tabela de Atributos ML (inline, abaixo dos 3 campos) -->
+      <div id="mlAttributesContainer" class="mt-4" style="display:none">
+        <div class="card border-yellow-200 bg-yellow-50/30 overflow-hidden">
+          <button id="mlAttributesToggle" type="button"
+            class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-yellow-50/60 transition-colors">
+            <h4 class="text-sm font-semibold text-gray-800">Atributos Mercado Livre</h4>
+            <svg id="mlAttributesChevron" class="w-4 h-4 text-gray-500 transition-transform duration-200" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+          <div id="mlAttributesBody" class="px-4 pb-4" style="display:none">
+            <div class="flex items-center justify-end gap-2 mb-3">
+              <button id="btnAddOptionalAttr"
+                class="px-2.5 py-1 rounded text-xs font-medium bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">
+                + Opcional
+              </button>
+              <button id="btnSaveMlAttributes"
+                class="px-2.5 py-1 rounded text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700">
+                Salvar
+              </button>
+            </div>
+            <div id="mlAttributesLoading" class="text-sm text-gray-500 text-center py-4" style="display:none">
+              Carregando atributos...
+            </div>
+            <table id="mlAttributesTable" class="w-full text-sm" style="display:none">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="text-left py-2 px-2 text-gray-600 font-medium w-1/3">Atributo</th>
+                  <th class="text-left py-2 px-2 text-gray-600 font-medium">Valor</th>
+                  <th class="w-8"></th>
+                </tr>
+              </thead>
+              <tbody id="mlAttributesTableBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -1332,6 +1390,20 @@
               </button>
             </div>
           </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600 font-medium">Garantia</label>
+            <div class="flex gap-2 mt-1">
+              <select id="warrantyType"
+                class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" style="min-width:160px">
+                <option value="">Sem garantia</option>
+                <option value="seller">Garantia do vendedor</option>
+                <option value="factory">Garantia de fábrica</option>
+              </select>
+              <input id="warrantyDays" type="number" min="1" step="1" placeholder="Dias"
+                class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm w-24"
+                style="display:none" disabled>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1402,12 +1474,9 @@
 
         <!-- Botão Calcular Preços (apenas modo manual) -->
         <div id="manualPricingButton" class="mt-3" style="display: none;">
-          <button id="calculatePricesBtn" class="btn w-full bg-indigo-600 text-white hover:bg-indigo-700">
-            <svg class="icon w-4 h-4 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path
-                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+          <button id="calculatePricesBtn"
+            class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 w-full flex items-center justify-center gap-2">
+            <span class="text-base font-bold leading-none">$</span>
             Calcular Preços
           </button>
         </div>
@@ -1725,6 +1794,11 @@
               data-marketplace="mercadolivre"
               title="Publicar no Mercado Livre"
               aria-label="Publicar no Mercado Livre">
+              <svg class="publish-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
               <span class="publish-rail-label">Publicar no ML</span>
             </button>
             <!-- Estado: painel (mostrado via JS quando publicação inicia) -->
@@ -2214,6 +2288,23 @@
     <p>Esse mapeamento e aplicado somente ao clicar em <strong>Cadastrar KIT</strong>.</p>
   </template>
 
+  <!-- Modal: Adicionar Atributo ML Opcional -->
+  <div id="mlOptionalAttrModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card card p-6" style="max-width:480px">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">Adicionar Atributo Opcional</h3>
+        <button id="mlOptAttrModalClose" class="btn" title="Fechar">Fechar</button>
+      </div>
+      <div class="mb-3">
+        <input id="mlOptAttrSearchInput" type="text"
+          class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+          placeholder="Filtrar atributos...">
+      </div>
+      <div id="mlOptAttrList" class="max-h-64 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100">
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Busca de Categoria ML -->
   <div id="mlCategorySearchModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mlCatModalTitle">
     <div class="modal-card card p-6">
@@ -2408,6 +2499,7 @@
   // Cache de dados por SKU (evita chamadas redundantes à API)
   let costPriceCache = {}; // { 'SKU123': 12.50 }
   let shippingCostCache = {}; // { 'SKU123:mercadolivre': 8.90 }
+  let shippingCostLocked = false; // true = user set manual value or ML publish persisted value; skip auto-calc
 
   // Marketplaces com automação de frete implementada
   const SHIPPING_AUTO_MARKETPLACES = ['mercadolivre'];
@@ -2599,6 +2691,300 @@
   let workspacePersistQueued = false;
   let workspacePendingAction = "manual";
   let lastSkuInputNormalized = normalizeSkuValue(tinySKU.value);
+
+  // ── ML Attributes state ──────────────────────────────────────────
+  let mlCategoryAttributes = [];
+  let mlCurrentAttributes = [];
+  let mlExistingValues = {};
+
+  // Atributos controlados pelo Ads Gen (calculados pela aba de variante ativa)
+  const ML_VARIANT_OVERRIDES = {
+    'SALE_FORMAT': (vDef) => vDef.quantity === 1 ? 'Unidade' : 'Kit',
+    'UNITS_PER_PACK': (vDef) => String(vDef.quantity),
+    'PACKS_NUMBER': () => '1',
+  };
+
+  // Atributos que devem ser input text mesmo tendo values (tratar values como sugestão)
+  const ML_FORCE_TEXT_ATTRS = new Set(['PATTERN_NAME']);
+
+  // Atributos excluídos em kits (GTIN é específico do SKU base, kits não têm)
+  const ML_KIT_EXCLUDED_ATTRS = new Set(['GTIN']);
+
+  const TINY_TO_ML_ATTR_MAP = {
+    'BRAND': 'marca',
+    'GTIN': 'gtin',
+    'EAN': 'gtin',
+    'WEIGHT': 'peso_bruto',
+    'NET_WEIGHT': 'peso_liquido',
+    'HEIGHT': 'alturaEmbalagem',
+    'WIDTH': 'larguraEmbalagem',
+    'LENGTH': 'comprimentoEmbalagem',
+  };
+
+  function autoPopulateFromTiny(attrId) {
+    if (!tinyProductData?.raw_data) return '';
+    const tinyKey = TINY_TO_ML_ATTR_MAP[attrId];
+    if (!tinyKey) return '';
+    const val = tinyProductData.raw_data[tinyKey];
+    if (val === null || val === undefined || val === '') return '';
+    return String(val);
+  }
+
+  async function fetchAndRenderMlAttributes(categoryId) {
+    const container = document.getElementById('mlAttributesContainer');
+    const loading = document.getElementById('mlAttributesLoading');
+    const table = document.getElementById('mlAttributesTable');
+    const tbody = document.getElementById('mlAttributesTableBody');
+
+    if (!categoryId || marketplace.value !== 'mercadolivre') {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = '';
+    loading.style.display = '';
+    table.style.display = 'none';
+
+    try {
+      const baseSku = tinySKU.value.trim();
+      const qs = baseSku ? `?sku=${encodeURIComponent(baseSku)}` : '';
+      const resp = await fetchWithAuth(`/api/ml/category-attributes/${categoryId}${qs}`);
+      if (!resp.ok) throw new Error('Falha ao buscar atributos');
+      const data = await resp.json();
+      mlCategoryAttributes = data.attributes || [];
+      mlExistingValues = data.existing_values || {};
+    } catch (e) {
+      loading.textContent = 'Erro ao carregar atributos.';
+      return;
+    }
+
+    const saved = window.__mlAttributesSaved || [];
+    const addedIds = new Set();
+    const isKit = getActiveVariantDef().quantity > 1;
+
+    // Filtrar atributos excluídos em kits
+    const filteredAttrs = isKit
+      ? mlCategoryAttributes.filter(a => !ML_KIT_EXCLUDED_ATTRS.has(a.id))
+      : mlCategoryAttributes;
+
+    mlCurrentAttributes = [];
+
+    // 1. Atributos obrigatórios (sempre presentes)
+    filteredAttrs.filter(a => a.required).forEach(attr => {
+      const savedVal = saved.find(s => s.id === attr.id);
+      const existingVal = mlExistingValues[attr.id];
+      const autoVal = autoPopulateFromTiny(attr.id);
+      mlCurrentAttributes.push({
+        ...attr,
+        current_value: savedVal?.value_name || existingVal?.value_name || autoVal || '',
+        current_value_id: savedVal?.value_id || existingVal?.value_id || '',
+      });
+      addedIds.add(attr.id);
+    });
+
+    // 2. Opcionais que já têm valor (salvos, do anúncio existente ou do Tiny)
+    filteredAttrs.filter(a => !a.required).forEach(attr => {
+      if (addedIds.has(attr.id)) return;
+      const savedVal = saved.find(s => s.id === attr.id);
+      const existingVal = mlExistingValues[attr.id];
+      const autoVal = autoPopulateFromTiny(attr.id);
+      const value = savedVal?.value_name || existingVal?.value_name || autoVal || '';
+      if (!value) return;
+      mlCurrentAttributes.push({
+        ...attr,
+        current_value: value,
+        current_value_id: savedVal?.value_id || existingVal?.value_id || '',
+      });
+      addedIds.add(attr.id);
+    });
+
+    // 3. Opcionais salvos que não foram cobertos acima
+    saved.forEach(s => {
+      if (addedIds.has(s.id)) return;
+      if (isKit && ML_KIT_EXCLUDED_ATTRS.has(s.id)) return;
+      const fullAttr = filteredAttrs.find(a => a.id === s.id);
+      if (fullAttr) {
+        mlCurrentAttributes.push({
+          ...fullAttr,
+          current_value: s.value_name || '',
+          current_value_id: s.value_id || '',
+        });
+        addedIds.add(s.id);
+      }
+    });
+
+    // 4. Garantir atributos controlados presentes + aplicar overrides
+    const variantDef = getActiveVariantDef();
+    Object.keys(ML_VARIANT_OVERRIDES).forEach(attrId => {
+      if (!addedIds.has(attrId)) {
+        const catAttr = filteredAttrs.find(a => a.id === attrId);
+        if (catAttr) {
+          mlCurrentAttributes.push({ ...catAttr, current_value: '', current_value_id: '' });
+          addedIds.add(attrId);
+        }
+      }
+    });
+    applyMlVariantOverrides(variantDef);
+
+    renderMlAttributesTable();
+    loading.style.display = 'none';
+    table.style.display = '';
+  }
+
+  function applyMlVariantOverrides(variantDef) {
+    mlCurrentAttributes.forEach(attr => {
+      const overrideFn = ML_VARIANT_OVERRIDES[attr.id];
+      if (overrideFn) {
+        attr.current_value = overrideFn(variantDef);
+        attr.current_value_id = '';
+        attr.controlled = true;
+        attr.required = true;
+      }
+    });
+  }
+
+  function renderMlAttributesTable() {
+    const tbody = document.getElementById('mlAttributesTableBody');
+    tbody.innerHTML = '';
+
+    mlCurrentAttributes.forEach((attr, idx) => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-gray-100';
+
+      const tdName = document.createElement('td');
+      tdName.className = 'py-2 px-2';
+      tdName.innerHTML = `<span class="font-medium text-gray-800">${attr.name}</span>`
+        + (attr.required ? '<span class="text-red-500 text-xs ml-1">*</span>' : '')
+        + (attr.tooltip ? `<div class="text-xs text-gray-400 mt-0.5">${attr.tooltip}</div>` : '');
+
+      const tdValue = document.createElement('td');
+      tdValue.className = 'py-2 px-2';
+
+      if (attr.controlled) {
+        const span = document.createElement('span');
+        span.className = 'text-sm text-gray-600 bg-gray-100 px-2 py-1.5 rounded block';
+        span.textContent = attr.current_value;
+        tdValue.appendChild(span);
+      } else if (attr.values && attr.values.length > 0 && !ML_FORCE_TEXT_ATTRS.has(attr.id)) {
+        const select = document.createElement('select');
+        select.className = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm';
+        select.innerHTML = '<option value="">— selecione —</option>';
+        attr.values.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id || v.name;
+          opt.textContent = v.name;
+          if ((v.id && v.id === attr.current_value_id) || v.name === attr.current_value) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        });
+        select.addEventListener('change', () => {
+          const selOpt = attr.values.find(v => (v.id || v.name) === select.value);
+          mlCurrentAttributes[idx].current_value = selOpt?.name || select.value;
+          mlCurrentAttributes[idx].current_value_id = selOpt?.id || '';
+        });
+        tdValue.appendChild(select);
+      } else {
+        const input = document.createElement('input');
+        input.type = attr.value_type === 'number' ? 'number' : 'text';
+        input.className = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm';
+        input.value = attr.current_value || '';
+        input.placeholder = attr.example ? `Ex.: ${attr.example}` : '';
+        input.addEventListener('input', () => {
+          mlCurrentAttributes[idx].current_value = input.value;
+        });
+        tdValue.appendChild(input);
+        // Atributos forçados como texto: mostrar valores possíveis como sugestão
+        if (ML_FORCE_TEXT_ATTRS.has(attr.id) && attr.values && attr.values.length > 0) {
+          const hint = document.createElement('div');
+          hint.className = 'text-xs text-gray-400 mt-1';
+          const names = attr.values.map(v => v.name).slice(0, 8).join(', ');
+          hint.textContent = `Alguns dos valores possíveis são: ${names}`;
+          tdValue.appendChild(hint);
+        }
+      }
+
+      const tdAction = document.createElement('td');
+      tdAction.className = 'py-2 px-1 text-center';
+      if (!attr.required) {
+        const btnRemove = document.createElement('button');
+        btnRemove.className = 'text-red-400 hover:text-red-600 text-xs';
+        btnRemove.textContent = '\u2715';
+        btnRemove.title = 'Remover atributo';
+        btnRemove.addEventListener('click', () => {
+          mlCurrentAttributes.splice(idx, 1);
+          renderMlAttributesTable();
+        });
+        tdAction.appendChild(btnRemove);
+      }
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdValue);
+      tr.appendChild(tdAction);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function saveMlAttributes(options = {}) {
+    const { silent = false } = options;
+    const isKit = getActiveVariantDef().quantity > 1;
+    const mlAttributes = mlCurrentAttributes
+      .filter(a => a.current_value && !(isKit && ML_KIT_EXCLUDED_ATTRS.has(a.id)))
+      .map(a => ({
+        id: a.id,
+        value_name: a.current_value,
+        ...(a.current_value_id ? { value_id: a.current_value_id } : {}),
+      }));
+
+    // Inject WARRANTY_TYPE and WARRANTY_TIME from warranty UI fields
+    const wTypeEl = document.getElementById('warrantyType');
+    const wDaysEl = document.getElementById('warrantyDays');
+    const wType = wTypeEl ? wTypeEl.value : '';
+    const wDays = wDaysEl ? wDaysEl.value : '';
+    const filteredAttrs = mlAttributes.filter(a => a.id !== 'WARRANTY_TYPE' && a.id !== 'WARRANTY_TIME');
+    if (wType) {
+      filteredAttrs.push({ id: 'WARRANTY_TYPE', value_name: wType });
+      if (wDays) filteredAttrs.push({ id: 'WARRANTY_TIME', value_name: `${wDays} dias` });
+    } else {
+      filteredAttrs.push({ id: 'WARRANTY_TYPE', value_name: 'Sem garantia' });
+    }
+
+    window.__mlAttributesSaved = filteredAttrs;
+    if (!silent) {
+      saveWorkspaceNow('field_change');
+      showToast('Atributos ML salvos.', 'success');
+    }
+  }
+
+  function renderOptionalAttrModal(available) {
+    const list = document.getElementById('mlOptAttrList');
+    list.innerHTML = '';
+    if (available.length === 0) {
+      const msg = document.createElement('div');
+      msg.className = 'p-4 text-sm text-gray-500 text-center';
+      msg.textContent = 'Não há mais atributos adicionais disponíveis para preenchimento.';
+      list.appendChild(msg);
+      return;
+    }
+    available.forEach(attr => {
+      const div = document.createElement('div');
+      div.className = 'p-3 hover:bg-gray-50 cursor-pointer';
+      div.innerHTML = `<div class="font-medium text-sm text-gray-800">${attr.name}</div>`
+        + (attr.tooltip ? `<div class="text-xs text-gray-500 mt-0.5">${attr.tooltip}</div>` : '')
+        + (attr.example ? `<div class="text-xs text-gray-400">Ex.: ${attr.example}</div>` : '');
+      div.addEventListener('click', () => {
+        const existingVal = mlExistingValues[attr.id];
+        mlCurrentAttributes.push({
+          ...attr,
+          current_value: existingVal?.value_name || autoPopulateFromTiny(attr.id),
+          current_value_id: existingVal?.value_id || '',
+        });
+        renderMlAttributesTable();
+        document.getElementById('mlOptionalAttrModal').classList.remove('open');
+      });
+      list.appendChild(div);
+    });
+  }
 
   function normalizeSkuValue(raw) {
     return String(raw || "").trim().toUpperCase();
@@ -3161,7 +3547,11 @@
         tiny_length: tinyLength.value || "",
         tiny_weight: simpleWeight || "",
         tiny_cost_price: simpleCost || "",
-        tiny_shipping_cost: simpleShipping || ""
+        tiny_shipping_cost: simpleShipping || "",
+        ml_category_id: document.getElementById('mlCategorySelect')?.value || '',
+        ml_attributes: window.__mlAttributesSaved || [],
+        warranty_type: document.getElementById('warrantyType')?.value || '',
+        warranty_days: document.getElementById('warrantyDays')?.value || '',
       },
       cost_price_cache: { ...costPriceCache },
       shipping_cost_cache: { ...shippingCostCache }
@@ -3310,8 +3700,26 @@
     // mesmo quando tinyProductData existir.
     tinyCostPrice.value = resolvedCost;
     tinyShippingCost.value = resolvedShipping;
+    // Lock shipping if workspace has a persisted value (manual or ML-published)
+    shippingCostLocked = resolvedShipping !== '' && parseFloat(resolvedShipping) > 0;
     tinyWidth.value = resolvedWidth;
     tinyWeight.value = resolvedWeight;
+
+    // Restore warranty fields
+    const wTypeEl = document.getElementById('warrantyType');
+    const wDaysEl = document.getElementById('warrantyDays');
+    if (wTypeEl && fields.warranty_type !== undefined) {
+      wTypeEl.value = fields.warranty_type || '';
+      if (wTypeEl.value) {
+        wDaysEl.style.display = '';
+        wDaysEl.disabled = false;
+        wDaysEl.value = fields.warranty_days || '';
+      } else {
+        wDaysEl.style.display = 'none';
+        wDaysEl.disabled = true;
+        wDaysEl.value = '';
+      }
+    }
 
     const simpleState = getSimpleVariantState();
     if (simpleState) {
@@ -3324,6 +3732,21 @@
     }
     setSimpleCatalogIdentity(resolvedCatalogGtin, resolvedCatalogSku, resolvedCatalogUnit);
     applyCatalogIdentityForActiveVariant();
+
+    // Restaurar categoria ML salva no workspace
+    if (fields.ml_category_id) {
+      const mlCatSel = document.getElementById('mlCategorySelect');
+      if (mlCatSel) mlCatSel.value = fields.ml_category_id;
+    }
+    updateMlCategoryFieldVisibility();
+
+    // Restaurar atributos ML salvos e renderizar tabela
+    if (Array.isArray(fields.ml_attributes)) {
+      window.__mlAttributesSaved = fields.ml_attributes;
+    }
+    if (fields.ml_category_id && marketplace.value === 'mercadolivre') {
+      fetchAndRenderMlAttributes(fields.ml_category_id);
+    }
   }
 
   function parseVariantContentState(rawVariant = {}) {
@@ -3519,6 +3942,7 @@
       // Limpar campos de custo ao iniciar fetch de novo SKU
       tinyCostPrice.value = '';
       tinyShippingCost.value = '';
+      shippingCostLocked = false;
 
       try {
         const instanceIndex = parseInt(requestedInstance);
@@ -3551,6 +3975,7 @@
 
         // Dados são válidos - aplicar
         tinyProductData = fetchedData;
+        if (fetchedData.categoria) tryAutoMatchMlCategory(fetchedData.categoria);
 
         // Verificar se tem preço de custo válido
         const costPrice = parseFloat(fetchedData.cost_price) || 0;
@@ -4793,8 +5218,13 @@
     const shippingCost = parseFloat(tinyShippingCost.value) || 0;
     const channel = marketplace.value;
 
-    if (!costPrice || costPrice <= 0 || !channel) {
-      return; // Não há dados suficientes para calcular
+    if (!costPrice || costPrice <= 0) {
+      showToast('Preencha o custo do produto antes de calcular preços.', 'warning');
+      return;
+    }
+    if (!channel) {
+      showToast('Selecione um marketplace antes de calcular preços.', 'warning');
+      return;
     }
 
     // Evitar chamadas concorrentes
@@ -4807,17 +5237,20 @@
 
       // Usar o valor de frete do campo. Se ausente e o cenário do ML exigir,
       // tenta preencher automaticamente antes de calcular os preços.
+      // Se o frete está travado (manual ou persistido pelo ML), não sobrescrever
+      // — exceto para variantes de kit, que sempre recalculam com o custo do kit.
       let currentShippingCost = shippingCost;
       const shippingDecisionCostBase = getShippingDecisionBaseCost(costPrice);
-      const shouldForceShippingRefresh = requestVariantKey !== "simple";
-      if (
+      const isKitVariant = requestVariantKey !== "simple";
+      const shouldAutoFillShipping = (
         channel === 'mercadolivre' &&
         shippingDecisionCostBase > 78.99 &&
-        (currentShippingCost <= 0 || shouldForceShippingRefresh)
-      ) {
+        (isKitVariant || (!shippingCostLocked && currentShippingCost <= 0))
+      );
+      if (shouldAutoFillShipping) {
         const autoShipping = await autoFillShippingCost({
           silent: true,
-          forceRefresh: shouldForceShippingRefresh,
+          forceRefresh: isKitVariant,
           usePromoReference: false,
           shippingDecisionCostBase
         });
@@ -4870,6 +5303,7 @@
       if (!responseMin.ok) {
         const errorBody = await responseMin.text();
         console.error('Erro ao calcular preços MIN:', responseMin.status, errorBody);
+        showToast('Erro ao calcular preços (Clássico). Verifique o console.', 'error');
         return;
       }
 
@@ -4894,6 +5328,7 @@
       if (!responseMax.ok) {
         const errorBody = await responseMax.text();
         console.error('Erro ao calcular preços MAX:', responseMax.status, errorBody);
+        showToast('Erro ao calcular preços (Premium). Verifique o console.', 'error');
         return;
       }
 
@@ -5037,6 +5472,7 @@
 
     } catch (error) {
       console.error('Erro ao buscar auto-pricing:', error);
+      showToast('Erro ao calcular preços. Verifique o console para detalhes.', 'error');
     } finally {
       autoPricingInProgress = false;
     }
@@ -5087,8 +5523,13 @@
 
   tinyShippingCost.addEventListener('change', () => {
     if (variantSwitchInProgress) return;
+    const val = tinyShippingCost.value.trim();
+    // Lock shipping when user types a value; only unlocks via "Buscar no Marketplace" button
+    if (val !== '' && parseFloat(val) > 0) {
+      shippingCostLocked = true;
+    }
     if (activeVariantKey === "simple") {
-      variantStore.simple.shippingCostSnapshot = tinyShippingCost.value || "";
+      variantStore.simple.shippingCostSnapshot = val;
       persistState("tiny_shipping_edit");
     }
     if (integrationMode === "tiny") {
@@ -5126,6 +5567,22 @@
       persistState("tiny_weight_edit");
     }
   });
+
+  // Warranty type toggle
+  const warrantyType = document.getElementById('warrantyType');
+  const warrantyDays = document.getElementById('warrantyDays');
+  warrantyType.addEventListener('change', () => {
+    if (warrantyType.value) {
+      warrantyDays.style.display = '';
+      warrantyDays.disabled = false;
+    } else {
+      warrantyDays.style.display = 'none';
+      warrantyDays.disabled = true;
+      warrantyDays.value = '';
+    }
+    saveWorkspaceNow('field_change');
+  });
+  warrantyDays.addEventListener('change', () => saveWorkspaceNow('field_change'));
 
   marketplace.addEventListener('change', async () => {
     if (integrationMode !== "tiny") return;
@@ -5174,7 +5631,7 @@
       toastContainer = document.createElement('div');
       toastContainer.id = 'toastContainer';
       toastContainer.style.cssText = [
-        'position:fixed', 'bottom:1.5rem', 'left:1.5rem',
+        'position:fixed', 'bottom:1.5rem', 'right:1.5rem',
         'display:flex', 'flex-direction:column', 'gap:0.5rem',
         'z-index:9999', 'pointer-events:none'
       ].join(';');
@@ -5570,10 +6027,13 @@
 
   // Listeners dos botões de auto-preenchimento
   btnAutoFillCost.addEventListener('click', () => autoFillCostPrice());
-  btnAutoFillShipping.addEventListener('click', () => autoFillShippingCost({
-    forceRefresh: true,
-    usePromoReference: true
-  }));
+  btnAutoFillShipping.addEventListener('click', () => {
+    shippingCostLocked = false;
+    autoFillShippingCost({
+      forceRefresh: true,
+      usePromoReference: true,
+    });
+  });
 
   // NOTA: Edição manual de preços agora usa métricas do backend
   // Quando o usuário edita um preço, as métricas não são recalculadas localmente
@@ -6497,6 +6957,7 @@
       appConfig = data || {};
       mlAccounts = Array.isArray(appConfig.ml_accounts) ? appConfig.ml_accounts : [];
       renderMlAccounts();
+      populateMlCategorySelect();
       saveGeneralConfig(getGeneralConfig());
       updateTinyInstanceSelect();
       updateSearchButtonStatus();
@@ -7165,6 +7626,32 @@ Restricoes:
       hydrateActiveVariantVolatileState();
       updateVariantTabsUi();
       syncRegenBusyUiForActiveVariant();
+
+      // Recalcular atributos ML controlados pela aba ativa
+      if (mlCurrentAttributes.length > 0) {
+        const newVariantDef = VARIANT_BY_KEY[nextKey] || VARIANT_BY_KEY.simple;
+        const newIsKit = newVariantDef.quantity > 1;
+        if (newIsKit) {
+          mlCurrentAttributes = mlCurrentAttributes.filter(a => !ML_KIT_EXCLUDED_ATTRS.has(a.id));
+        } else {
+          ML_KIT_EXCLUDED_ATTRS.forEach(attrId => {
+            if (!mlCurrentAttributes.find(a => a.id === attrId)) {
+              const catAttr = mlCategoryAttributes.find(a => a.id === attrId);
+              if (catAttr) {
+                const saved = (window.__mlAttributesSaved || []).find(s => s.id === attrId);
+                const existVal = mlExistingValues[attrId];
+                mlCurrentAttributes.push({
+                  ...catAttr,
+                  current_value: saved?.value_name || existVal?.value_name || autoPopulateFromTiny(attrId),
+                  current_value_id: saved?.value_id || existVal?.value_id || '',
+                });
+              }
+            }
+          });
+        }
+        applyMlVariantOverrides(newVariantDef);
+        renderMlAttributesTable();
+      }
       restoreWindowScrollIfNeeded(scrollSnapshot);
 
       if (KIT_VARIANT_KEYS.includes(activeVariantKey)) {
@@ -8844,12 +9331,17 @@ Restricoes:
       const expAt = acc.expires_at ? acc.expires_at * 1000 : null;
       const now = Date.now();
       const expiringMs = 30 * 60 * 1000;
-      const isExpiring = expAt && (expAt - now) < expiringMs;
-      const badgeClass = isExpiring
+      const isExpired = expAt && expAt < now;
+      const isExpiring = !isExpired && expAt && (expAt - now) < expiringMs;
+      const badgeClass = isExpired
+        ? 'bg-red-100 text-red-700 border-red-200'
+        : isExpiring
         ? 'bg-orange-100 text-orange-700 border-orange-200'
         : 'bg-green-100 text-green-700 border-green-200';
-      const badgeLabel = isExpiring ? 'Token expirando' : 'Conectada';
-      const connectedDate = acc.expires_at
+      const badgeLabel = isExpired ? 'Token expirado' : isExpiring ? 'Token expirando' : 'Conectada';
+      const connectedDate = acc.token_obtained_at
+        ? new Date(acc.token_obtained_at * 1000).toLocaleDateString('pt-BR')
+        : acc.expires_at
         ? new Date((acc.expires_at - 6 * 3600) * 1000).toLocaleDateString('pt-BR')
         : '—';
       const cats = ((appConfig && appConfig.ml_category_mappings) || [])
@@ -9079,10 +9571,124 @@ Restricoes:
     publishRail.style.display = mp.value === 'mercadolivre' ? '' : 'none';
   }
 
+  // ── ML Category field ─────────────────────────────────────────────────────
+
+  function updateMlCategoryFieldVisibility() {
+    const field = document.getElementById('mlCategoryField');
+    const mp = document.getElementById('marketplace');
+    if (!field || !mp) return;
+    field.style.display = mp.value === 'mercadolivre' ? '' : 'none';
+  }
+
+  function populateMlCategorySelect(preserveValue) {
+    const sel = document.getElementById('mlCategorySelect');
+    if (!sel) return;
+    const mlUserId = mlAccounts[0]?.ml_user_id;
+    const mappings = (appConfig?.ml_category_mappings || [])
+      .filter(m => !mlUserId || m.ml_user_id === mlUserId);
+    const prev = preserveValue !== undefined ? preserveValue : sel.value;
+    sel.innerHTML = '<option value="">— selecione —</option>';
+    mappings.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.ml_category_id;
+      opt.textContent = `${m.adsgen_name}`;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+  }
+
+  function tryAutoMatchMlCategory(tinyCategoria) {
+    const sel = document.getElementById('mlCategorySelect');
+    const badge = document.getElementById('mlCategoryMatchBadge');
+    if (!sel || !tinyCategoria) return;
+    // Only auto-match if the user hasn't already chosen a category
+    if (sel.value) return;
+    const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const normalizedTiny = normalize(tinyCategoria);
+    const mlUserId = mlAccounts[0]?.ml_user_id;
+    const mappings = (appConfig?.ml_category_mappings || [])
+      .filter(m => !mlUserId || m.ml_user_id === mlUserId);
+
+    // Exact match — auto-select silently
+    const exact = mappings.find(m => normalize(m.adsgen_name) === normalizedTiny);
+    if (exact) {
+      sel.value = exact.ml_category_id;
+      if (badge) { badge.textContent = 'auto'; badge.className = 'text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700'; }
+      return;
+    }
+    // Partial match — suggest but mark as "sugerido" so user notices
+    const partial = mappings.find(m => {
+      const n = normalize(m.adsgen_name);
+      return normalizedTiny.includes(n) || n.includes(normalizedTiny);
+    });
+    if (partial) {
+      sel.value = partial.ml_category_id;
+      if (badge) { badge.textContent = 'sugerido'; badge.className = 'text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700'; }
+      return;
+    }
+    // No match — leave empty, badge hidden
+    if (badge) { badge.textContent = ''; badge.className = 'hidden'; }
+  }
+
+  // Clear badge when user manually changes the category
+  const mlCategorySelect = document.getElementById('mlCategorySelect');
+  if (mlCategorySelect) {
+    mlCategorySelect.addEventListener('change', () => {
+      const badge = document.getElementById('mlCategoryMatchBadge');
+      if (badge) { badge.textContent = ''; badge.className = 'hidden'; }
+      window.__mlAttributesSaved = [];
+      fetchAndRenderMlAttributes(mlCategorySelect.value);
+      saveWorkspaceNow('field_change');
+    });
+  }
+
   if (document.getElementById('marketplace')) {
-    document.getElementById('marketplace').addEventListener('change', updatePublishRailVisibility);
+    document.getElementById('marketplace').addEventListener('change', () => {
+      updatePublishRailVisibility();
+      updateMlCategoryFieldVisibility();
+      populateMlCategorySelect();
+      const attrContainer = document.getElementById('mlAttributesContainer');
+      if (attrContainer) {
+        attrContainer.style.display = marketplace.value === 'mercadolivre'
+          && document.getElementById('mlCategorySelect')?.value ? '' : 'none';
+      }
+    });
   }
   updatePublishRailVisibility();
+  updateMlCategoryFieldVisibility();
+  populateMlCategorySelect();
+
+  // ML Attributes listeners
+  document.getElementById('mlAttributesToggle')?.addEventListener('click', () => {
+    const body = document.getElementById('mlAttributesBody');
+    const chevron = document.getElementById('mlAttributesChevron');
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : '';
+    chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+  });
+
+  document.getElementById('btnSaveMlAttributes')?.addEventListener('click', saveMlAttributes);
+
+  document.getElementById('btnAddOptionalAttr')?.addEventListener('click', () => {
+    const currentIds = new Set(mlCurrentAttributes.map(a => a.id));
+    const isKit = getActiveVariantDef().quantity > 1;
+    const available = mlCategoryAttributes.filter(a =>
+      !a.required && !currentIds.has(a.id) && !(isKit && ML_KIT_EXCLUDED_ATTRS.has(a.id))
+    );
+    renderOptionalAttrModal(available);
+    document.getElementById('mlOptionalAttrModal').classList.add('open');
+  });
+
+  document.getElementById('mlOptAttrModalClose')?.addEventListener('click', () => {
+    document.getElementById('mlOptionalAttrModal').classList.remove('open');
+  });
+
+  document.getElementById('mlOptAttrSearchInput')?.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase();
+    document.querySelectorAll('#mlOptAttrList > div').forEach(item => {
+      item.style.display = item.textContent.toLowerCase().includes(query) ? '' : 'none';
+    });
+  });
 
   function getActiveListingTypeId() {
     const activeTab = document.querySelector('.price-tab-btn.active');
@@ -9131,7 +9737,6 @@ Restricoes:
     return missing;
   }
 
-  let mlActiveEventSource = null;
   let mlPanelStepStates = {};
 
   function mlShowPanel() {
@@ -9179,12 +9784,64 @@ Restricoes:
 
       const listingTypeId = getActiveListingTypeId();
       const listingTypeLabel = listingTypeId === 'gold_pro' ? 'Anúncio Premium' : 'Anúncio Clássico';
-      const skuDisplay = document.getElementById('tinySKUDisplay');
-      const skuInput = document.getElementById('tinySKU');
-      const sku = (skuDisplay && skuDisplay.value) || (skuInput && skuInput.value) || '';
+
+      // Auto-save ML attributes before publish to ensure they're in the workspace
+      if (typeof saveMlAttributes === 'function' && mlCurrentAttributes.length > 0) {
+        saveMlAttributes({ silent: true });
+      }
+      await saveWorkspaceNow('pre_publish');
+
+      // SKU de exibição: o que está visível na aba ativa (kit SKU para kits, simples para simples)
+      const sku = document.getElementById('tinySKUDisplay')?.value?.trim()
+        || document.getElementById('tinySKU')?.value?.trim() || '';
+      // SKU base do produto simples: usado pelo backend para lookup de metadados (ml_category_id, etc.)
+      const baseSku = (typeof getSimpleCatalogIdentity === 'function' && getSimpleCatalogIdentity().sku) || sku;
+
       const mlUserId = mlAccounts[0] && mlAccounts[0].ml_user_id;
       const activeVariantBtn = document.querySelector('.variant-tab-btn.active');
       const variant = (activeVariantBtn && activeVariantBtn.dataset.variant) || 'simple';
+
+      // Monta o payload completo com todos os dados visíveis na tela — o frontend é responsável por isso
+      const isMaxTab = document.querySelector('.price-tab-btn.active')?.dataset.tab === 'max';
+      // Ensure ml_attributes (including warranty) are saved before publish
+      if (typeof saveMlAttributes === 'function' && mlCurrentAttributes.length > 0) {
+        saveMlAttributes({ silent: true });
+      }
+
+      // Read promo price from the active pricing tab
+      const promoPrice = parseFloat(document.getElementById(isMaxTab ? 'tinyPromoPriceMax' : 'tinyPromoPriceMin')?.value || '') || undefined;
+
+      // Read wholesale tiers from the table (only from % Min tab)
+      const uiWholesaleTiers = (wholesaleRows || [])
+        .filter(r => r.price > 0 && r.qty > 1)
+        .map(r => ({ min_quantity: parseInt(r.qty), price: parseFloat(r.price) }));
+
+      // Read warranty from UI
+      const wType = document.getElementById('warrantyType')?.value || '';
+      const wDays = parseInt(document.getElementById('warrantyDays')?.value || '') || 0;
+
+      const publishBody = {
+        ml_user_id: mlUserId,
+        sku,
+        base_sku: baseSku !== sku ? baseSku : undefined,
+        variant,
+        pricing_tab: listingTypeId === 'gold_pro' ? 'premium' : 'classic',
+        title: document.getElementById('outTitle')?.value?.trim() || undefined,
+        description: document.getElementById('outDesc')?.value?.trim() || undefined,
+        price: parseFloat(document.getElementById(isMaxTab ? 'tinyAnnouncePriceMax' : 'tinyAnnouncePriceMin')?.value || '') || undefined,
+        promo_price: promoPrice,
+        wholesale_tiers: uiWholesaleTiers.length > 0 ? uiWholesaleTiers : undefined,
+        warranty_type: wType || undefined,
+        warranty_days: wDays > 0 ? wDays : undefined,
+        cost_price: parseFloat(document.getElementById('tinyCostPrice')?.value || '') || undefined,
+        shipping_cost: parseFloat(document.getElementById('tinyShippingCost')?.value || '') || undefined,
+        weight_kg: parseFloat(document.getElementById('tinyWeight')?.value || '') || undefined,
+        height_cm: parseFloat(document.getElementById('tinyHeight')?.value || '') || undefined,
+        width_cm: parseFloat(document.getElementById('tinyWidth')?.value || '') || undefined,
+        length_cm: parseFloat(document.getElementById('tinyLength')?.value || '') || undefined,
+        category_id: document.getElementById('mlCategorySelect')?.value || undefined,
+        ml_attributes: window.__mlAttributesSaved || undefined,
+      };
 
       btnPublishMl.disabled = true;
 
@@ -9192,16 +9849,15 @@ Restricoes:
         const res = await fetch('/api/ml/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ml_user_id: mlUserId,
-            sku,
-            variant,
-            listing_type_id: listingTypeId,
-          }),
+          body: JSON.stringify(publishBody),
         });
         const body = await res.json();
         if (!res.ok) {
-          showToast(body.detail || 'Erro ao iniciar publicação.', 'error', 8000);
+          const d = body.detail;
+          const errMsg = d && typeof d === 'object'
+            ? (d.message || 'Erro ao iniciar publicação.') + (d.missing_fields?.length ? ` Campos: ${d.missing_fields.join(', ')}.` : '')
+            : (d || 'Erro ao iniciar publicação.');
+          showToast(errMsg, 'error', 8000);
           btnPublishMl.disabled = false;
           return;
         }
@@ -9234,13 +9890,13 @@ Restricoes:
     });
   }
 
-  function mlConnectSSE(jobId) {
-    if (mlActiveEventSource) mlActiveEventSource.close();
-    mlActiveEventSource = new EventSource(`/api/ml/publish/${jobId}/events`);
+  let _mlSseAbortController = null;
 
-    mlActiveEventSource.onmessage = (evt) => {
-      let data;
-      try { data = JSON.parse(evt.data); } catch { return; }
+  function mlConnectSSE(jobId) {
+    if (_mlSseAbortController) _mlSseAbortController.abort();
+    _mlSseAbortController = new AbortController();
+
+    function handleEvent(data) {
       const { step, message, listing_id, listing_url, failed_at } = data;
 
       if (step === 'done') {
@@ -9256,16 +9912,19 @@ Restricoes:
         const footer = document.getElementById('publishPanelFooter');
         if (footer) {
           footer.style.display = '';
-          footer.innerHTML = listing_url
+          const linkHtml = listing_url
             ? `<a href="${listing_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 underline">Ver anúncio no ML ↗</a>`
-            : '';
+            : (listing_id ? `<span class="text-xs text-gray-600">ID: ${listing_id}</span>` : '');
+          footer.innerHTML = `${linkHtml}<button id="btnMlPanelClose" class="mt-2 btn text-xs w-full">Fechar</button>`;
+          const closeBtn = footer.querySelector('#btnMlPanelClose');
+          if (closeBtn) closeBtn.addEventListener('click', () => {
+            mlHidePanel();
+            if (btnPublishMl) btnPublishMl.disabled = false;
+          });
         }
         showToast('Anúncio publicado no ML!', 'success', 5000);
-        mlActiveEventSource.close();
-        mlActiveEventSource = null;
         localStorage.removeItem('ml_active_job');
-        setTimeout(() => { mlHidePanel(); if (btnPublishMl) btnPublishMl.disabled = false; }, 2000);
-        return;
+        return true;
       }
 
       if (step === 'error') {
@@ -9285,7 +9944,7 @@ Restricoes:
         if (footer) {
           footer.style.display = '';
           const listingLink = listing_id
-            ? `<a href="https://www.mercadolivre.com.br/anuncios/${listing_id}" target="_blank" rel="noopener" class="text-xs text-blue-600 underline block mb-1">Ver anúncio pausado ${listing_id} ↗</a>`
+            ? `<span class="text-xs text-gray-600 block mb-1">ID: ${listing_id}</span>`
             : '';
           footer.innerHTML = `<p class="text-xs text-red-600 mb-1">${message || 'Erro desconhecido'}</p>${listingLink}<button id="btnMlPanelClose" class="mt-1 btn text-xs w-full">Fechar</button>`;
           const closeBtn = footer.querySelector('#btnMlPanelClose');
@@ -9295,10 +9954,8 @@ Restricoes:
           });
         }
         showToast(message || 'Falha ao publicar no ML.', 'error', 8000);
-        mlActiveEventSource.close();
-        mlActiveEventSource = null;
         localStorage.removeItem('ml_active_job');
-        return;
+        return true;
       }
 
       // Etapa normal
@@ -9308,11 +9965,45 @@ Restricoes:
         if (mlPanelStepStates[prev] !== 'failed') mlPanelStepStates[prev] = 'done';
       }
       mlRenderSteps(step, false);
-    };
+      return false;
+    }
 
-    mlActiveEventSource.onerror = () => {
-      // EventSource tenta reconectar automaticamente — não fechar
-    };
+    (async () => {
+      try {
+        const resp = await fetch(`/api/ml/publish/${jobId}/events`, {
+          signal: _mlSseAbortController.signal,
+          headers: { 'Accept': 'text/event-stream' },
+        });
+        if (!resp.ok || !resp.body) {
+          showToast('Falha ao conectar ao stream de publicação.', 'error');
+          return;
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            let eventData;
+            try { eventData = JSON.parse(line.slice(6)); } catch { continue; }
+            const finished = handleEvent(eventData);
+            if (finished) {
+              reader.cancel();
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn('SSE stream error, retrying in 2s...', err);
+        setTimeout(() => mlConnectSSE(jobId), 2000);
+      }
+    })();
   }
 
   function mlCheckActiveJobOnBoot() {

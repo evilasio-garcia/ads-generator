@@ -2314,12 +2314,12 @@ async def gateway_info():
         "slug": settings.app_slug,
         "description": "Gerador de anúncios",
         "icon_url":
-            "https://fraction-proxy-considers-coupon.trycloudflare.com/static/favicon.svg"
+            "https://cocktail-teddy-down-wages.trycloudflare.com/static/favicon.svg"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/static/favicon.svg",
         "tooltip": "Gerador de anúncios",
         "app_url":
-            "https://fraction-proxy-considers-coupon.trycloudflare.com/auth/gateway-login"
+            "https://cocktail-teddy-down-wages.trycloudflare.com/auth/gateway-login"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/auth/gateway-login",
         "auth_type": "GATEWAY_TOKEN",
@@ -3771,12 +3771,15 @@ async def ml_disconnect_account(
 
 
 class MLPublishRequest(BaseModel):
+    # SKU de exibição (pode ser SKU do kit); base_sku é o SKU simples para lookup de metadados no DB
     sku: str
+    base_sku: Optional[str] = None
     marketplace: str = "mercadolivre"
     ml_user_id: str
     variant: str = "simple"
-    # UI-calculated fields — override whatever is in the DB
+    # Campos vindos da UI — têm prioridade absoluta sobre qualquer dado do DB
     title: Optional[str] = None
+    description: Optional[str] = None
     price: Optional[float] = None
     cost_price: Optional[float] = None
     shipping_cost: Optional[float] = None
@@ -3786,10 +3789,14 @@ class MLPublishRequest(BaseModel):
     height_cm: Optional[float] = None
     category_id: Optional[str] = None
     catalog_product_id: Optional[str] = None
-    description: Optional[str] = None
     image_urls: Optional[list] = None
     # Aba de precificação ativa na UI: "classic" (% Min) → gold_special | "premium" (% Max) → gold_pro
     pricing_tab: Optional[str] = None  # "classic" or "premium"
+    ml_attributes: Optional[list] = None
+    promo_price: Optional[float] = None
+    wholesale_tiers: Optional[list] = None  # [{"min_quantity": int, "price": float}, ...]
+    warranty_type: Optional[str] = None  # "seller" | "factory" | ""
+    warranty_days: Optional[int] = None
 
 
 @app.post("/api/ml/publish")
@@ -3805,28 +3812,26 @@ async def ml_publish(
     _cleanup_ml_publish_jobs()
     user_id = str(current_user.user_id)
 
-    sku_normalized = _normalize_sku(payload.sku)
     marketplace_normalized = "mercadolivre"
+    # Lookup uses base_sku when provided (for kits: base = simple product), otherwise uses sku
+    lookup_sku = _normalize_sku(payload.base_sku or payload.sku)
     workspace = db.query(SkuWorkspace).filter(
-        SkuWorkspace.sku_normalized == sku_normalized,
+        SkuWorkspace.sku_normalized == lookup_sku,
         SkuWorkspace.marketplace_normalized == marketplace_normalized,
     ).first()
+    # workspace may be None — the payload from the UI is the primary data source;
+    # the DB is only consulted for invisible metadata (ml_category_id, catalog_product_id, ml_attributes)
+    ws_base = (workspace.base_state or {}) if workspace else {}
+    ws_versioned = (workspace.versioned_state_current or {}) if workspace else {}
 
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace não encontrado para este SKU.")
+    # Build ws_state starting from DB metadata, then apply all UI-supplied values on top
+    base_fields = dict(ws_base.get("product_fields") or {})
+    base_state = dict(ws_base)
 
-    ws_state = {
-        "base_state": workspace.base_state or {},
-        "versioned_state": workspace.versioned_state_current or {},
-    }
-
-    # Inject UI-supplied overrides into ws_state so validation and job use them
-    base_fields = dict((ws_state["base_state"].get("product_fields") or {}))
     if payload.cost_price is not None:
         base_fields["cost_price"] = payload.cost_price
     if payload.shipping_cost is not None:
-        ws_state["base_state"] = dict(ws_state["base_state"])
-        ws_state["base_state"]["shipping_cost_cache"] = {"value": payload.shipping_cost}
+        base_state["shipping_cost_cache"] = {"value": payload.shipping_cost}
     if payload.weight_kg is not None:
         base_fields["weight_kg"] = payload.weight_kg
     if payload.length_cm is not None:
@@ -3840,28 +3845,30 @@ async def ml_publish(
     if payload.image_urls is not None:
         base_fields["image_urls"] = payload.image_urls
     elif not base_fields.get("image_urls") and not base_fields.get("drive_image_ids"):
-        # Images will be auto-discovered from Drive/{SKU}/ at job time
         base_fields["image_urls"] = ["__drive_auto__"]
     if payload.catalog_product_id is not None:
         base_fields["ml_catalog_product_id"] = payload.catalog_product_id
     if payload.pricing_tab is not None:
         base_fields["ml_listing_type_id"] = ML_LISTING_TYPE_MAP.get(payload.pricing_tab, "gold_special")
-    ws_state["base_state"] = dict(ws_state["base_state"])
-    ws_state["base_state"]["product_fields"] = base_fields
+    if payload.ml_attributes is not None:
+        base_fields["ml_attributes"] = payload.ml_attributes
+    base_state["product_fields"] = base_fields
 
-    versioned = dict(ws_state["versioned_state"])
+    versioned = dict(ws_versioned)
     if payload.price is not None:
         versioned["prices"] = {"listing": payload.price}
     if payload.title is not None or payload.description is not None:
         variants = dict(versioned.get("variants") or {})
-        simple = dict(variants.get("simple") or {})
+        # Inject into the active variant slot so _run_ml_publish_job reads from the correct place
+        variant_slot = dict(variants.get(payload.variant) or variants.get("simple") or {})
         if payload.title is not None:
-            simple["title"] = {"versions": [payload.title], "current_index": 0}
+            variant_slot["title"] = {"versions": [payload.title], "current_index": 0}
         if payload.description is not None:
-            simple["description"] = {"versions": [payload.description], "current_index": 0}
-        variants["simple"] = simple
+            variant_slot["description"] = {"versions": [payload.description], "current_index": 0}
+        variants[payload.variant] = variant_slot
         versioned["variants"] = variants
-    ws_state["versioned_state"] = versioned
+
+    ws_state = {"base_state": base_state, "versioned_state": versioned}
 
     missing = mercadolivre_service.validate_workspace_for_publish(ws_state)
     if missing:
@@ -3875,6 +3882,16 @@ async def ml_publish(
     account = next((a for a in ml_accounts if str(a.get("ml_user_id")) == payload.ml_user_id), None)
     if not account:
         raise HTTPException(status_code=400, detail="Conta ML não encontrada. Conecte a conta em Configurações.")
+
+    # Resolve ml_category_name from user's category mappings
+    effective_category_id = base_state.get("product_fields", {}).get("ml_category_id", "")
+    if effective_category_id:
+        category_mappings = list((cfg.data if cfg else {}).get("ml_category_mappings") or [])
+        matched = next((m for m in category_mappings if m.get("ml_category_id") == effective_category_id), None)
+        if matched:
+            base_state.setdefault("product_fields", {})["ml_category_name"] = (
+                matched.get("ml_category_name") or matched.get("adsgen_name") or ""
+            )
 
     user_pricing_config = list((cfg.data if cfg else {}).get("pricing_config") or [])
 
@@ -3898,9 +3915,15 @@ async def ml_publish(
             pricing_config=user_pricing_config,
             variant=payload.variant,
             db_user_id=user_id,
-            sku_normalized=sku_normalized,
+            sku_normalized=_normalize_sku(payload.sku),
+            base_sku_normalized=_normalize_sku(payload.base_sku or payload.sku),
+            display_sku=payload.sku,
             title_override=payload.title,
             description_override=payload.description,
+            ui_promo_price=payload.promo_price,
+            ui_wholesale_tiers=payload.wholesale_tiers,
+            ui_warranty_type=payload.warranty_type,
+            ui_warranty_days=payload.warranty_days,
         )
     )
 
@@ -3920,7 +3943,8 @@ def _emit_ml_event(job_id: str, step: str, message: str, **extra) -> None:
 def _build_pricing_ctx_for_ml(pricing_config: list) -> Dict[str, Any]:
     """Extrai o contexto de precificação para o canal mercadolivre da config do usuário."""
     for entry in (pricing_config or []):
-        if entry.get("channel") in ("mercadolivre", "meli", "ml"):
+        ch = entry.get("channel") or entry.get("marketplace") or ""
+        if ch in ("mercadolivre", "meli", "ml"):
             return dict(entry)
     return {}
 
@@ -3935,8 +3959,14 @@ async def _run_ml_publish_job(
     variant: str,
     db_user_id: str,
     sku_normalized: str = "",
+    base_sku_normalized: str = "",
+    display_sku: str = "",
     title_override: Optional[str] = None,
     description_override: Optional[str] = None,
+    ui_promo_price: Optional[float] = None,
+    ui_wholesale_tiers: Optional[list] = None,
+    ui_warranty_type: Optional[str] = None,
+    ui_warranty_days: Optional[int] = None,
 ) -> None:
     """
     Executa o fluxo completo de publicação no ML.
@@ -4001,9 +4031,32 @@ async def _run_ml_publish_job(
         width_cm = float(fields.get("width_cm") or 0)
         height_cm = float(fields.get("height_cm") or 0)
         category_id = str(fields.get("ml_category_id") or "")
-        ml_attributes = fields.get("ml_attributes") or []
+        ml_attributes = list(fields.get("ml_attributes") or [])
+        # Inject SELLER_SKU (hidden attribute, not editable via UI)
+        if display_sku:
+            ml_attributes = [a for a in ml_attributes if a.get("id") != "SELLER_SKU"]
+            ml_attributes.append({"id": "SELLER_SKU", "value_name": display_sku})
+        # Build sale_terms for WARRANTY (ML requires sale_terms, not attributes)
+        sale_terms = []
+        if ui_warranty_type:
+            # WARRANTY_TYPE requires value_id (ML rejects value_name alone)
+            warranty_value_ids = {
+                "seller": "2230280",   # Garantia do vendedor
+                "factory": "2230279",  # Garantia de fábrica
+            }
+            wid = warranty_value_ids.get(ui_warranty_type)
+            if wid:
+                sale_terms.append({"id": "WARRANTY_TYPE", "value_id": wid})
+            if ui_warranty_days and ui_warranty_days > 0:
+                sale_terms.append({"id": "WARRANTY_TIME", "value_name": f"{ui_warranty_days} dias"})
         listing_type_id = str(fields.get("ml_listing_type_id") or "gold_special")
         catalog_product_id = str(fields.get("ml_catalog_product_id") or "")
+
+        # Detect catalog_required categories (title field is rejected by ML)
+        category_settings = {}
+        if category_id and not catalog_product_id:
+            category_settings = await mercadolivre_service.get_category_settings(access_token, category_id)
+        is_catalog_required = bool(category_settings.get("catalog_domain"))
 
         if catalog_product_id:
             # Catalog listing: title comes from catalog, not settable
@@ -4018,10 +4071,30 @@ async def _run_ml_publish_job(
                 "listing_type_id": listing_type_id,
                 "status": "paused",
             }
+            if sale_terms:
+                listing_payload["sale_terms"] = sale_terms
+        elif is_catalog_required:
+            # Category requires catalog format but no catalog_product_id provided:
+            # title and shipping are rejected by ML
+            listing_payload = {
+                "family_name": title_text,
+                "category_id": category_id,
+                "price": listing_price,
+                "currency_id": "BRL",
+                "available_quantity": 1,
+                "condition": "new",
+                "listing_type_id": listing_type_id,
+                "status": "paused",
+            }
+            if ml_attributes:
+                listing_payload["attributes"] = ml_attributes
+            if sale_terms:
+                listing_payload["sale_terms"] = sale_terms
         else:
             # Free-form listing
             listing_payload = {
                 "title": title_text,
+                "family_name": title_text,
                 "category_id": category_id,
                 "price": listing_price,
                 "currency_id": "BRL",
@@ -4043,6 +4116,8 @@ async def _run_ml_publish_job(
             }
             if ml_attributes:
                 listing_payload["attributes"] = ml_attributes
+            if sale_terms:
+                listing_payload["sale_terms"] = sale_terms
 
         # ── 3. Download imagens do Drive ──────────────────────────────────
         image_urls = list(fields.get("image_urls") or fields.get("drive_image_ids") or [])
@@ -4070,11 +4145,12 @@ async def _run_ml_publish_job(
                 root_folder_id = drive_cfg.get("folder_id", "")
                 if not root_folder_id:
                     raise Exception("Pasta raíz do Google Drive não configurada.")
+                image_sku = base_sku_normalized or sku_normalized
                 image_urls = await asyncio.to_thread(
-                    _list_drive_images_for_sku, service, root_folder_id, sku_normalized
+                    _list_drive_images_for_sku, service, root_folder_id, image_sku
                 )
                 if not image_urls:
-                    raise Exception(f"Nenhuma imagem encontrada em Drive/{sku_normalized}/")
+                    raise Exception(f"Nenhuma imagem encontrada em Drive/{image_sku}/")
 
             _emit_ml_event(job_id, "downloading_images", f"Baixando imagens do Google Drive... ({len(image_urls)} imagens)")
 
@@ -4114,7 +4190,7 @@ async def _run_ml_publish_job(
         # ── 5. Criar anúncio pausado (com imagens) ────────────────────────
         _emit_ml_event(job_id, "creating_listing", "Criando anúncio pausado no Mercado Livre...")
         try:
-            listing_id = await mercadolivre_service.create_listing(access_token, listing_payload)
+            listing_id, listing_permalink = await mercadolivre_service.create_listing(access_token, listing_payload)
             ML_PUBLISH_JOBS[job_id]["listing_id"] = listing_id
         except mercadolivre_service.MLAPIError as exc:
             _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {exc}", failed_at="creating_listing")
@@ -4127,14 +4203,33 @@ async def _run_ml_publish_job(
             except mercadolivre_service.MLAPIError as exc:
                 _emit_ml_event(job_id, "warning", f"Descrição não adicionada: {exc}", listing_id=listing_id)
 
-        # ── 6. Consultar frete ML ─────────────────────────────────────────
-        _emit_ml_event(job_id, "checking_freight", "Consultando custo de frete no Mercado Livre...")
+        # ── 5c. Atualizar atributos via PUT (catalog listings não aceitam na criação)
+        if ml_attributes and "attributes" not in listing_payload:
+            try:
+                await mercadolivre_service.update_listing_attributes(access_token, listing_id, ml_attributes)
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(job_id, "warning", f"Atributos não atualizados: {exc}", listing_id=listing_id)
+
+        # ── 5d. Atualizar sale_terms via PUT (catalog listings não aceitam na criação)
+        if sale_terms and "sale_terms" not in listing_payload:
+            try:
+                await mercadolivre_service.update_listing_sale_terms(access_token, listing_id, sale_terms)
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(job_id, "warning", f"Garantia não atualizada: {exc}", listing_id=listing_id)
+
+        # ── 6. Consultar frete ML (via tabela local com preço do anúncio) ─
+        _emit_ml_event(job_id, "checking_freight", "Calculando custo de frete do Mercado Livre...")
         try:
-            ml_freight = await mercadolivre_service.get_listing_shipping_cost(access_token, listing_id)
-        except mercadolivre_service.MLAPIError as exc:
+            from pricing.ml_shipping import get_shipping_cost as _calc_ml_shipping
+            ml_freight = await _calc_ml_shipping(
+                cost_price=float(fields.get("cost_price") or 0.0),
+                weight_kg=weight_kg,
+                reference_price=listing_price,
+            )
+        except Exception as exc:
             _emit_ml_event(
                 job_id, "error",
-                f"Falha ao consultar frete: {exc}",
+                f"Falha ao calcular frete: {exc}",
                 failed_at="checking_freight",
                 listing_id=listing_id,
             )
@@ -4144,21 +4239,33 @@ async def _run_ml_publish_job(
         adsgen_freight = float(shipping_cache.get("value") or 0.0)
         freight_result = mercadolivre_service.compare_freight(ml_freight, adsgen_freight)
 
+        # Prepare pricing context (used by freight adjustment, wholesale, and promotions)
+        cost_price = float(fields.get("cost_price") or 0.0)
+        effective_shipping = ml_freight if freight_result["divergent"] else adsgen_freight
+        pricing_ctx = _build_pricing_ctx_for_ml(pricing_config)
+        if listing_type_id == "gold_pro":
+            pricing_ctx["commission_percent"] = float(pricing_ctx.get("comissao_max", 17.5)) / 100
+        else:
+            pricing_ctx["commission_percent"] = float(pricing_ctx.get("comissao_min", 14.0)) / 100
+
         # ── 7. Comparar frete e ajustar se necessário ─────────────────────
         if freight_result["divergent"]:
             _emit_ml_event(
                 job_id, "adjusting_price",
                 f"Frete divergente (Ads Gen R$ {adsgen_freight:.2f} → ML R$ {ml_freight:.2f}) — recalculando preços...",
             )
-            cost_price = float(fields.get("cost_price") or 0.0)
-            pricing_ctx = _build_pricing_ctx_for_ml(pricing_config)
             new_price = mercadolivre_service.recalculate_price_with_new_freight(
                 cost_price=cost_price,
                 new_freight=ml_freight,
-                pricing_ctx=pricing_ctx,
+                pricing_ctx=dict(pricing_ctx),
+            )
+            logger.info(
+                "Freight divergence for %s: adsgen=%.2f, ml=%.2f, old_price=%.2f, new_price=%.2f, ctx_keys=%s",
+                listing_id, adsgen_freight, ml_freight, listing_price, new_price,
+                list(pricing_ctx.keys()),
             )
 
-            _emit_ml_event(job_id, "updating_listing", "Atualizando preço no anúncio...")
+            _emit_ml_event(job_id, "updating_listing", f"Atualizando preço: R$ {listing_price:.2f} → R$ {new_price:.2f}")
             try:
                 await mercadolivre_service.update_listing_price(access_token, listing_id, new_price)
             except mercadolivre_service.MLAPIError as exc:
@@ -4169,6 +4276,29 @@ async def _run_ml_publish_job(
                     listing_id=listing_id,
                 )
                 return
+
+            # Persist ML freight back to workspace so it's used on next load
+            if sku_normalized:
+                try:
+                    def _persist_freight():
+                        db_session = SessionLocal()
+                        try:
+                            ws = db_session.query(SkuWorkspace).filter(
+                                SkuWorkspace.sku_normalized == sku_normalized,
+                                SkuWorkspace.marketplace_normalized == "mercadolivre",
+                            ).first()
+                            if ws:
+                                bs = dict(ws.base_state or {})
+                                pf = dict(bs.get("product_fields") or {})
+                                pf["tiny_shipping_cost"] = str(round(ml_freight, 2))
+                                bs["product_fields"] = pf
+                                ws.base_state = bs
+                                db_session.commit()
+                        finally:
+                            db_session.close()
+                    await asyncio.to_thread(_persist_freight)
+                except Exception:
+                    logger.warning("Failed to persist ML freight to workspace for %s", sku_normalized)
 
             if settings.whatsapp_service_url and settings.whatsapp_notify_phone:
                 _emit_ml_event(job_id, "notifying_whatsapp", "Enviando notificação de divergência via WhatsApp...")
@@ -4203,7 +4333,64 @@ async def _run_ml_publish_job(
             )
             return
 
-        listing_url = f"https://www.mercadolivre.com.br/anuncio/{listing_id}"
+        # ── 9. Cadastrar preços por quantidade (atacado) — dados da UI ───
+        if ui_wholesale_tiers:
+            try:
+                _emit_ml_event(job_id, "wholesale_prices", "Cadastrando preços por quantidade...")
+                tiers_data = [
+                    {"min_quantity": int(t["min_quantity"]), "price": round(float(t["price"]), 2)}
+                    for t in ui_wholesale_tiers
+                    if int(t.get("min_quantity", 0)) > 1 and float(t.get("price", 0)) > 0
+                ]
+                if tiers_data:
+                    await mercadolivre_service.set_wholesale_prices(access_token, listing_id, tiers_data)
+                    _emit_ml_event(
+                        job_id, "wholesale_prices",
+                        f"{len(tiers_data)} faixa(s) de preço por quantidade cadastrada(s)",
+                    )
+                else:
+                    _emit_ml_event(job_id, "wholesale_prices", "Nenhuma faixa de atacado válida")
+            except Exception as exc:
+                logger.warning("Wholesale prices failed for %s: %s", listing_id, exc)
+                _emit_ml_event(job_id, "wholesale_prices", f"Preços por quantidade: {exc}")
+        else:
+            _emit_ml_event(job_id, "wholesale_prices", "Sem faixas de atacado definidas na interface")
+
+        # ── 10. Buscar promoções do seller e cadastrar preço promocional (da UI) ──
+        ml_user_id = str(account.get("ml_user_id", ""))
+        promo_price = ui_promo_price
+        if promo_price and promo_price > 0:
+            try:
+                _emit_ml_event(job_id, "promotions", "Buscando promoções do vendedor...")
+                seller_promos = await mercadolivre_service.get_seller_own_promotions(access_token, ml_user_id)
+                if seller_promos:
+                    registered_count = 0
+                    for promo in seller_promos:
+                        try:
+                            await mercadolivre_service.add_item_to_promotion(
+                                access_token, listing_id, ml_user_id,
+                                promo["id"], promo["type"], promo_price,
+                            )
+                            registered_count += 1
+                        except mercadolivre_service.MLAPIError:
+                            # Price out of range or item not eligible — skip
+                            continue
+                    if registered_count:
+                        _emit_ml_event(
+                            job_id, "promotions",
+                            f"Item cadastrado em {registered_count} promoção(ões) com preço R$ {promo_price:.2f}",
+                        )
+                    else:
+                        _emit_ml_event(job_id, "promotions", "Nenhuma promoção compatível com este item")
+                else:
+                    _emit_ml_event(job_id, "promotions", "Nenhuma promoção ativa do vendedor encontrada")
+            except Exception as exc:
+                logger.warning("Promotions failed for %s: %s", listing_id, exc)
+                _emit_ml_event(job_id, "promotions", f"Promoções: {exc}")
+        else:
+            _emit_ml_event(job_id, "promotions", "Sem preço promocional definido na interface")
+
+        listing_url = listing_permalink or ""
         _emit_ml_event(
             job_id, "done",
             "Anúncio publicado com sucesso!",
@@ -4240,7 +4427,9 @@ async def ml_publish_events(
         sent_index = 0
         max_wait_seconds = ML_PUBLISH_JOB_TTL
         waited = 0.0
-        poll_interval = 0.3
+        poll_interval = 0.15
+        heartbeat_interval = 5.0
+        since_heartbeat = 0.0
 
         while waited < max_wait_seconds:
             job = ML_PUBLISH_JOBS.get(job_id)
@@ -4249,13 +4438,23 @@ async def ml_publish_events(
                 return
 
             events = job.get("events") or []
+            emitted = False
             while sent_index < len(events):
                 event_data = json.dumps(events[sent_index], ensure_ascii=False)
                 yield f"data: {event_data}\n\n"
                 step = events[sent_index].get("step")
                 sent_index += 1
+                emitted = True
                 if step in ("done", "error"):
                     return
+
+            if emitted:
+                since_heartbeat = 0.0
+            else:
+                since_heartbeat += poll_interval
+                if since_heartbeat >= heartbeat_interval:
+                    yield ": heartbeat\n\n"
+                    since_heartbeat = 0.0
 
             await asyncio.sleep(poll_interval)
             waited += poll_interval
@@ -4268,6 +4467,7 @@ async def ml_publish_events(
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
         },
     )
 
@@ -4276,6 +4476,7 @@ async def ml_publish_events(
 
 
 class MLCategoryMapping(BaseModel):
+    ml_user_id: Optional[str] = None
     adsgen_name: str
     ml_category_id: str
     ml_category_name: str = ""
@@ -4304,12 +4505,124 @@ async def ml_add_category(
         db.add(cfg)
     current_data = dict(cfg.data or {})
     mappings = list(current_data.get("ml_category_mappings") or [])
-    mappings = [m for m in mappings if m.get("adsgen_name") != payload.adsgen_name]
+    # Remove existing entry for same (ml_user_id, adsgen_name) pair before inserting
+    mappings = [
+        m for m in mappings
+        if not (m.get("adsgen_name") == payload.adsgen_name and m.get("ml_user_id") == payload.ml_user_id)
+    ]
     mappings.append(payload.model_dump())
     current_data["ml_category_mappings"] = mappings
     cfg.data = current_data
     db.commit()
     return JSONResponse(content={"ok": True})
+
+
+@app.get("/api/ml/category-attributes/{category_id}")
+async def ml_get_category_attributes(
+    category_id: str,
+    sku: str = "",
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """Retorna atributos de uma categoria ML, classificados como required/optional.
+    Se sku for fornecido, busca anúncios existentes com esse SKU para extrair valores."""
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    ml_accounts = list(((cfg.data if cfg else {}) or {}).get("ml_accounts") or [])
+    if not ml_accounts:
+        raise HTTPException(status_code=400, detail="Nenhuma conta ML conectada.")
+
+    account = ml_accounts[0]
+    ml_user_id = str(account.get("ml_user_id", ""))
+    try:
+        access_token, updated = await mercadolivre_service.get_valid_access_token(
+            account=account,
+            client_id=settings.ml_client_id,
+            client_secret=settings.ml_client_secret,
+        )
+    except mercadolivre_service.MLAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    if updated:
+        current_data = dict(cfg.data or {})
+        accts = list(current_data.get("ml_accounts") or [])
+        accts[0] = updated
+        current_data["ml_accounts"] = accts
+        cfg.data = current_data
+        db.commit()
+
+    try:
+        raw_attrs = await mercadolivre_service.get_category_attributes(access_token, category_id)
+    except mercadolivre_service.MLAPIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    attributes = []
+    for attr in raw_attrs:
+        tags = attr.get("tags") or {}
+        if tags.get("read_only") or tags.get("hidden"):
+            continue
+        attributes.append({
+            "id": attr.get("id"),
+            "name": attr.get("name"),
+            "required": bool(tags.get("required") or tags.get("catalog_required")),
+            "value_type": attr.get("value_type"),
+            "values": attr.get("values") or [],
+            "tooltip": attr.get("tooltip") or "",
+            "example": attr.get("example") or "",
+        })
+
+    # Buscar atributos de anúncios existentes com o mesmo SKU base (preferir o com mais vendas)
+    existing_values = {}
+    if ml_user_id and sku:
+        try:
+            async with httpx.AsyncClient() as client:
+                search_resp = await client.get(
+                    f"https://api.mercadolibre.com/users/{ml_user_id}/items/search",
+                    params={"seller_sku": sku, "limit": 10, "sort": "sold_quantity_desc"},
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=10.0,
+                )
+                item_ids = search_resp.json().get("results", []) if search_resp.status_code == 200 else []
+                # Escolher o item com mais vendas: buscar sold_quantity de cada um
+                best_item_id = None
+                best_sold = -1
+                if item_ids:
+                    multi_resp = await client.get(
+                        "https://api.mercadolibre.com/items",
+                        params={"ids": ",".join(item_ids[:10]), "attributes": "id,sold_quantity"},
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        timeout=10.0,
+                    )
+                    if multi_resp.status_code == 200:
+                        for entry in multi_resp.json():
+                            body = entry.get("body") or {}
+                            sold = int(body.get("sold_quantity") or 0)
+                            if sold > best_sold:
+                                best_sold = sold
+                                best_item_id = body.get("id")
+                    if not best_item_id:
+                        best_item_id = item_ids[0]
+                    item_resp = await client.get(
+                        f"https://api.mercadolibre.com/items/{best_item_id}",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        timeout=10.0,
+                    )
+                    if item_resp.status_code == 200:
+                        for item_attr in (item_resp.json().get("attributes") or []):
+                            attr_id = item_attr.get("id")
+                            if attr_id:
+                                existing_values[attr_id] = {
+                                    "value_name": item_attr.get("value_name") or "",
+                                    "value_id": item_attr.get("value_id") or "",
+                                }
+        except Exception:
+            pass  # non-critical, just skip auto-populate from existing
+
+    # Atributos controlados pelo Ads Gen (valores calculados no frontend pela aba ativa)
+    for ctrl_id in ("SALE_FORMAT", "UNITS_PER_PACK", "PACKS_NUMBER"):
+        existing_values.pop(ctrl_id, None)
+
+    return JSONResponse(content={"attributes": attributes, "existing_values": existing_values})
 
 
 @app.get("/api/ml/categories/search")
@@ -4440,10 +4753,17 @@ async def ml_auto_populate_categories(
                 break
 
     current_data = dict((cfg.data if cfg else {}) or {})
-    existing = {m["ml_category_id"]: m for m in current_data.get("ml_category_mappings") or []}
+    # Key by (ml_user_id, ml_category_id) so per-account mappings coexist correctly
+    existing = {
+        (m.get("ml_user_id"), m["ml_category_id"]): m
+        for m in current_data.get("ml_category_mappings") or []
+        if m.get("ml_category_id")
+    }
     for cat_id, cat_info in discovered.items():
-        if cat_id not in existing:
-            existing[cat_id] = {
+        key = (ml_user_id, cat_id)
+        if key not in existing:
+            existing[key] = {
+                "ml_user_id": ml_user_id,
                 "adsgen_name": cat_info["ml_category_name"],
                 "ml_category_id": cat_id,
                 "ml_category_name": cat_info["ml_category_name"],

@@ -146,8 +146,8 @@ ML_ITEMS_URL = f"{ML_API_BASE}/items"
 ML_PICTURES_UPLOAD_URL = f"{ML_API_BASE}/pictures/items/upload"
 
 
-async def create_listing(access_token: str, payload: Dict[str, Any]) -> str:
-    """Cria anúncio pausado no ML. Retorna o item_id (ex: 'MLB123456789')."""
+async def create_listing(access_token: str, payload: Dict[str, Any]) -> tuple:
+    """Cria anúncio pausado no ML. Retorna (item_id, permalink)."""
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
@@ -171,7 +171,8 @@ async def create_listing(access_token: str, payload: Dict[str, Any]) -> str:
             raise MLAPIError(msg, status_code=exc.response.status_code) from exc
         except Exception as exc:
             raise MLAPIError(f"Erro de comunicação ao criar anúncio: {exc}") from exc
-    return resp.json()["id"]
+    data = resp.json()
+    return data["id"], data.get("permalink", "")
 
 
 async def update_description(access_token: str, item_id: str, plain_text: str) -> None:
@@ -295,6 +296,42 @@ async def update_listing_price(access_token: str, item_id: str, new_price: float
             ) from exc
 
 
+async def update_listing_attributes(access_token: str, item_id: str, attributes: list) -> None:
+    """Atualiza atributos de um anúncio existente via PUT."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.put(
+                f"{ML_ITEMS_URL}/{item_id}",
+                json={"attributes": attributes},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise MLAPIError(
+                f"Erro {exc.response.status_code} ao atualizar atributos",
+                status_code=exc.response.status_code,
+            ) from exc
+
+
+async def update_listing_sale_terms(access_token: str, item_id: str, sale_terms: list) -> None:
+    """Atualiza sale_terms (garantia) de um anúncio existente via PUT."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.put(
+                f"{ML_ITEMS_URL}/{item_id}",
+                json={"sale_terms": sale_terms},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise MLAPIError(
+                f"Erro {exc.response.status_code} ao atualizar garantia",
+                status_code=exc.response.status_code,
+            ) from exc
+
+
 async def activate_listing(access_token: str, item_id: str) -> None:
     """Ativa um anúncio pausado."""
     async with httpx.AsyncClient() as client:
@@ -311,6 +348,37 @@ async def activate_listing(access_token: str, item_id: str) -> None:
                 f"Erro {exc.response.status_code} ao ativar anúncio",
                 status_code=exc.response.status_code,
             ) from exc
+
+
+async def get_category_settings(access_token: str, category_id: str) -> dict:
+    """Retorna o dict settings da categoria ML (inclui catalog_required)."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"https://api.mercadolibre.com/categories/{category_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10.0,
+        )
+    if resp.status_code == 200:
+        return resp.json().get("settings") or {}
+    return {}
+
+
+async def get_category_attributes(access_token: str, category_id: str) -> list:
+    """Busca atributos de uma categoria ML via GET /categories/{id}/attributes."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(
+                f"{ML_API_BASE}/categories/{category_id}/attributes",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise MLAPIError(
+                f"Erro {exc.response.status_code} ao buscar atributos da categoria {category_id}",
+                status_code=exc.response.status_code,
+            ) from exc
+    return resp.json()
 
 
 def validate_workspace_for_publish(workspace: Dict[str, Any]) -> list[str]:
@@ -404,12 +472,102 @@ def recalculate_price_with_new_freight(
     new_freight: float,
     pricing_ctx: Optional[Dict[str, Any]],
 ) -> float:
-    """Recalcula o preço de venda usando o novo custo de frete do ML."""
-    return _ml_price_calculator.get_promo_price(
+    """Recalcula o preço de tabela (listing) usando o novo custo de frete do ML."""
+    return _ml_price_calculator.get_listing_price(
         cost_price=float(cost_price),
         shipping_cost=float(new_freight),
         ctx=pricing_ctx or {},
     )
+
+
+async def set_wholesale_prices(access_token: str, item_id: str, tiers: list) -> dict:
+    """Register quantity-based prices (wholesale) on ML.
+
+    tiers: [{"min_quantity": 10, "price": 28.50}, ...]
+    """
+    prices_payload = [{"id": "1"}]  # keep standard price
+    for tier in tiers:
+        prices_payload.append({
+            "amount": tier["price"],
+            "currency_id": "BRL",
+            "conditions": {
+                "context_restrictions": ["channel_marketplace", "user_type_business"],
+                "min_purchase_unit": tier["min_quantity"],
+            },
+        })
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                f"{ML_API_BASE}/items/{item_id}/prices/standard/quantity",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"prices": prices_payload},
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise MLAPIError(
+                f"Erro {exc.response.status_code} ao cadastrar preços por quantidade",
+                status_code=exc.response.status_code,
+            ) from exc
+    return resp.json()
+
+
+async def get_seller_own_promotions(access_token: str, user_id: str) -> list:
+    """List seller's own promotions (SELLER_CAMPAIGN and PRICE_DISCOUNT) that are active or pending."""
+    results = []
+    async with httpx.AsyncClient() as client:
+        for status in ("started", "pending"):
+            try:
+                resp = await client.get(
+                    f"{ML_API_BASE}/seller-promotions/users/{user_id}",
+                    params={"app_version": "v2", "status": status},
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "version": "v2",
+                    },
+                    timeout=15.0,
+                )
+                if resp.status_code == 404:
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                for promo in (data.get("results") or []):
+                    if promo.get("type") in ("SELLER_CAMPAIGN", "PRICE_DISCOUNT"):
+                        results.append(promo)
+            except httpx.HTTPStatusError:
+                continue
+    return results
+
+
+async def add_item_to_promotion(
+    access_token: str, item_id: str, user_id: str,
+    promo_id: str, promo_type: str, deal_price: float,
+) -> dict:
+    """Add item to a seller promotion with deal price."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                f"{ML_API_BASE}/marketplace/seller-promotions/items/{item_id}",
+                params={"user_id": user_id},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                    "version": "v2",
+                },
+                json={
+                    "promotion_id": promo_id,
+                    "promotion_type": promo_type,
+                    "deal_price": round(deal_price, 2),
+                },
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise MLAPIError(
+                f"Erro {exc.response.status_code} ao adicionar item à promoção {promo_id}",
+                status_code=exc.response.status_code,
+            ) from exc
+    return resp.json()
 
 
 def find_ml_category_id(
