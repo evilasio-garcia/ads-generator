@@ -10200,11 +10200,12 @@ Restricoes:
         return true;
       }
 
-      // Etapa normal
+      // Etapa normal — mark all prior steps as done (handles skipped steps)
       const idx = ML_STEP_ORDER.indexOf(step);
-      if (idx > 0) {
-        const prev = ML_STEP_ORDER[idx - 1];
-        if (mlPanelStepStates[prev] !== 'failed') mlPanelStepStates[prev] = 'done';
+      for (let i = 0; i < idx; i++) {
+        if (mlPanelStepStates[ML_STEP_ORDER[i]] !== 'failed') {
+          mlPanelStepStates[ML_STEP_ORDER[i]] = 'done';
+        }
       }
       mlRenderSteps(step, false);
       return false;
@@ -10213,14 +10214,37 @@ Restricoes:
     const es = new EventSource(`/api/ml/publish/${jobId}/events`);
     _mlEventSource = es;
 
+    // Event render queue: ensures each step is visible for at least 350ms
+    // before transitioning to the next, even when events arrive in batch
+    const _eventQueue = [];
+    let _eventProcessing = false;
+
+    function _processEventQueue() {
+      if (_eventProcessing || _eventQueue.length === 0) return;
+      _eventProcessing = true;
+      const data = _eventQueue.shift();
+      const finished = handleEvent(data);
+      if (finished) {
+        _eventQueue.length = 0;
+        _eventProcessing = false;
+        es.close();
+        _mlEventSource = null;
+        return;
+      }
+      // Always enforce minimum 350ms display time per step so each
+      // transition is visible to the user. Events arriving during this
+      // window are queued and processed after the delay expires.
+      setTimeout(() => {
+        _eventProcessing = false;
+        _processEventQueue();
+      }, 350);
+    }
+
     es.onmessage = (evt) => {
       let data;
       try { data = JSON.parse(evt.data); } catch { return; }
-      const finished = handleEvent(data);
-      if (finished) {
-        es.close();
-        _mlEventSource = null;
-      }
+      _eventQueue.push(data);
+      _processEventQueue();
     };
 
     es.onerror = () => {

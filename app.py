@@ -4846,6 +4846,10 @@ async def ml_publish_events(
                 emitted = True
                 if step in ("done", "error", "category_validation_failed"):
                     return
+                # Force TCP flush between batched events so the browser
+                # receives each event as a separate chunk for progressive rendering
+                if sent_index < len(events):
+                    await asyncio.sleep(0.05)
 
             if emitted:
                 since_heartbeat = 0.0
