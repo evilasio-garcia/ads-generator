@@ -8,3 +8,6 @@
   **Importante:** usar `python -m pytest` (não `pytest` diretamente) para garantir o uso do `.venv` do projeto. O `pytest` do PATH do sistema não carrega o `pytest-asyncio` corretamente.
 - Só entregar o resultado como pronto se todos os testes passarem.
 - Se algum teste falhar, investigar e corrigir antes de finalizar.
+
+## Documentação obrigatória
+- Antes de alterar código de frete, variantes ou persistência em `static/main.html`, ler `docs/shipping-variant-system.md`.

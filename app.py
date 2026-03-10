@@ -115,6 +115,25 @@ class SkuWorkspaceHistory(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class MlCategoryBaseline(Base):
+    __tablename__ = "ml_category_baseline"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category_id", name="ux_ml_category_baseline_user_cat"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, index=True, nullable=False)
+    category_id = Column(String, index=True, nullable=False)
+    required_attr_ids = Column(JSONB, nullable=False, default=list)
+    conditional_attr_ids = Column(JSONB, nullable=False, default=list)
+    hidden_writable_attr_ids = Column(JSONB, nullable=False, default=list)
+    full_snapshot = Column(JSONB, nullable=False, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class TinyKitResolution(Base):
     __tablename__ = "tiny_kit_resolution"
     __table_args__ = (
@@ -147,7 +166,7 @@ def get_db():
 
 def _ensure_schema_ready() -> None:
     inspector = inspect(engine)
-    required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history", "tiny_kit_resolution"}
+    required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history", "tiny_kit_resolution", "ml_category_baseline"}
     existing = set(inspector.get_table_names())
     missing = sorted(required - existing)
     if missing:
@@ -2314,12 +2333,12 @@ async def gateway_info():
         "slug": settings.app_slug,
         "description": "Gerador de anúncios",
         "icon_url":
-            "https://cocktail-teddy-down-wages.trycloudflare.com/static/favicon.svg"
+            "https://popular-introduction-gif-investigate.trycloudflare.com/static/favicon.svg"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/static/favicon.svg",
         "tooltip": "Gerador de anúncios",
         "app_url":
-            "https://cocktail-teddy-down-wages.trycloudflare.com/auth/gateway-login"
+            "https://popular-introduction-gif-investigate.trycloudflare.com/auth/gateway-login"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/auth/gateway-login",
         "auth_type": "GATEWAY_TOKEN",
@@ -3022,7 +3041,7 @@ CANVA_EXPORT_TASK_TTL_SECONDS = 3600
 
 # Jobs de publicação ML em memória
 ML_PUBLISH_JOBS: Dict[str, Any] = {}
-ML_PUBLISH_JOB_TTL = 600  # 10 minutos
+ML_PUBLISH_JOB_TTL = 1800  # 30 minutos
 
 # Mapeamento aba de precificação da UI → listing_type_id do ML
 # "classic" (% Min) → gold_special | "premium" (% Max) → gold_pro
@@ -3903,6 +3922,9 @@ async def ml_publish(
         "created_at": time.time(),
         "listing_id": None,
         "error": None,
+        "resume_event": None,
+        "resume_action": None,
+        "paused_at_step": None,
     }
 
     asyncio.create_task(
@@ -3940,13 +3962,189 @@ def _emit_ml_event(job_id: str, step: str, message: str, **extra) -> None:
     job["status"] = step
 
 
+async def _handle_rate_limit_pause(job_id: str, step_name: str, listing_id: str = None) -> str:
+    """Emit rate_limited event, pause the job, and wait for user action (resume or cancel).
+
+    Returns "resume" or "cancel".
+    """
+    job = ML_PUBLISH_JOBS.get(job_id)
+    if not job:
+        return "cancel"
+
+    resume_event = asyncio.Event()
+    job["resume_event"] = resume_event
+    job["resume_action"] = None
+    job["paused_at_step"] = step_name
+    job["status"] = "rate_limited"
+    # Extend TTL so the job doesn't expire while paused
+    job["created_at"] = time.time()
+
+    _emit_ml_event(
+        job_id, "rate_limited",
+        "Limite de requisições do Mercado Livre atingido. Aguarde e tente novamente.",
+        paused_at=step_name,
+        listing_id=listing_id,
+    )
+
+    await resume_event.wait()
+
+    action = job.get("resume_action", "cancel")
+    job["resume_event"] = None
+    job["paused_at_step"] = None
+    return action
+
+
+async def _cancel_ml_publish(job_id: str, step_name: str, access_token: str, listing_id: str = None):
+    """Handle cancel action: close listing if exists and emit error event."""
+    if listing_id:
+        try:
+            await mercadolivre_service.close_listing(access_token, listing_id)
+        except Exception:
+            logger.warning("Failed to close listing %s during cancel", listing_id)
+    _emit_ml_event(
+        job_id, "error",
+        "Publicação cancelada pelo usuário.",
+        failed_at=step_name,
+        listing_id=listing_id,
+    )
+
+
 def _build_pricing_ctx_for_ml(pricing_config: list) -> Dict[str, Any]:
-    """Extrai o contexto de precificação para o canal mercadolivre da config do usuário."""
+    """Extrai o contexto de precificação para o canal mercadolivre da config do usuário.
+
+    Normaliza valores percentuais (armazenados como 5, 12, 10) para decimais
+    (0.05, 0.12, 0.10) conforme esperado pelo MercadoLivrePriceCalculator.
+    """
     for entry in (pricing_config or []):
         ch = entry.get("channel") or entry.get("marketplace") or ""
         if ch in ("mercadolivre", "meli", "ml"):
-            return dict(entry)
+            ctx = dict(entry)
+            # Normalizar percentuais para decimais (o config armazena 5 = 5%, calculadora espera 0.05)
+            for key in ("lucro", "tacos", "impostos", "margem_contribuicao"):
+                val = ctx.get(key)
+                if val is not None:
+                    val = float(val)
+                    if val > 1:  # armazenado como percentual inteiro (ex: 5 = 5%)
+                        ctx[key] = val / 100
+            return ctx
     return {}
+
+
+# ── Category sanity check (pure function) ─────────────────────────────────
+
+_HIDDEN_WRITABLE_AUTO_FILL = {
+    "SELLER_PACKAGE_HEIGHT": ("height_cm", 1,    "cm"),
+    "SELLER_PACKAGE_WIDTH":  ("width_cm",  1,    "cm"),
+    "SELLER_PACKAGE_LENGTH": ("length_cm", 1,    "cm"),
+    "SELLER_PACKAGE_WEIGHT": ("weight_kg", 1000, "g"),
+}
+
+
+def _validate_category_attributes(
+    *,
+    ml_api_attrs: list,
+    baseline: Optional[dict],
+    ui_ml_attributes: list,
+    ui_dimensions: dict,
+) -> dict:
+    """Compare current ML category attributes against saved baseline.
+
+    Returns dict with:
+      status: "ok" | "error"
+      is_first_publish: bool
+      added: list of attr IDs added as required since baseline
+      removed: list of attr IDs removed from required since baseline
+      auto_injected: list of {"id": ..., "value_name": ...} attrs auto-filled
+      missing_attrs: list of {"id": ..., "name": ...} attrs that cannot be filled
+      new_baseline: dict with updated baseline data (only if status == "ok")
+    """
+    current_required = []
+    current_conditional = []
+    current_hidden_writable = []
+    for attr in ml_api_attrs:
+        tags = attr.get("tags") or {}
+        aid = attr.get("id", "")
+        if tags.get("required") or tags.get("catalog_required"):
+            current_required.append(aid)
+        if tags.get("conditional_required"):
+            current_conditional.append(aid)
+        if tags.get("hidden") and not tags.get("read_only"):
+            current_hidden_writable.append(aid)
+
+    ui_attr_ids = {a["id"] for a in ui_ml_attributes if a.get("value_name")}
+
+    is_first = baseline is None
+    if is_first:
+        prev_required = set()
+    else:
+        prev_required = set(baseline.get("required_attr_ids") or [])
+
+    current_required_set = set(current_required)
+    added = sorted(current_required_set - prev_required)
+    removed = sorted(prev_required - current_required_set)
+
+    auto_injected = []
+    for hw_id in current_hidden_writable:
+        if hw_id in ui_attr_ids:
+            continue
+        fill = _HIDDEN_WRITABLE_AUTO_FILL.get(hw_id)
+        if fill:
+            field_name, multiplier, unit = fill
+            raw_val = float(ui_dimensions.get(field_name) or 0)
+            if raw_val > 0:
+                numeric = int(raw_val * multiplier)
+                auto_injected.append({
+                    "id": hw_id,
+                    "value_name": f"{numeric} {unit}",
+                    "value_struct": {"number": numeric, "unit": unit},
+                })
+
+    auto_injected_ids = {a["id"] for a in auto_injected}
+    all_provided = ui_attr_ids | auto_injected_ids
+
+    missing_attrs = []
+    for attr in ml_api_attrs:
+        tags = attr.get("tags") or {}
+        aid = attr.get("id", "")
+        if (tags.get("required") or tags.get("catalog_required")) and aid not in all_provided:
+            missing_attrs.append({"id": aid, "name": attr.get("name", aid)})
+
+    for hw_id in current_hidden_writable:
+        if hw_id in _HIDDEN_WRITABLE_AUTO_FILL and hw_id not in all_provided:
+            attr_name = next((a.get("name", hw_id) for a in ml_api_attrs if a.get("id") == hw_id), hw_id)
+            missing_attrs.append({"id": hw_id, "name": attr_name})
+
+    if missing_attrs:
+        return {
+            "status": "error",
+            "is_first_publish": is_first,
+            "added": added,
+            "removed": removed,
+            "auto_injected": auto_injected,
+            "missing_attrs": missing_attrs,
+            "new_baseline": None,
+        }
+
+    full_snapshot = [
+        {"id": a.get("id"), "name": a.get("name"), "tags": a.get("tags") or {}}
+        for a in ml_api_attrs
+    ]
+    new_baseline = {
+        "required_attr_ids": current_required,
+        "conditional_attr_ids": current_conditional,
+        "hidden_writable_attr_ids": current_hidden_writable,
+        "full_snapshot": full_snapshot,
+    }
+
+    return {
+        "status": "ok",
+        "is_first_publish": is_first,
+        "added": added,
+        "removed": removed,
+        "auto_injected": auto_injected,
+        "missing_attrs": [],
+        "new_baseline": new_baseline,
+    }
 
 
 async def _run_ml_publish_job(
@@ -4006,6 +4204,132 @@ async def _run_ml_publish_job(
                     db_session.close()
             await asyncio.to_thread(_persist_token)
             account = updated_account
+
+        # ── 1b. Validar estrutura da categoria ML ────────────────────────
+        category_id_raw = str((workspace.get("base_state") or {}).get("product_fields", {}).get("ml_category_id") or "")
+        if category_id_raw:
+            _emit_ml_event(job_id, "validate_category", "Validando atributos obrigatórios da categoria...")
+            try:
+                ml_api_attrs = await mercadolivre_service.get_category_attributes(access_token, category_id_raw)
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(job_id, "warning", f"Não foi possível validar categoria: {exc}")
+                ml_api_attrs = None
+
+            if ml_api_attrs is not None:
+                def _load_baseline():
+                    db_s = SessionLocal()
+                    try:
+                        row = db_s.query(MlCategoryBaseline).filter(
+                            MlCategoryBaseline.user_id == db_user_id,
+                            MlCategoryBaseline.category_id == category_id_raw,
+                        ).first()
+                        if row:
+                            return {
+                                "required_attr_ids": row.required_attr_ids or [],
+                                "conditional_attr_ids": row.conditional_attr_ids or [],
+                                "hidden_writable_attr_ids": row.hidden_writable_attr_ids or [],
+                            }
+                        return None
+                    finally:
+                        db_s.close()
+
+                baseline = await asyncio.to_thread(_load_baseline)
+
+                fields_pre = (workspace.get("base_state") or {}).get("product_fields", {})
+                ui_ml_attributes_pre = list(fields_pre.get("ml_attributes") or [])
+                ui_dimensions = {
+                    "height_cm": float(fields_pre.get("height_cm") or 0),
+                    "width_cm": float(fields_pre.get("width_cm") or 0),
+                    "length_cm": float(fields_pre.get("length_cm") or 0),
+                    "weight_kg": float(fields_pre.get("weight_kg") or 0),
+                }
+
+                validation = _validate_category_attributes(
+                    ml_api_attrs=ml_api_attrs,
+                    baseline=baseline,
+                    ui_ml_attributes=ui_ml_attributes_pre,
+                    ui_dimensions=ui_dimensions,
+                )
+
+                if validation["status"] == "error":
+                    missing_names = ", ".join(a["name"] for a in validation["missing_attrs"])
+                    _emit_ml_event(
+                        job_id, "category_validation_failed",
+                        f"Atributos obrigatórios sem valor: {missing_names}",
+                        failed_at="validate_category",
+                        missing_attrs=validation["missing_attrs"],
+                        added=validation["added"],
+                        removed=validation["removed"],
+                        category_id=category_id_raw,
+                        sku=sku_normalized,
+                    )
+                    return
+
+                if validation["auto_injected"]:
+                    existing_ml_attrs = list(fields_pre.get("ml_attributes") or [])
+                    injected_ids = {a["id"] for a in validation["auto_injected"]}
+                    existing_ml_attrs = [a for a in existing_ml_attrs if a.get("id") not in injected_ids]
+                    existing_ml_attrs.extend(validation["auto_injected"])
+                    base_mut = workspace.get("base_state") or {}
+                    pf_mut = dict(base_mut.get("product_fields") or {})
+                    pf_mut["ml_attributes"] = existing_ml_attrs
+                    base_mut["product_fields"] = pf_mut
+                    workspace["base_state"] = base_mut
+
+                if validation["new_baseline"]:
+                    nb = validation["new_baseline"]
+                    def _save_baseline():
+                        db_s = SessionLocal()
+                        try:
+                            row = db_s.query(MlCategoryBaseline).filter(
+                                MlCategoryBaseline.user_id == db_user_id,
+                                MlCategoryBaseline.category_id == category_id_raw,
+                            ).first()
+                            if row:
+                                row.required_attr_ids = nb["required_attr_ids"]
+                                row.conditional_attr_ids = nb["conditional_attr_ids"]
+                                row.hidden_writable_attr_ids = nb["hidden_writable_attr_ids"]
+                                row.full_snapshot = nb["full_snapshot"]
+                            else:
+                                row = MlCategoryBaseline(
+                                    user_id=db_user_id,
+                                    category_id=category_id_raw,
+                                    required_attr_ids=nb["required_attr_ids"],
+                                    conditional_attr_ids=nb["conditional_attr_ids"],
+                                    hidden_writable_attr_ids=nb["hidden_writable_attr_ids"],
+                                    full_snapshot=nb["full_snapshot"],
+                                )
+                                db_s.add(row)
+                            db_s.commit()
+                        finally:
+                            db_s.close()
+                    await asyncio.to_thread(_save_baseline)
+
+                if validation["is_first_publish"]:
+                    n_req = len(validation["new_baseline"]["required_attr_ids"])
+                    _emit_ml_event(
+                        job_id, "validate_category",
+                        f"Primeira publicação nesta categoria — estrutura salva ({n_req} obrigatórios)",
+                    )
+                elif validation["added"] or validation["removed"]:
+                    parts = []
+                    if validation["added"]:
+                        parts.append(f"+{len(validation['added'])} obrigatórios ({', '.join(validation['added'])})")
+                    if validation["removed"]:
+                        parts.append(f"-{len(validation['removed'])} removidos ({', '.join(validation['removed'])})")
+                    auto_msg = ""
+                    if validation["auto_injected"]:
+                        auto_msg = f" — {len(validation['auto_injected'])} preenchidos automaticamente"
+                    _emit_ml_event(
+                        job_id, "validate_category",
+                        f"Estrutura da categoria mudou! {'; '.join(parts)}{auto_msg}",
+                    )
+                else:
+                    n_req = len(validation["new_baseline"]["required_attr_ids"])
+                    _emit_ml_event(
+                        job_id, "validate_category",
+                        f"Categoria validada — {n_req} atributos obrigatórios verificados",
+                    )
 
         # ── 2. Montar payload do anúncio ──────────────────────────────────
         base = workspace.get("base_state") or {}
@@ -4172,14 +4496,24 @@ async def _run_ml_publish_job(
         # ── 4. Upload imagens ao ML (antes de criar o anúncio) ───────────
         _emit_ml_event(job_id, "uploading_images", "Enviando imagens ao Mercado Livre...")
         picture_ids: list = []
-        for idx, (filename, img_bytes) in enumerate(image_bytes_list, start=1):
+        img_idx = 0
+        while img_idx < len(image_bytes_list):
+            filename, img_bytes = image_bytes_list[img_idx]
             try:
                 pic_id = await mercadolivre_service.upload_image(access_token, img_bytes, filename)
                 picture_ids.append(pic_id)
+                img_idx += 1
+            except mercadolivre_service.MLRateLimitError:
+                action = await _handle_rate_limit_pause(job_id, "uploading_images")
+                if action == "cancel":
+                    await _cancel_ml_publish(job_id, "uploading_images", access_token)
+                    return
+                _emit_ml_event(job_id, "uploading_images",
+                    f"Retomando upload ({img_idx + 1}/{len(image_bytes_list)})...")
             except mercadolivre_service.MLAPIError as exc:
                 _emit_ml_event(
                     job_id, "error",
-                    f"Falha ao enviar imagem {idx}/{len(image_bytes_list)}: {exc}",
+                    f"Falha ao enviar imagem {img_idx + 1}/{len(image_bytes_list)}: {exc}",
                     failed_at="uploading_images",
                 )
                 return
@@ -4189,51 +4523,73 @@ async def _run_ml_publish_job(
 
         # ── 5. Criar anúncio pausado (com imagens) ────────────────────────
         _emit_ml_event(job_id, "creating_listing", "Criando anúncio pausado no Mercado Livre...")
-        try:
-            listing_id, listing_permalink = await mercadolivre_service.create_listing(access_token, listing_payload)
-            ML_PUBLISH_JOBS[job_id]["listing_id"] = listing_id
-        except mercadolivre_service.MLAPIError as exc:
-            _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {exc}", failed_at="creating_listing")
-            return
+        while True:
+            try:
+                listing_id, listing_permalink = await mercadolivre_service.create_listing(access_token, listing_payload)
+                ML_PUBLISH_JOBS[job_id]["listing_id"] = listing_id
+                break
+            except mercadolivre_service.MLRateLimitError:
+                action = await _handle_rate_limit_pause(job_id, "creating_listing")
+                if action == "cancel":
+                    await _cancel_ml_publish(job_id, "creating_listing", access_token)
+                    return
+                _emit_ml_event(job_id, "creating_listing", "Retomando criação do anúncio...")
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {exc}", failed_at="creating_listing")
+                return
 
         # ── 5b. Adicionar descrição (API separada) ────────────────────────
         if desc_text:
             try:
                 await mercadolivre_service.update_description(access_token, listing_id, desc_text)
-            except mercadolivre_service.MLAPIError as exc:
+            except (mercadolivre_service.MLRateLimitError, mercadolivre_service.MLAPIError) as exc:
                 _emit_ml_event(job_id, "warning", f"Descrição não adicionada: {exc}", listing_id=listing_id)
 
         # ── 5c. Atualizar atributos via PUT (catalog listings não aceitam na criação)
         if ml_attributes and "attributes" not in listing_payload:
             try:
                 await mercadolivre_service.update_listing_attributes(access_token, listing_id, ml_attributes)
-            except mercadolivre_service.MLAPIError as exc:
+            except (mercadolivre_service.MLRateLimitError, mercadolivre_service.MLAPIError) as exc:
                 _emit_ml_event(job_id, "warning", f"Atributos não atualizados: {exc}", listing_id=listing_id)
 
         # ── 5d. Atualizar sale_terms via PUT (catalog listings não aceitam na criação)
         if sale_terms and "sale_terms" not in listing_payload:
             try:
                 await mercadolivre_service.update_listing_sale_terms(access_token, listing_id, sale_terms)
-            except mercadolivre_service.MLAPIError as exc:
+            except (mercadolivre_service.MLRateLimitError, mercadolivre_service.MLAPIError) as exc:
                 _emit_ml_event(job_id, "warning", f"Garantia não atualizada: {exc}", listing_id=listing_id)
 
-        # ── 6. Consultar frete ML (via tabela local com preço do anúncio) ─
-        _emit_ml_event(job_id, "checking_freight", "Calculando custo de frete do Mercado Livre...")
-        try:
-            from pricing.ml_shipping import get_shipping_cost as _calc_ml_shipping
-            ml_freight = await _calc_ml_shipping(
-                cost_price=float(fields.get("cost_price") or 0.0),
-                weight_kg=weight_kg,
-                reference_price=listing_price,
-            )
-        except Exception as exc:
+        # ── 6. Consultar frete ML (list_cost via API do vendedor) ────────
+        _emit_ml_event(job_id, "checking_freight", "Consultando custo de frete do Mercado Livre...")
+        ml_user_id = str(account.get("ml_user_id", ""))
+
+        def _on_freight_rate_limit(attempt: int, wait: float):
             _emit_ml_event(
-                job_id, "error",
-                f"Falha ao calcular frete: {exc}",
-                failed_at="checking_freight",
-                listing_id=listing_id,
+                job_id, "checking_freight",
+                f"Limite de requisições atingido — aguardando {wait:.0f}s (tentativa {attempt})...",
             )
-            return
+
+        while True:
+            try:
+                ml_freight = await mercadolivre_service.get_seller_shipping_cost(
+                    access_token, listing_id, ml_user_id,
+                    on_rate_limit=_on_freight_rate_limit,
+                )
+                break
+            except mercadolivre_service.MLRateLimitError:
+                action = await _handle_rate_limit_pause(job_id, "checking_freight", listing_id)
+                if action == "cancel":
+                    await _cancel_ml_publish(job_id, "checking_freight", access_token, listing_id)
+                    return
+                _emit_ml_event(job_id, "checking_freight", "Retomando consulta de frete...")
+            except Exception as exc:
+                _emit_ml_event(
+                    job_id, "error",
+                    f"Falha ao consultar frete: {exc}",
+                    failed_at="checking_freight",
+                    listing_id=listing_id,
+                )
+                return
 
         shipping_cache = base.get("shipping_cost_cache") or {}
         adsgen_freight = float(shipping_cache.get("value") or 0.0)
@@ -4254,28 +4610,47 @@ async def _run_ml_publish_job(
                 job_id, "adjusting_price",
                 f"Frete divergente (Ads Gen R$ {adsgen_freight:.2f} → ML R$ {ml_freight:.2f}) — recalculando preços...",
             )
-            new_price = mercadolivre_service.recalculate_price_with_new_freight(
+
+            # Recalculate ALL prices (listing, promo, wholesale) with the new freight
+            recalculated = mercadolivre_service.recalculate_all_prices_with_new_freight(
                 cost_price=cost_price,
                 new_freight=ml_freight,
                 pricing_ctx=dict(pricing_ctx),
             )
+            new_price = recalculated["listing_price"]
+            new_promo_price = recalculated["promo_price"]
+            new_wholesale_tiers = recalculated["wholesale_tiers"]
+
             logger.info(
-                "Freight divergence for %s: adsgen=%.2f, ml=%.2f, old_price=%.2f, new_price=%.2f, ctx_keys=%s",
-                listing_id, adsgen_freight, ml_freight, listing_price, new_price,
-                list(pricing_ctx.keys()),
+                "Freight divergence for %s: adsgen=%.2f, ml=%.2f, old_price=%.2f, "
+                "new_listing=%.2f, new_promo=%.2f, new_wholesale_tiers=%d",
+                listing_id, adsgen_freight, ml_freight, listing_price,
+                new_price, new_promo_price, len(new_wholesale_tiers),
             )
 
+            # Override UI values with recalculated prices for later steps
+            ui_promo_price = new_promo_price
+            ui_wholesale_tiers = new_wholesale_tiers
+
             _emit_ml_event(job_id, "updating_listing", f"Atualizando preço: R$ {listing_price:.2f} → R$ {new_price:.2f}")
-            try:
-                await mercadolivre_service.update_listing_price(access_token, listing_id, new_price)
-            except mercadolivre_service.MLAPIError as exc:
-                _emit_ml_event(
-                    job_id, "error",
-                    f"Falha ao atualizar preço: {exc}",
-                    failed_at="updating_listing",
-                    listing_id=listing_id,
-                )
-                return
+            while True:
+                try:
+                    await mercadolivre_service.update_listing_price(access_token, listing_id, new_price)
+                    break
+                except mercadolivre_service.MLRateLimitError:
+                    action = await _handle_rate_limit_pause(job_id, "updating_listing", listing_id)
+                    if action == "cancel":
+                        await _cancel_ml_publish(job_id, "updating_listing", access_token, listing_id)
+                        return
+                    _emit_ml_event(job_id, "updating_listing", "Retomando atualização de preço...")
+                except mercadolivre_service.MLAPIError as exc:
+                    _emit_ml_event(
+                        job_id, "error",
+                        f"Falha ao atualizar preço: {exc}",
+                        failed_at="updating_listing",
+                        listing_id=listing_id,
+                    )
+                    return
 
             # Persist ML freight back to workspace so it's used on next load
             if sku_normalized:
@@ -4292,6 +4667,10 @@ async def _run_ml_publish_job(
                                 pf = dict(bs.get("product_fields") or {})
                                 pf["tiny_shipping_cost"] = str(round(ml_freight, 2))
                                 bs["product_fields"] = pf
+                                # Sync shipping_cost_cache so next publish uses correct value
+                                sc = dict(bs.get("shipping_cost_cache") or {})
+                                sc["value"] = round(ml_freight, 2)
+                                bs["shipping_cost_cache"] = sc
                                 ws.base_state = bs
                                 db_session.commit()
                         finally:
@@ -4299,6 +4678,19 @@ async def _run_ml_publish_job(
                     await asyncio.to_thread(_persist_freight)
                 except Exception:
                     logger.warning("Failed to persist ML freight to workspace for %s", sku_normalized)
+
+            # Notify frontend with recalculated values so UI updates in real-time
+            _emit_ml_event(
+                job_id, "freight_updated",
+                f"Frete atualizado: R$ {ml_freight:.2f}",
+                new_freight=round(ml_freight, 2),
+                new_listing_price=round(new_price, 2),
+                new_promo_price=round(new_promo_price, 2) if new_promo_price else None,
+                new_wholesale_tiers=[
+                    {"min_quantity": int(t["min_quantity"]), "price": round(float(t["price"]), 2)}
+                    for t in new_wholesale_tiers
+                ] if new_wholesale_tiers else [],
+            )
 
             if settings.whatsapp_service_url and settings.whatsapp_notify_phone:
                 _emit_ml_event(job_id, "notifying_whatsapp", "Enviando notificação de divergência via WhatsApp...")
@@ -4322,16 +4714,24 @@ async def _run_ml_publish_job(
 
         # ── 8. Ativar anúncio ─────────────────────────────────────────────
         _emit_ml_event(job_id, "activating", "Ativando anúncio no Mercado Livre...")
-        try:
-            await mercadolivre_service.activate_listing(access_token, listing_id)
-        except mercadolivre_service.MLAPIError as exc:
-            _emit_ml_event(
-                job_id, "error",
-                f"Falha ao ativar anúncio: {exc}",
-                failed_at="activating",
-                listing_id=listing_id,
-            )
-            return
+        while True:
+            try:
+                await mercadolivre_service.activate_listing(access_token, listing_id)
+                break
+            except mercadolivre_service.MLRateLimitError:
+                action = await _handle_rate_limit_pause(job_id, "activating", listing_id)
+                if action == "cancel":
+                    await _cancel_ml_publish(job_id, "activating", access_token, listing_id)
+                    return
+                _emit_ml_event(job_id, "activating", "Retomando ativação do anúncio...")
+            except mercadolivre_service.MLAPIError as exc:
+                _emit_ml_event(
+                    job_id, "error",
+                    f"Falha ao ativar anúncio: {exc}",
+                    failed_at="activating",
+                    listing_id=listing_id,
+                )
+                return
 
         # ── 9. Cadastrar preços por quantidade (atacado) — dados da UI ───
         if ui_wholesale_tiers:
@@ -4357,7 +4757,6 @@ async def _run_ml_publish_job(
             _emit_ml_event(job_id, "wholesale_prices", "Sem faixas de atacado definidas na interface")
 
         # ── 10. Buscar promoções do seller e cadastrar preço promocional (da UI) ──
-        ml_user_id = str(account.get("ml_user_id", ""))
         promo_price = ui_promo_price
         if promo_price and promo_price > 0:
             try:
@@ -4372,8 +4771,8 @@ async def _run_ml_publish_job(
                                 promo["id"], promo["type"], promo_price,
                             )
                             registered_count += 1
-                        except mercadolivre_service.MLAPIError:
-                            # Price out of range or item not eligible — skip
+                        except (mercadolivre_service.MLRateLimitError, mercadolivre_service.MLAPIError):
+                            # Rate limit, price out of range, or item not eligible — skip
                             continue
                     if registered_count:
                         _emit_ml_event(
@@ -4445,7 +4844,7 @@ async def ml_publish_events(
                 step = events[sent_index].get("step")
                 sent_index += 1
                 emitted = True
-                if step in ("done", "error"):
+                if step in ("done", "error", "category_validation_failed"):
                     return
 
             if emitted:
@@ -4459,7 +4858,7 @@ async def ml_publish_events(
             await asyncio.sleep(poll_interval)
             waited += poll_interval
 
-        yield "data: {\"step\": \"error\", \"message\": \"Timeout: job excedeu 10 minutos.\"}\n\n"
+        yield "data: {\"step\": \"error\", \"message\": \"Timeout: job excedeu o tempo limite.\"}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -4470,6 +4869,94 @@ async def ml_publish_events(
             "Connection": "keep-alive",
         },
     )
+
+
+@app.post("/api/ml/publish/{job_id}/resume")
+async def ml_publish_resume(
+    job_id: str,
+    current_user: CurrentUser = Depends(get_current_user_master),
+):
+    """Resume a rate-limited publish job."""
+    user_id = str(current_user.user_id)
+    job = ML_PUBLISH_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job não encontrado.")
+    if job.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    if job.get("status") != "rate_limited" or not job.get("resume_event"):
+        raise HTTPException(status_code=409, detail="Job não está pausado por rate limit.")
+
+    job["resume_action"] = "resume"
+    job["resume_event"].set()
+    return JSONResponse({"status": "resumed"})
+
+
+@app.post("/api/ml/publish/{job_id}/cancel")
+async def ml_publish_cancel(
+    job_id: str,
+    current_user: CurrentUser = Depends(get_current_user_master),
+):
+    """Cancel a rate-limited publish job and rollback listing if created."""
+    user_id = str(current_user.user_id)
+    job = ML_PUBLISH_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job não encontrado.")
+    if job.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    if job.get("status") != "rate_limited" or not job.get("resume_event"):
+        raise HTTPException(status_code=409, detail="Job não está pausado por rate limit.")
+
+    job["resume_action"] = "cancel"
+    job["resume_event"].set()
+    return JSONResponse({"status": "cancelling"})
+
+
+@app.post("/api/ml/notify-category-change")
+async def ml_notify_category_change(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user_master),
+):
+    """Send WhatsApp notification about ML category structure change."""
+    body = await request.json()
+    category_id = body.get("category_id", "?")
+    sku = body.get("sku", "?")
+    missing = body.get("missing_attrs") or []
+    added = body.get("added") or []
+    removed = body.get("removed") or []
+
+    missing_names = ", ".join(a.get("id", "?") for a in missing) if missing else "nenhum"
+    added_names = ", ".join(added) if added else "nenhum"
+    removed_names = ", ".join(removed) if removed else "nenhum"
+
+    message = (
+        f"⚠️ [Ads Gen] Mudança de categoria ML detectada\n"
+        f"Categoria: {category_id}\n"
+        f"SKU: {sku}\n"
+        f"Campos faltantes: {missing_names}\n"
+        f"Novos obrigatórios: {added_names}\n"
+        f"Removidos: {removed_names}\n"
+        f"Data: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
+    )
+
+    if not settings.whatsapp_service_url or not settings.whatsapp_notify_phone:
+        return JSONResponse({"status": "skipped", "reason": "WhatsApp not configured"})
+
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                settings.whatsapp_service_url,
+                json={
+                    "phone": settings.whatsapp_notify_phone,
+                    "message": message,
+                },
+                headers={"Authorization": f"Bearer {settings.whatsapp_service_token}"},
+                timeout=10.0,
+            )
+    except Exception as exc:
+        logger.warning("Failed to send category change notification: %s", exc)
+        return JSONResponse({"status": "error", "detail": str(exc)}, status_code=502)
+
+    return JSONResponse({"status": "sent"})
 
 
 # ─── Mercado Livre — Categorias ──────────────────────────────────────────────

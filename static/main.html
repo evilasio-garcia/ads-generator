@@ -790,6 +790,11 @@
       color: #991b1b;
     }
 
+    .publish-panel-header.warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
     .publish-panel-context {
       padding: 0.5rem 0.75rem;
       font-size: 0.72rem;
@@ -815,6 +820,7 @@
     .publish-step.running { color: #2D73E2; }
     .publish-step.pending { color: #9ca3af; }
     .publish-step.failed  { color: #ef4444; }
+    .publish-step.rate_limited { color: #d97706; }
 
     .publish-panel-footer {
       padding: 0.5rem 0.75rem;
@@ -3842,6 +3848,17 @@
       simpleState.widthSnapshot = tinyWidth.value || "";
       simpleState.weightSnapshot = tinyWeight.value || "";
     }
+    // Restore kit shipping snapshots from persisted cache
+    const skuKey = normalizeSkuCacheKey(tinySKU.value);
+    const channel = marketplace.value;
+    VARIANT_DEFS.forEach((variant) => {
+      if (variant.key === "simple") return;
+      const cacheKey = `${skuKey}:${channel}:${variant.key}`;
+      const cached = shippingCostCache[cacheKey];
+      if (cached !== undefined && cached !== null) {
+        variantStore[variant.key].shippingCostSnapshot = parseFloat(cached).toFixed(2);
+      }
+    });
     await switchVariantTab("simple", { skipPersist: true, force: true, triggerPricing: false });
   }
 
@@ -4476,7 +4493,7 @@
       // Armazenar frete do Tiny no cache (se houver)
       const shippingFromTiny = parseFloat(tinyProductData.shipping_cost) || 0;
       if (shippingFromTiny > 0) {
-        const cacheKey = `${tinySkuCacheKey}:${marketplace.value}`;
+        const cacheKey = `${tinySkuCacheKey}:${marketplace.value}:simple`;
         shippingCostCache[cacheKey] = shippingFromTiny;
       }
       const simpleState = variantStore.simple;
@@ -5245,7 +5262,9 @@
       const shouldAutoFillShipping = (
         channel === 'mercadolivre' &&
         shippingDecisionCostBase > 78.99 &&
-        (isKitVariant || (!shippingCostLocked && currentShippingCost <= 0))
+        (isKitVariant
+          ? currentShippingCost <= 0
+          : currentShippingCost <= 0 && !shippingCostLocked)
       );
       if (shouldAutoFillShipping) {
         const autoShipping = await autoFillShippingCost({
@@ -5530,8 +5549,10 @@
     }
     if (activeVariantKey === "simple") {
       variantStore.simple.shippingCostSnapshot = val;
-      persistState("tiny_shipping_edit");
+    } else if (history) {
+      history.shippingCostSnapshot = val;
     }
+    persistState("tiny_shipping_edit");
     if (integrationMode === "tiny") {
       autoPricing({
         expectedVariant: normalizeVariantKey(activeVariantKey),
@@ -5969,7 +5990,7 @@
     }
 
     const baseCostField = parseFloat(tinyCostPrice.value) || 0;
-    const decisionCostBase = Number.isFinite(Number(shippingDecisionCostBase))
+    const decisionCostBase = (shippingDecisionCostBase != null && Number.isFinite(Number(shippingDecisionCostBase)))
       ? Number(shippingDecisionCostBase)
       : baseCostField;
     const weightKg = parseFloat(tinyWeight.value) || 0;
@@ -6027,12 +6048,29 @@
 
   // Listeners dos botões de auto-preenchimento
   btnAutoFillCost.addEventListener('click', () => autoFillCostPrice());
-  btnAutoFillShipping.addEventListener('click', () => {
+  btnAutoFillShipping.addEventListener('click', async () => {
     shippingCostLocked = false;
-    autoFillShippingCost({
+    const costPrice = parseFloat(tinyCostPrice.value) || 0;
+    const result = await autoFillShippingCost({
       forceRefresh: true,
       usePromoReference: true,
+      shippingDecisionCostBase: getShippingDecisionBaseCost(costPrice),
     });
+    if (result != null && Number.isFinite(result)) {
+      // Sync snapshot with the new shipping value
+      if (activeVariantKey === "simple") {
+        variantStore.simple.shippingCostSnapshot = tinyShippingCost.value;
+      } else if (history) {
+        history.shippingCostSnapshot = tinyShippingCost.value;
+      }
+      persistState("shipping_button_refresh");
+      // Recalculate prices with the updated shipping
+      autoPricing({
+        expectedVariant: normalizeVariantKey(activeVariantKey),
+        expectedSku: normalizeSkuValue(tinySKU.value),
+        expectedMarketplace: marketplace.value,
+      });
+    }
   });
 
   // NOTA: Edição manual de preços agora usa métricas do backend
@@ -7421,7 +7459,8 @@ Restricoes:
     targetState.announcePriceMin = "";
     targetState.announcePriceMax = "";
     targetState.wholesaleRows = [];
-    targetState.shippingCostSnapshot = "";
+    // Note: shippingCostSnapshot is NOT reset here — shipping is independent
+    // of derived cost/width/weight and should survive signature changes.
     targetState.pricesDirty = true;
   }
 
@@ -7689,6 +7728,7 @@ Restricoes:
       restoreWindowScrollIfNeeded(scrollSnapshot);
 
       if (!skipPersist) {
+        captureActiveVariantVolatileState();
         persistState("variant_nav");
       }
     } finally {
@@ -7802,7 +7842,13 @@ Restricoes:
     const sku = getWorkspaceSkuForPersistence();
     if (!sku) return;
 
-    captureActiveVariantVolatileState();
+    // During variant switch, field values may belong to the PREVIOUS variant
+    // while history already points to the NEW variant. Capturing here would
+    // contaminate the new variant's snapshot with stale data.
+    // The switch itself manages capture explicitly before calling persistState.
+    if (!variantSwitchInProgress) {
+      captureActiveVariantVolatileState();
+    }
 
     workspacePendingAction = action || workspacePendingAction || "manual";
     if (workspacePersistTimer) clearTimeout(workspacePersistTimer);
@@ -9699,6 +9745,7 @@ Restricoes:
   // ── ML Publish Flow ───────────────────────────────────────────────────────
   const ML_STEP_LABELS = {
     token_refresh:      'Verificando credenciais ML...',
+    validate_category:  'Validando atributos da categoria...',
     downloading_images: 'Baixando imagens do Drive...',
     uploading_images:   'Enviando imagens ao Mercado Livre...',
     creating_listing:   'Criando anúncio no ML...',
@@ -9712,7 +9759,7 @@ Restricoes:
   };
 
   const ML_STEP_ORDER = [
-    'token_refresh', 'downloading_images', 'uploading_images',
+    'token_refresh', 'validate_category', 'downloading_images', 'uploading_images',
     'creating_listing', 'checking_freight',
     'adjusting_price', 'updating_listing', 'notifying_whatsapp',
     'activating',
@@ -9738,6 +9785,7 @@ Restricoes:
   }
 
   let mlPanelStepStates = {};
+  let mlRateLimitRetryCount = 0;
 
   function mlShowPanel() {
     if (btnPublishMl) btnPublishMl.style.display = 'none';
@@ -9769,6 +9817,7 @@ Restricoes:
         running: '<div class="loader shrink-0" style="width:12px;height:12px;border-width:2px;border-top-color:#2D73E2;border-color:#bfdbfe"></div>',
         pending: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="1.5"/></svg>',
         failed:  '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
+        rate_limited: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
       };
       return `<div class="publish-step ${state}">${icons[state] || ''}<span>${ML_STEP_LABELS[step] || step}</span></div>`;
     }).join('');
@@ -9869,6 +9918,7 @@ Restricoes:
           listing_type_id: listingTypeId,
         }));
         mlPanelStepStates = {};
+        mlRateLimitRetryCount = 0;
         // Reset header
         const header = document.getElementById('publishPanelHeader');
         if (header) {
@@ -9890,14 +9940,122 @@ Restricoes:
     });
   }
 
-  let _mlSseAbortController = null;
+  let _mlEventSource = null;
 
   function mlConnectSSE(jobId) {
-    if (_mlSseAbortController) _mlSseAbortController.abort();
-    _mlSseAbortController = new AbortController();
+    if (_mlEventSource) { _mlEventSource.close(); _mlEventSource = null; }
 
     function handleEvent(data) {
       const { step, message, listing_id, listing_url, failed_at } = data;
+
+      if (step === 'freight_updated') {
+        // Update shipping cost field with ML freight
+        tinyShippingCost.value = parseFloat(data.new_freight).toFixed(2);
+        shippingCostLocked = true;
+
+        // Update active variant snapshot (could be simple or kit)
+        const activeState = activeVariantKey === "simple"
+          ? variantStore.simple
+          : (history || variantStore[activeVariantKey]);
+        if (activeState) {
+          activeState.shippingCostSnapshot = tinyShippingCost.value;
+        }
+
+        // Update shipping cache (key: sku:marketplace:variant)
+        const skuKey = normalizeSkuCacheKey(tinySKU.value);
+        const cacheKey = `${skuKey}:${marketplace.value}:${normalizeVariantKey(activeVariantKey)}`;
+        shippingCostCache[cacheKey] = data.new_freight;
+
+        // Recalculate pricing panels with new freight
+        autoPricing({
+          expectedVariant: normalizeVariantKey(activeVariantKey),
+          expectedSku: normalizeSkuValue(tinySKU.value),
+          expectedMarketplace: marketplace.value,
+        });
+
+        // Persist workspace with updated data
+        persistState('ml_freight_update');
+
+        return false; // Do NOT close SSE stream
+      }
+
+      if (step === 'category_validation_failed') {
+        mlPanelStepStates['validate_category'] = 'failed';
+        mlRenderSteps('validate_category', true);
+
+        const header = document.getElementById('publishPanelHeader');
+        if (header) {
+          header.className = 'publish-panel-header error';
+          const loader = document.getElementById('publishPanelLoader');
+          if (loader) loader.style.display = 'none';
+          document.getElementById('publishPanelTitle').textContent = 'Validação de categoria falhou';
+        }
+
+        const missingList = (data.missing_attrs || [])
+          .map(a => `<li><strong>${a.id}</strong> — ${a.name}</li>`)
+          .join('');
+        const addedList = (data.added || []).join(', ') || 'nenhum';
+        const removedList = (data.removed || []).join(', ') || 'nenhum';
+
+        const footer = document.getElementById('publishPanelFooter');
+        if (footer) {
+          footer.style.display = '';
+          footer.innerHTML = `
+            <div style="text-align:left; font-size:0.82rem; line-height:1.5; margin-bottom:0.75rem;">
+              <p style="margin:0 0 0.5rem;"><strong>Atributos obrigatórios sem valor:</strong></p>
+              <ul style="margin:0 0 0.5rem; padding-left:1.2rem;">${missingList}</ul>
+              <p style="margin:0; font-size:0.75rem; opacity:0.7;">
+                Novos: ${addedList} | Removidos: ${removedList}
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <button id="btnMlNotifyDevs" class="btn text-xs" style="flex:1;
+                background:var(--color-warning, #f59e0b); color:#000; font-weight:600;">
+                Notificar Time de Dev
+              </button>
+              <button id="btnMlPanelClose" class="btn text-xs" style="flex:1;">Fechar</button>
+            </div>
+          `;
+
+          const closeBtn = footer.querySelector('#btnMlPanelClose');
+          if (closeBtn) closeBtn.addEventListener('click', () => {
+            mlHidePanel();
+            if (btnPublishMl) btnPublishMl.disabled = false;
+          });
+
+          const notifyBtn = footer.querySelector('#btnMlNotifyDevs');
+          if (notifyBtn) notifyBtn.addEventListener('click', async () => {
+            notifyBtn.disabled = true;
+            notifyBtn.textContent = 'Enviando...';
+            try {
+              const resp = await fetchWithAuth('/api/ml/notify-category-change', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  category_id: data.category_id,
+                  sku: data.sku,
+                  missing_attrs: data.missing_attrs,
+                  added: data.added,
+                  removed: data.removed,
+                }),
+              });
+              if (resp.ok) {
+                notifyBtn.textContent = 'Enviado!';
+                showToast('Notificação enviada ao time de dev', 'success');
+              } else {
+                notifyBtn.textContent = 'Erro ao enviar';
+                notifyBtn.disabled = false;
+              }
+            } catch {
+              notifyBtn.textContent = 'Erro ao enviar';
+              notifyBtn.disabled = false;
+            }
+          });
+        }
+
+        localStorage.removeItem('ml_active_job');
+        return true;
+      }
 
       if (step === 'done') {
         ML_STEP_ORDER.forEach(s => { mlPanelStepStates[s] = 'done'; });
@@ -9925,6 +10083,90 @@ Restricoes:
         showToast('Anúncio publicado no ML!', 'success', 5000);
         localStorage.removeItem('ml_active_job');
         return true;
+      }
+
+      if (step === 'rate_limited') {
+        const pausedStep = data.paused_at || 'unknown';
+        mlPanelStepStates[pausedStep] = 'rate_limited';
+        mlRenderSteps(pausedStep, false);
+
+        const header = document.getElementById('publishPanelHeader');
+        if (header) {
+          header.className = 'publish-panel-header warning';
+          document.getElementById('publishPanelTitle').textContent = 'Aguardando ação';
+          const loader = document.getElementById('publishPanelLoader');
+          if (loader) loader.style.display = 'none';
+        }
+
+        const footer = document.getElementById('publishPanelFooter');
+        if (footer) {
+          footer.style.display = '';
+          mlRateLimitRetryCount++;
+          const cooldown = mlRateLimitRetryCount <= 1 ? 0 : (mlRateLimitRetryCount === 2 ? 30 : 60);
+
+          footer.innerHTML = `
+            <p class="text-xs text-amber-700 mb-2">
+              O Mercado Livre limitou temporariamente o número de requisições.
+              Aguarde alguns instantes antes de continuar.
+            </p>
+            <button id="btnMlResume" class="mt-1 btn btn-primary text-xs w-full mb-1">
+              Continuar publicação
+            </button>
+            <button id="btnMlCancel" class="btn text-xs w-full text-red-600 border border-red-300 hover:bg-red-50">
+              Cancelar publicação
+            </button>
+          `;
+
+          const btnResume = footer.querySelector('#btnMlResume');
+          const btnCancel = footer.querySelector('#btnMlCancel');
+
+          if (cooldown > 0) {
+            btnResume.disabled = true;
+            let remaining = cooldown;
+            btnResume.textContent = `Aguarde (${remaining}s)`;
+            const timer = setInterval(() => {
+              remaining--;
+              if (remaining > 0) {
+                btnResume.textContent = `Aguarde (${remaining}s)`;
+              } else {
+                clearInterval(timer);
+                btnResume.disabled = false;
+                btnResume.textContent = 'Continuar publicação';
+              }
+            }, 1000);
+          }
+
+          btnResume.addEventListener('click', async () => {
+            btnResume.disabled = true;
+            btnCancel.disabled = true;
+            header.className = 'publish-panel-header';
+            document.getElementById('publishPanelTitle').textContent = 'Publicando no ML...';
+            const loader = document.getElementById('publishPanelLoader');
+            if (loader) loader.style.display = '';
+            footer.style.display = 'none';
+            mlPanelStepStates[pausedStep] = 'running';
+            mlRenderSteps(pausedStep, false);
+            try {
+              const r = await fetch(`/api/ml/publish/${jobId}/resume`, { method: 'POST' });
+              if (!r.ok) throw new Error('Falha ao retomar');
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          });
+
+          btnCancel.addEventListener('click', async () => {
+            btnResume.disabled = true;
+            btnCancel.disabled = true;
+            btnCancel.textContent = 'Cancelando...';
+            try {
+              const r = await fetch(`/api/ml/publish/${jobId}/cancel`, { method: 'POST' });
+              if (!r.ok) throw new Error('Falha ao cancelar');
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          });
+        }
+        return false;
       }
 
       if (step === 'error') {
@@ -9968,42 +10210,26 @@ Restricoes:
       return false;
     }
 
-    (async () => {
-      try {
-        const resp = await fetch(`/api/ml/publish/${jobId}/events`, {
-          signal: _mlSseAbortController.signal,
-          headers: { 'Accept': 'text/event-stream' },
-        });
-        if (!resp.ok || !resp.body) {
-          showToast('Falha ao conectar ao stream de publicação.', 'error');
-          return;
-        }
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            let eventData;
-            try { eventData = JSON.parse(line.slice(6)); } catch { continue; }
-            const finished = handleEvent(eventData);
-            if (finished) {
-              reader.cancel();
-              return;
-            }
-          }
-        }
-      } catch (err) {
-        if (err.name === 'AbortError') return;
-        console.warn('SSE stream error, retrying in 2s...', err);
-        setTimeout(() => mlConnectSSE(jobId), 2000);
+    const es = new EventSource(`/api/ml/publish/${jobId}/events`);
+    _mlEventSource = es;
+
+    es.onmessage = (evt) => {
+      let data;
+      try { data = JSON.parse(evt.data); } catch { return; }
+      const finished = handleEvent(data);
+      if (finished) {
+        es.close();
+        _mlEventSource = null;
       }
-    })();
+    };
+
+    es.onerror = () => {
+      // EventSource auto-reconnects on network errors.
+      // If the server closed the stream (readyState === CLOSED), stop.
+      if (es.readyState === EventSource.CLOSED) {
+        _mlEventSource = null;
+      }
+    };
   }
 
   function mlCheckActiveJobOnBoot() {
@@ -10012,8 +10238,8 @@ Restricoes:
     let saved;
     try { saved = JSON.parse(raw); } catch { localStorage.removeItem('ml_active_job'); return; }
     const { job_id, started_at, sku, listing_type_id } = saved;
-    const TEN_MIN = 10 * 60 * 1000;
-    if (!job_id || (Date.now() - started_at) > TEN_MIN) {
+    const THIRTY_MIN = 30 * 60 * 1000;
+    if (!job_id || (Date.now() - started_at) > THIRTY_MIN) {
       localStorage.removeItem('ml_active_job');
       return;
     }

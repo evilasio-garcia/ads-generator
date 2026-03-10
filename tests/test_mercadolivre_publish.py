@@ -106,7 +106,10 @@ async def test_upload_image_returns_picture_id():
 
 
 @pytest.mark.asyncio
-async def test_get_listing_shipping_cost_returns_float():
+async def test_get_seller_shipping_cost_returns_float():
+    item_resp = {
+        "shipping": {"tags": ["mandatory_free_shipping"]},
+    }
     shipping_resp = {
         "coverage": {
             "all_country": {
@@ -119,29 +122,139 @@ async def test_get_listing_shipping_cost_returns_float():
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(return_value=_mock_http_get(shipping_resp))
+        mock_client.get = AsyncMock(
+            side_effect=[_mock_http_get(item_resp), _mock_http_get(shipping_resp)]
+        )
         mock_cls.return_value = mock_client
 
-        cost = await mercadolivre_service.get_listing_shipping_cost(
+        cost = await mercadolivre_service.get_seller_shipping_cost(
             access_token="TOKEN",
             item_id="MLB123456789",
+            ml_user_id="123456",
         )
 
     assert cost == 18.5
+    # Verify second call used free_shipping=true (mandatory_free_shipping present)
+    second_call = mock_client.get.call_args_list[1]
+    assert second_call.kwargs["params"]["free_shipping"] == "true"
 
 
 @pytest.mark.asyncio
-async def test_get_listing_shipping_cost_returns_zero_on_missing_key():
+async def test_get_seller_shipping_cost_returns_zero_on_missing_key():
+    item_resp = {"shipping": {"tags": []}}
+
     with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(return_value=_mock_http_get({}))
+        mock_client.get = AsyncMock(
+            side_effect=[_mock_http_get(item_resp), _mock_http_get({})]
+        )
         mock_cls.return_value = mock_client
 
-        cost = await mercadolivre_service.get_listing_shipping_cost("TOKEN", "MLB1")
+        cost = await mercadolivre_service.get_seller_shipping_cost("TOKEN", "MLB1", "123456")
 
     assert cost == 0.0
+    # Verify second call used free_shipping=false (no mandatory_free_shipping)
+    second_call = mock_client.get.call_args_list[1]
+    assert second_call.kwargs["params"]["free_shipping"] == "false"
+
+
+@pytest.mark.asyncio
+async def test_get_seller_shipping_cost_retries_on_429():
+    """429 on first item fetch should retry and eventually succeed."""
+    item_resp = {"shipping": {"tags": ["mandatory_free_shipping"]}}
+    shipping_resp = {"coverage": {"all_country": {"list_cost": 22.0}}}
+
+    rate_limit_resp = MagicMock()
+    rate_limit_resp.status_code = 429
+    rate_limit_resp.headers = {"Retry-After": "0.1"}
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(
+            side_effect=[
+                rate_limit_resp,           # 1st call: 429 on item fetch
+                _mock_http_get(item_resp), # 2nd call: item fetch succeeds
+                _mock_http_get(shipping_resp),  # 3rd call: shipping fetch
+            ]
+        )
+        mock_cls.return_value = mock_client
+
+        callback = MagicMock()
+        cost = await mercadolivre_service.get_seller_shipping_cost(
+            "TOKEN", "MLB1", "123456", on_rate_limit=callback,
+        )
+
+    assert cost == 22.0
+    assert callback.call_count == 1
+    callback.assert_called_once_with(1, 0.1)
+
+
+@pytest.mark.asyncio
+async def test_request_with_retry_raises_rate_limit_error_after_max_retries():
+    """When 429 persists after all retries, MLRateLimitError should be raised."""
+    rate_limit_resp = MagicMock()
+    rate_limit_resp.status_code = 429
+    rate_limit_resp.headers = {}
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        # Return 429 for all attempts (MAX_RETRIES + 1 = 6)
+        mock_client.get = AsyncMock(return_value=rate_limit_resp)
+        mock_cls.return_value = mock_client
+
+        with pytest.raises(mercadolivre_service.MLRateLimitError) as exc_info:
+            await mercadolivre_service.get_seller_shipping_cost("TOKEN", "MLB1", "123456")
+
+        assert exc_info.value.status_code == 429
+        assert "429" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_close_listing_sends_put_closed():
+    """close_listing should PUT {status: closed} to the item."""
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.put = AsyncMock(return_value=_mock_http_put({"id": "MLB123", "status": "closed"}))
+        mock_cls.return_value = mock_client
+
+        await mercadolivre_service.close_listing("TOKEN", "MLB123")
+
+        mock_client.put.assert_called_once()
+        call_kwargs = mock_client.put.call_args
+        assert call_kwargs.kwargs["json"] == {"status": "closed"}
+
+
+@pytest.mark.asyncio
+async def test_create_listing_retries_on_429_then_succeeds():
+    """create_listing should retry on 429 and succeed when next attempt returns 200."""
+    rate_limit_resp = MagicMock()
+    rate_limit_resp.status_code = 429
+    rate_limit_resp.headers = {"Retry-After": "0.1"}
+
+    success_resp = _mock_http_post({"id": "MLB999", "permalink": "https://example.com/item"})
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(
+            side_effect=[rate_limit_resp, success_resp]
+        )
+        mock_cls.return_value = mock_client
+
+        item_id, permalink = await mercadolivre_service.create_listing("TOKEN", {"title": "Test"})
+
+    assert item_id == "MLB999"
+    assert permalink == "https://example.com/item"
+    assert mock_client.post.call_count == 2
 
 
 @pytest.mark.asyncio

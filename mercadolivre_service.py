@@ -1,11 +1,12 @@
 # mercadolivre_service.py
 """Mercado Livre API integration — OAuth2, listings, images, shipping."""
 
+import asyncio
 import httpx
 import logging
 import urllib.parse
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,86 @@ class MLAPIError(Exception):
     def __init__(self, message: str, status_code: int = 0):
         super().__init__(message)
         self.status_code = status_code
+
+
+class MLRateLimitError(MLAPIError):
+    """Raised when ML API returns 429 after exhausting all retry attempts."""
+
+    def __init__(self, method: str, url: str, attempts: int):
+        super().__init__(
+            f"Rate limit (429) persistente após {attempts} tentativas: {method.upper()} {url}",
+            status_code=429,
+        )
+
+
+# ── Rate-limit retry helper ─────────────────────────────────────────────
+
+_RATE_LIMIT_MAX_RETRIES = 5
+_RATE_LIMIT_BASE_DELAY = 2.0  # seconds
+
+
+async def _request_with_retry(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    *,
+    on_rate_limit: Optional[Callable[[int, float], None]] = None,
+    **kwargs,
+) -> httpx.Response:
+    """Execute an HTTP request with automatic retry on 429 Too Many Requests.
+
+    Uses exponential backoff: 2s, 4s, 8s, 16s, 32s.
+    Respects Retry-After header from ML API when present.
+    Raises MLRateLimitError if all retries are exhausted.
+
+    Args:
+        client: httpx.AsyncClient instance.
+        method: HTTP method (get, post, put, delete).
+        url: Request URL.
+        on_rate_limit: Optional callback(attempt, wait_seconds) for progress reporting.
+        **kwargs: Forwarded to client.request().
+
+    Returns:
+        httpx.Response (caller is responsible for raise_for_status).
+
+    Raises:
+        MLRateLimitError: If 429 persists after all retries.
+    """
+    request_fn = getattr(client, method.lower())
+
+    for attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
+        resp = await request_fn(url, **kwargs)
+
+        if resp.status_code != 429:
+            return resp
+
+        if attempt >= _RATE_LIMIT_MAX_RETRIES:
+            logger.warning(
+                "Rate limit exceeded after %d retries: %s %s",
+                _RATE_LIMIT_MAX_RETRIES, method.upper(), url,
+            )
+            raise MLRateLimitError(method, url, _RATE_LIMIT_MAX_RETRIES)
+
+        retry_after = resp.headers.get("Retry-After") or resp.headers.get("retry-after")
+        if retry_after:
+            try:
+                wait = float(retry_after)
+            except (TypeError, ValueError):
+                wait = _RATE_LIMIT_BASE_DELAY * (2 ** attempt)
+        else:
+            wait = _RATE_LIMIT_BASE_DELAY * (2 ** attempt)
+
+        logger.info(
+            "Rate limited (429) on %s %s — retry %d/%d in %.1fs",
+            method.upper(), url, attempt + 1, _RATE_LIMIT_MAX_RETRIES, wait,
+        )
+
+        if on_rate_limit:
+            on_rate_limit(attempt + 1, wait)
+
+        await asyncio.sleep(wait)
+
+    raise MLRateLimitError(method, url, _RATE_LIMIT_MAX_RETRIES)  # unreachable
 
 
 def get_auth_url(client_id: str, redirect_uri: str) -> str:
@@ -150,13 +231,15 @@ async def create_listing(access_token: str, payload: Dict[str, Any]) -> tuple:
     """Cria anúncio pausado no ML. Retorna (item_id, permalink)."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.post(
-                ML_ITEMS_URL,
+            resp = await _request_with_retry(
+                client, "post", ML_ITEMS_URL,
                 json=payload,
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=30.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             body = {}
             try:
@@ -179,7 +262,8 @@ async def update_description(access_token: str, item_id: str, plain_text: str) -
     """Cria ou atualiza a descrição de um anúncio no ML."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.post(
+            resp = await _request_with_retry(
+                client, "post",
                 f"{ML_API_BASE}/items/{item_id}/description",
                 json={"plain_text": plain_text},
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -187,13 +271,16 @@ async def update_description(access_token: str, item_id: str, plain_text: str) -
             )
             # 400 may mean description already exists — try PUT
             if resp.status_code == 400:
-                resp = await client.put(
+                resp = await _request_with_retry(
+                    client, "put",
                     f"{ML_API_BASE}/items/{item_id}/description",
                     json={"plain_text": plain_text},
                     headers={"Authorization": f"Bearer {access_token}"},
                     timeout=15.0,
                 )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             body = {}
             try:
@@ -210,13 +297,15 @@ async def upload_image(access_token: str, image_bytes: bytes, filename: str) -> 
     """Faz upload de uma imagem ao ML. Retorna o picture_id."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.post(
-                ML_PICTURES_UPLOAD_URL,
+            resp = await _request_with_retry(
+                client, "post", ML_PICTURES_UPLOAD_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
                 files={"file": (filename, image_bytes, "image/jpeg")},
                 timeout=60.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao enviar imagem {filename}",
@@ -234,13 +323,16 @@ async def attach_pictures_to_listing(
     pictures = [{"id": pid} for pid in picture_ids]
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.put(
+            resp = await _request_with_retry(
+                client, "put",
                 f"{ML_ITEMS_URL}/{item_id}",
                 json={"pictures": pictures},
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=30.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao associar imagens ao anúncio",
@@ -248,28 +340,61 @@ async def attach_pictures_to_listing(
             ) from exc
 
 
-async def get_listing_shipping_cost(access_token: str, item_id: str) -> float:
+async def get_seller_shipping_cost(
+    access_token: str,
+    item_id: str,
+    ml_user_id: str,
+    on_rate_limit: Optional[Callable[[int, float], None]] = None,
+) -> float:
     """
-    Consulta o custo de frete do anúncio para o vendedor.
+    Consulta o custo de frete (list_cost) do vendedor para o anúncio.
+
+    1. GET /items/{item_id} → verifica mandatory_free_shipping em shipping.tags
+    2. GET /users/{ml_user_id}/shipping_options/free?item_id=...&free_shipping=...
+       → retorna coverage.all_country.list_cost
+
     Retorna 0.0 se não encontrado.
+    Retries automaticamente em caso de 429 (rate limit).
     """
-    url = f"{ML_ITEMS_URL}/{item_id}/shipping_options/free"
+    headers = {"Authorization": f"Bearer {access_token}"}
     async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(
-                url,
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=15.0,
-            )
-            if resp.status_code == 404:
-                return 0.0
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as exc:
+        # Step 1: fetch item to check mandatory_free_shipping
+        resp_item = await _request_with_retry(
+            client, "get",
+            f"{ML_ITEMS_URL}/{item_id}",
+            headers=headers,
+            timeout=15.0,
+            on_rate_limit=on_rate_limit,
+        )
+        if resp_item.status_code != 200:
             raise MLAPIError(
-                f"Erro {exc.response.status_code} ao consultar frete",
-                status_code=exc.response.status_code,
-            ) from exc
-    data = resp.json()
+                f"Erro {resp_item.status_code} ao consultar item para frete",
+                status_code=resp_item.status_code,
+            )
+
+        item_data = resp_item.json()
+        shipping_tags = (item_data.get("shipping") or {}).get("tags") or []
+        free_shipping = "mandatory_free_shipping" in shipping_tags
+
+        # Step 2: fetch list_cost from user-level shipping options
+        resp_ship = await _request_with_retry(
+            client, "get",
+            f"{ML_API_BASE}/users/{ml_user_id}/shipping_options/free",
+            params={
+                "item_id": item_id,
+                "free_shipping": str(free_shipping).lower(),
+            },
+            headers=headers,
+            timeout=15.0,
+            on_rate_limit=on_rate_limit,
+        )
+        if resp_ship.status_code != 200:
+            raise MLAPIError(
+                f"Erro {resp_ship.status_code} ao consultar frete do vendedor",
+                status_code=resp_ship.status_code,
+            )
+
+    data = resp_ship.json()
     try:
         return float(
             data.get("coverage", {}).get("all_country", {}).get("list_cost", 0.0) or 0.0
@@ -282,13 +407,16 @@ async def update_listing_price(access_token: str, item_id: str, new_price: float
     """Atualiza o preço de um anúncio existente."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.put(
+            resp = await _request_with_retry(
+                client, "put",
                 f"{ML_ITEMS_URL}/{item_id}",
                 json={"price": round(new_price, 2)},
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=30.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao atualizar preço",
@@ -300,13 +428,16 @@ async def update_listing_attributes(access_token: str, item_id: str, attributes:
     """Atualiza atributos de um anúncio existente via PUT."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.put(
+            resp = await _request_with_retry(
+                client, "put",
                 f"{ML_ITEMS_URL}/{item_id}",
                 json={"attributes": attributes},
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=30.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao atualizar atributos",
@@ -318,13 +449,16 @@ async def update_listing_sale_terms(access_token: str, item_id: str, sale_terms:
     """Atualiza sale_terms (garantia) de um anúncio existente via PUT."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.put(
+            resp = await _request_with_retry(
+                client, "put",
                 f"{ML_ITEMS_URL}/{item_id}",
                 json={"sale_terms": sale_terms},
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=30.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao atualizar garantia",
@@ -336,18 +470,40 @@ async def activate_listing(access_token: str, item_id: str) -> None:
     """Ativa um anúncio pausado."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.put(
+            resp = await _request_with_retry(
+                client, "put",
                 f"{ML_ITEMS_URL}/{item_id}",
                 json={"status": "active"},
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=30.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao ativar anúncio",
                 status_code=exc.response.status_code,
             ) from exc
+
+
+async def close_listing(access_token: str, item_id: str) -> None:
+    """Fecha (exclui) um anúncio no ML. Best-effort — não propaga erros."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await _request_with_retry(
+                client, "put",
+                f"{ML_ITEMS_URL}/{item_id}",
+                json={"status": "closed"},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=30.0,
+            )
+            if resp.status_code >= 400:
+                logger.warning(
+                    "Failed to close listing %s: status=%s", item_id, resp.status_code
+                )
+        except Exception as exc:
+            logger.warning("Failed to close listing %s: %s", item_id, exc)
 
 
 async def get_category_settings(access_token: str, category_id: str) -> dict:
@@ -480,6 +636,34 @@ def recalculate_price_with_new_freight(
     )
 
 
+def recalculate_all_prices_with_new_freight(
+    cost_price: float,
+    new_freight: float,
+    pricing_ctx: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Recalcula todos os preços (listing, promo, wholesale) com o novo frete.
+
+    Returns dict with keys: listing_price, promo_price, wholesale_tiers.
+    """
+    ctx = dict(pricing_ctx or {})
+    cp = float(cost_price)
+    sc = float(new_freight)
+
+    listing_price = _ml_price_calculator.get_listing_price(cp, sc, ctx)
+    promo_price = _ml_price_calculator.get_promo_price(cp, sc, ctx)
+    wholesale_tiers = _ml_price_calculator.get_wholesale_tiers(cp, sc, ctx)
+
+    return {
+        "listing_price": listing_price,
+        "promo_price": promo_price,
+        "wholesale_tiers": [
+            {"min_quantity": int(t.min_quantity), "price": float(t.price)}
+            for t in wholesale_tiers
+            if t.min_quantity > 1 and t.price > 0
+        ],
+    }
+
+
 async def set_wholesale_prices(access_token: str, item_id: str, tiers: list) -> dict:
     """Register quantity-based prices (wholesale) on ML.
 
@@ -497,13 +681,16 @@ async def set_wholesale_prices(access_token: str, item_id: str, tiers: list) -> 
         })
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.post(
+            resp = await _request_with_retry(
+                client, "post",
                 f"{ML_API_BASE}/items/{item_id}/prices/standard/quantity",
                 headers={"Authorization": f"Bearer {access_token}"},
                 json={"prices": prices_payload},
                 timeout=15.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao cadastrar preços por quantidade",
@@ -518,7 +705,8 @@ async def get_seller_own_promotions(access_token: str, user_id: str) -> list:
     async with httpx.AsyncClient() as client:
         for status in ("started", "pending"):
             try:
-                resp = await client.get(
+                resp = await _request_with_retry(
+                    client, "get",
                     f"{ML_API_BASE}/seller-promotions/users/{user_id}",
                     params={"app_version": "v2", "status": status},
                     headers={
@@ -534,7 +722,7 @@ async def get_seller_own_promotions(access_token: str, user_id: str) -> list:
                 for promo in (data.get("results") or []):
                     if promo.get("type") in ("SELLER_CAMPAIGN", "PRICE_DISCOUNT"):
                         results.append(promo)
-            except httpx.HTTPStatusError:
+            except (MLRateLimitError, httpx.HTTPStatusError):
                 continue
     return results
 
@@ -546,7 +734,8 @@ async def add_item_to_promotion(
     """Add item to a seller promotion with deal price."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.post(
+            resp = await _request_with_retry(
+                client, "post",
                 f"{ML_API_BASE}/marketplace/seller-promotions/items/{item_id}",
                 params={"user_id": user_id},
                 headers={
@@ -562,6 +751,8 @@ async def add_item_to_promotion(
                 timeout=15.0,
             )
             resp.raise_for_status()
+        except MLRateLimitError:
+            raise
         except httpx.HTTPStatusError as exc:
             raise MLAPIError(
                 f"Erro {exc.response.status_code} ao adicionar item à promoção {promo_id}",
