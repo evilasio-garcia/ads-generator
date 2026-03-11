@@ -2333,12 +2333,12 @@ async def gateway_info():
         "slug": settings.app_slug,
         "description": "Gerador de anúncios",
         "icon_url":
-            "https://popular-introduction-gif-investigate.trycloudflare.com/static/favicon.svg"
+            "http://127.0.0.1:5002/static/favicon.svg"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/static/favicon.svg",
         "tooltip": "Gerador de anúncios",
         "app_url":
-            "https://popular-introduction-gif-investigate.trycloudflare.com/auth/gateway-login"
+            "http://127.0.0.1:5002/auth/gateway-login"
             if settings.dev_mode
             else "https://ads-generator.rapidopracachorro.com/auth/gateway-login",
         "auth_type": "GATEWAY_TOKEN",
@@ -4764,20 +4764,71 @@ async def _run_ml_publish_job(
                 seller_promos = await mercadolivre_service.get_seller_own_promotions(access_token, ml_user_id)
                 if seller_promos:
                     registered_count = 0
+                    promo_errors = []
                     for promo in seller_promos:
+                        promo_name = promo.get("name", promo["id"])
                         try:
-                            await mercadolivre_service.add_item_to_promotion(
-                                access_token, listing_id, ml_user_id,
-                                promo["id"], promo["type"], promo_price,
-                            )
-                            registered_count += 1
-                        except (mercadolivre_service.MLRateLimitError, mercadolivre_service.MLAPIError):
-                            # Rate limit, price out of range, or item not eligible — skip
+                            # For SELLER_CAMPAIGN, poll for candidacy then add with retry
+                            effective_price = promo_price
+                            if promo["type"] == "SELLER_CAMPAIGN":
+                                _CANDIDACY_POLL_MAX = 15
+                                added = False
+                                _emit_ml_event(
+                                    job_id, "promotions",
+                                    f"Aguardando elegibilidade na campanha {promo_name}...",
+                                )
+                                for poll_i in range(_CANDIDACY_POLL_MAX):
+                                    candidate = await mercadolivre_service.check_item_promotion_candidacy(
+                                        access_token, promo["id"], listing_id,
+                                    )
+                                    if candidate:
+                                        # Clamp deal_price to allowed range
+                                        min_price = candidate.get("min_discounted_price")
+                                        max_price = candidate.get("max_discounted_price")
+                                        if min_price is not None and effective_price < float(min_price):
+                                            effective_price = float(min_price)
+                                        if max_price is not None and effective_price > float(max_price):
+                                            effective_price = float(max_price)
+                                        try:
+                                            await mercadolivre_service.add_item_to_promotion(
+                                                access_token, listing_id, ml_user_id,
+                                                promo["id"], promo["type"], effective_price,
+                                            )
+                                            added = True
+                                            break
+                                        except mercadolivre_service.MLRateLimitError:
+                                            raise
+                                        except mercadolivre_service.MLAPIError:
+                                            # POST may fail even after GET reports candidate (eventual consistency)
+                                            pass
+                                    await asyncio.sleep(1)
+                                if not added:
+                                    logger.info("Item %s not added to %s after %ds",
+                                                listing_id, promo["id"], _CANDIDACY_POLL_MAX)
+                                    promo_errors.append(f"{promo_name}: item nao elegivel apos {_CANDIDACY_POLL_MAX}s")
+                                    continue
+                                registered_count += 1
+                            else:
+                                await mercadolivre_service.add_item_to_promotion(
+                                    access_token, listing_id, ml_user_id,
+                                    promo["id"], promo["type"], effective_price,
+                                )
+                                registered_count += 1
+                        except mercadolivre_service.MLRateLimitError:
+                            raise
+                        except mercadolivre_service.MLAPIError as exc:
+                            logger.warning("Promo %s failed for %s: %s", promo["id"], listing_id, exc)
+                            promo_errors.append(f"{promo_name}: {exc}")
                             continue
                     if registered_count:
                         _emit_ml_event(
                             job_id, "promotions",
                             f"Item cadastrado em {registered_count} promoção(ões) com preço R$ {promo_price:.2f}",
+                        )
+                    elif promo_errors:
+                        _emit_ml_event(
+                            job_id, "promotions",
+                            f"Nenhuma promoção registrada. {'; '.join(promo_errors)}",
                         )
                     else:
                         _emit_ml_event(job_id, "promotions", "Nenhuma promoção compatível com este item")

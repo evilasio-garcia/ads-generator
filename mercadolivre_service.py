@@ -728,7 +728,7 @@ async def set_wholesale_prices(access_token: str, item_id: str, tiers: list) -> 
 
 async def get_seller_own_promotions(access_token: str, user_id: str) -> list:
     """List seller's own promotions (SELLER_CAMPAIGN and PRICE_DISCOUNT) that are active or pending."""
-    results = []
+    seen = {}
     async with httpx.AsyncClient() as client:
         for status in ("started", "pending"):
             try:
@@ -748,10 +748,46 @@ async def get_seller_own_promotions(access_token: str, user_id: str) -> list:
                 data = resp.json()
                 for promo in (data.get("results") or []):
                     if promo.get("type") in ("SELLER_CAMPAIGN", "PRICE_DISCOUNT"):
-                        results.append(promo)
+                        pid = promo.get("id")
+                        if pid and pid not in seen:
+                            seen[pid] = promo
             except (MLRateLimitError, httpx.HTTPStatusError):
                 continue
-    return results
+    return list(seen.values())
+
+
+async def check_item_promotion_candidacy(
+    access_token: str, promo_id: str, item_id: str,
+) -> Optional[dict]:
+    """Check if an item is a candidate for a SELLER_CAMPAIGN promotion.
+
+    Returns candidate dict with keys like 'min_discounted_price',
+    'max_discounted_price', 'original_price', etc. or None if not a candidate.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await _request_with_retry(
+                client, "get",
+                f"{ML_API_BASE}/seller-promotions/promotions/{promo_id}/items",
+                params={
+                    "promotion_type": "SELLER_CAMPAIGN",
+                    "app_version": "v2",
+                    "status": "candidate",
+                    "item_id": item_id,
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15.0,
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            results = data.get("results") or []
+            for r in results:
+                if r.get("id") == item_id:
+                    return r
+        except (MLRateLimitError, httpx.HTTPStatusError):
+            pass
+    return None
 
 
 async def add_item_to_promotion(
@@ -763,12 +799,11 @@ async def add_item_to_promotion(
         try:
             resp = await _request_with_retry(
                 client, "post",
-                f"{ML_API_BASE}/marketplace/seller-promotions/items/{item_id}",
-                params={"user_id": user_id},
+                f"{ML_API_BASE}/seller-promotions/items/{item_id}",
+                params={"app_version": "v2"},
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json",
-                    "version": "v2",
                 },
                 json={
                     "promotion_id": promo_id,
@@ -781,8 +816,14 @@ async def add_item_to_promotion(
         except MLRateLimitError:
             raise
         except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                body = exc.response.json()
+                detail = body.get("message") or body.get("error") or ""
+            except Exception:
+                pass
             raise MLAPIError(
-                f"Erro {exc.response.status_code} ao adicionar item à promoção {promo_id}",
+                f"Erro {exc.response.status_code} ao adicionar item à promoção {promo_id}: {detail}".rstrip(": "),
                 status_code=exc.response.status_code,
             ) from exc
     return resp.json()
