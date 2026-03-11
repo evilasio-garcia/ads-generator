@@ -10104,13 +10104,13 @@ Restricoes:
           mlRateLimitRetryCount++;
           const cooldown = mlRateLimitRetryCount <= 1 ? 0 : (mlRateLimitRetryCount === 2 ? 30 : 60);
 
+          const stepLabel = ML_STEP_LABELS[pausedStep] || pausedStep;
+          const errorMsg = message || 'O Mercado Livre limitou temporariamente o número de requisições. Aguarde alguns instantes antes de continuar.';
           footer.innerHTML = `
-            <p class="text-xs text-amber-700 mb-2">
-              O Mercado Livre limitou temporariamente o número de requisições.
-              Aguarde alguns instantes antes de continuar.
-            </p>
+            <p class="text-xs text-amber-700 mb-2">${errorMsg}</p>
+            <p class="text-xs text-gray-500 mb-2">Etapa: ${stepLabel}</p>
             <button id="btnMlResume" class="mt-1 btn btn-primary text-xs w-full mb-1">
-              Continuar publicação
+              Tentar novamente
             </button>
             <button id="btnMlCancel" class="btn text-xs w-full text-red-600 border border-red-300 hover:bg-red-50">
               Cancelar publicação
@@ -10131,7 +10131,7 @@ Restricoes:
               } else {
                 clearInterval(timer);
                 btnResume.disabled = false;
-                btnResume.textContent = 'Continuar publicação';
+                btnResume.textContent = 'Tentar novamente';
               }
             }, 1000);
           }

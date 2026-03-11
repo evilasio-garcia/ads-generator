@@ -216,6 +216,108 @@ async def test_request_with_retry_raises_rate_limit_error_after_max_retries():
 
 
 @pytest.mark.asyncio
+async def test_request_with_retry_retries_on_5xx_server_errors():
+    """5xx errors (500, 502, 503, 504) should be retried automatically."""
+    error_resp = MagicMock()
+    error_resp.status_code = 503
+    error_resp.headers = {}
+
+    success_resp = _mock_http_get({"shipping": {"tags": []}, "id": "MLB1"})
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(side_effect=[error_resp, error_resp, success_resp])
+        mock_cls.return_value = mock_client
+
+        resp = await mercadolivre_service._request_with_retry(mock_client, "get", "https://api.example.com/test")
+
+    assert resp.status_code == 200
+    assert mock_client.get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_request_with_retry_raises_after_5xx_retries_exhausted():
+    """When 5xx persists after all retries, MLRateLimitError should be raised."""
+    error_resp = MagicMock()
+    error_resp.status_code = 502
+    error_resp.headers = {}
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=error_resp)
+        mock_cls.return_value = mock_client
+
+        with pytest.raises(mercadolivre_service.MLRateLimitError) as exc_info:
+            await mercadolivre_service._request_with_retry(mock_client, "get", "https://api.example.com/test")
+
+        assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_request_with_retry_retries_on_connection_error():
+    """Connection errors (httpx.ConnectError) should be retried automatically."""
+    import httpx as _httpx
+
+    success_resp = _mock_http_get({"ok": True})
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(side_effect=[
+            _httpx.ConnectError("Connection refused"),
+            _httpx.ConnectError("Connection refused"),
+            success_resp,
+        ])
+        mock_cls.return_value = mock_client
+
+        resp = await mercadolivre_service._request_with_retry(mock_client, "get", "https://api.example.com/test")
+
+    assert resp.status_code == 200
+    assert mock_client.get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_request_with_retry_raises_after_connection_retries_exhausted():
+    """When connection errors persist, MLRateLimitError should be raised."""
+    import httpx as _httpx
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(side_effect=_httpx.ConnectError("Connection refused"))
+        mock_cls.return_value = mock_client
+
+        with pytest.raises(mercadolivre_service.MLRateLimitError):
+            await mercadolivre_service._request_with_retry(mock_client, "get", "https://api.example.com/test")
+
+
+@pytest.mark.asyncio
+async def test_request_with_retry_does_not_retry_4xx_errors():
+    """4xx errors (400, 403, 404) should NOT be retried — returned immediately."""
+    error_resp = MagicMock()
+    error_resp.status_code = 400
+    error_resp.headers = {}
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=error_resp)
+        mock_cls.return_value = mock_client
+
+        resp = await mercadolivre_service._request_with_retry(mock_client, "get", "https://api.example.com/test")
+
+    assert resp.status_code == 400
+    assert mock_client.get.call_count == 1  # No retries
+
+
+@pytest.mark.asyncio
 async def test_close_listing_sends_put_closed():
     """close_listing should PUT {status: closed} to the item."""
     with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:

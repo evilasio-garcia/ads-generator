@@ -27,19 +27,24 @@ class MLAPIError(Exception):
 
 
 class MLRateLimitError(MLAPIError):
-    """Raised when ML API returns 429 after exhausting all retry attempts."""
+    """Raised when ML API returns a retryable error after exhausting all retry attempts."""
 
-    def __init__(self, method: str, url: str, attempts: int):
+    def __init__(self, method: str, url: str, attempts: int, status_code: int = 429):
+        if status_code == 429:
+            detail = "Rate limit (429)"
+        else:
+            detail = f"Erro transiente (HTTP {status_code})"
         super().__init__(
-            f"Rate limit (429) persistente após {attempts} tentativas: {method.upper()} {url}",
-            status_code=429,
+            f"{detail} persistente após {attempts} tentativas: {method.upper()} {url}",
+            status_code=status_code,
         )
 
 
-# ── Rate-limit retry helper ─────────────────────────────────────────────
+# ── Retry helper ──────────────────────────────────────────────────────
 
 _RATE_LIMIT_MAX_RETRIES = 5
 _RATE_LIMIT_BASE_DELAY = 2.0  # seconds
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 async def _request_with_retry(
@@ -50,8 +55,9 @@ async def _request_with_retry(
     on_rate_limit: Optional[Callable[[int, float], None]] = None,
     **kwargs,
 ) -> httpx.Response:
-    """Execute an HTTP request with automatic retry on 429 Too Many Requests.
+    """Execute an HTTP request with automatic retry on transient errors.
 
+    Retries on: 429 (rate limit), 5xx (server errors), and connection/timeout errors.
     Uses exponential backoff: 2s, 4s, 8s, 16s, 32s.
     Respects Retry-After header from ML API when present.
     Raises MLRateLimitError if all retries are exhausted.
@@ -67,22 +73,43 @@ async def _request_with_retry(
         httpx.Response (caller is responsible for raise_for_status).
 
     Raises:
-        MLRateLimitError: If 429 persists after all retries.
+        MLRateLimitError: If retryable errors persist after all retries.
     """
     request_fn = getattr(client, method.lower())
+    last_status = 0
 
     for attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
-        resp = await request_fn(url, **kwargs)
+        try:
+            resp = await request_fn(url, **kwargs)
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.ReadError,
+                httpx.WriteError, httpx.PoolTimeout) as exc:
+            if attempt >= _RATE_LIMIT_MAX_RETRIES:
+                logger.warning(
+                    "Connection error after %d retries: %s %s — %s",
+                    _RATE_LIMIT_MAX_RETRIES, method.upper(), url, exc,
+                )
+                raise MLRateLimitError(method, url, _RATE_LIMIT_MAX_RETRIES, status_code=0)
+            wait = _RATE_LIMIT_BASE_DELAY * (2 ** attempt)
+            logger.info(
+                "Connection error on %s %s — retry %d/%d in %.1fs — %s",
+                method.upper(), url, attempt + 1, _RATE_LIMIT_MAX_RETRIES, wait, exc,
+            )
+            if on_rate_limit:
+                on_rate_limit(attempt + 1, wait)
+            await asyncio.sleep(wait)
+            continue
 
-        if resp.status_code != 429:
+        if resp.status_code not in _RETRYABLE_STATUS_CODES:
             return resp
+
+        last_status = resp.status_code
 
         if attempt >= _RATE_LIMIT_MAX_RETRIES:
             logger.warning(
-                "Rate limit exceeded after %d retries: %s %s",
-                _RATE_LIMIT_MAX_RETRIES, method.upper(), url,
+                "Retryable error (HTTP %d) after %d retries: %s %s",
+                resp.status_code, _RATE_LIMIT_MAX_RETRIES, method.upper(), url,
             )
-            raise MLRateLimitError(method, url, _RATE_LIMIT_MAX_RETRIES)
+            raise MLRateLimitError(method, url, _RATE_LIMIT_MAX_RETRIES, status_code=resp.status_code)
 
         retry_after = resp.headers.get("Retry-After") or resp.headers.get("retry-after")
         if retry_after:
@@ -94,8 +121,8 @@ async def _request_with_retry(
             wait = _RATE_LIMIT_BASE_DELAY * (2 ** attempt)
 
         logger.info(
-            "Rate limited (429) on %s %s — retry %d/%d in %.1fs",
-            method.upper(), url, attempt + 1, _RATE_LIMIT_MAX_RETRIES, wait,
+            "Retryable error (HTTP %d) on %s %s — retry %d/%d in %.1fs",
+            resp.status_code, method.upper(), url, attempt + 1, _RATE_LIMIT_MAX_RETRIES, wait,
         )
 
         if on_rate_limit:
@@ -103,7 +130,7 @@ async def _request_with_retry(
 
         await asyncio.sleep(wait)
 
-    raise MLRateLimitError(method, url, _RATE_LIMIT_MAX_RETRIES)  # unreachable
+    raise MLRateLimitError(method, url, _RATE_LIMIT_MAX_RETRIES, status_code=last_status)
 
 
 def get_auth_url(client_id: str, redirect_uri: str) -> str:
