@@ -17,4 +17,4 @@ google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
 alembic
-appgtw-auth[fastapi] @ git+ssh://git@github.com/evilasio-garcia/application-gateway.git#subdirectory=sdk
+appgtw-auth[fastapi] @ git+https://github.com/evilasio-garcia/application-gateway.git#subdirectory=sdk
