@@ -14,23 +14,40 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
-    op.create_table(
-        "ml_category_baseline",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("user_id", sa.String(), nullable=False),
-        sa.Column("category_id", sa.String(), nullable=False),
-        sa.Column("required_attr_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
-        sa.Column("conditional_attr_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
-        sa.Column("hidden_writable_attr_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
-        sa.Column("full_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "category_id", name="ux_ml_category_baseline_user_cat"),
+def _table_exists(name: str) -> bool:
+    from sqlalchemy import inspect as sa_inspect
+    return name in sa_inspect(op.get_bind()).get_table_names()
+
+
+def _index_exists(name: str) -> bool:
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
+        {"n": name},
     )
-    op.create_index(op.f("ix_ml_category_baseline_user_id"), "ml_category_baseline", ["user_id"], unique=False)
-    op.create_index(op.f("ix_ml_category_baseline_category_id"), "ml_category_baseline", ["category_id"], unique=False)
+    return result.scalar() is not None
+
+
+def upgrade() -> None:
+    if not _table_exists("ml_category_baseline"):
+        op.create_table(
+            "ml_category_baseline",
+            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column("user_id", sa.String(), nullable=False),
+            sa.Column("category_id", sa.String(), nullable=False),
+            sa.Column("required_attr_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
+            sa.Column("conditional_attr_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
+            sa.Column("hidden_writable_attr_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
+            sa.Column("full_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
+            sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+            sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("user_id", "category_id", name="ux_ml_category_baseline_user_cat"),
+        )
+    if not _index_exists("ix_ml_category_baseline_user_id"):
+        op.create_index(op.f("ix_ml_category_baseline_user_id"), "ml_category_baseline", ["user_id"], unique=False)
+    if not _index_exists("ix_ml_category_baseline_category_id"):
+        op.create_index(op.f("ix_ml_category_baseline_category_id"), "ml_category_baseline", ["category_id"], unique=False)
 
 
 def downgrade() -> None:

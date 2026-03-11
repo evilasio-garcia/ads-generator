@@ -145,7 +145,17 @@ def _migrate_column_to_v1(table_name: str, column_name: str) -> None:
 def upgrade() -> None:
     # Alguns ambientes legados possuem alembic_version.version_num como VARCHAR(32),
     # mas os revision IDs atuais excedem esse limite.
-    op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
+    # Apenas altera se a coluna existe e é menor que 64.
+    conn = op.get_bind()
+    col_len = conn.execute(
+        text(
+            "SELECT character_maximum_length FROM information_schema.columns "
+            "WHERE table_name = 'alembic_version' AND column_name = 'version_num'"
+        )
+    ).scalar()
+    if col_len is not None and col_len < 64:
+        op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
+
     _migrate_column_to_v2("sku_workspace", "versioned_state_current")
     _migrate_column_to_v2("sku_workspace_history", "versioned_state_snapshot")
 
