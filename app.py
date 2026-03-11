@@ -28,13 +28,30 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import tiny_service
 import canva_service
 import mercadolivre_service
-from auth_helpers import gateway_login_helper, CurrentUser, get_current_user_master
+from appgtw_auth import ApplicationGatewayAuth, ApplicationGatewayAuthConfig, CurrentUser
 from config import settings
+
+# ── Application Gateway Auth SDK ──
+_auth = ApplicationGatewayAuth(ApplicationGatewayAuthConfig(
+    app_slug=settings.app_slug,
+    gateway_url=settings.gateway_login_url.rsplit("/auth/login", 1)[0],
+    secret_key=settings.secret_key,
+    dev_mode=settings.dev_mode,
+    app_name="Ads Generator",
+    app_description="Gerador de anúncios",
+    app_icon_url="https://ads-generator.rapidopracachorro.com/static/favicon.svg",
+    app_dev_icon_url="http://127.0.0.1:5002/static/favicon.svg",
+    app_base_url="https://ads-generator.rapidopracachorro.com",
+    app_dev_base_url="http://127.0.0.1:5002",
+    app_button_color="#161824",
+))
 # Importar pricing module
 from pricing import PriceCalculatorFactory
 from pricing import ml_shipping
 
 app = FastAPI(title="Ads Generator API", version="2.2.0")
+app.include_router(_auth.router)
+get_current_user_master = _auth.require_user  # alias for backward compat (tests)
 logger = logging.getLogger("ads_generator.workspace")
 
 app.add_middleware(
@@ -2313,39 +2330,8 @@ async def pricing_calculate_metrics(
         raise HTTPException(status_code=500, detail={"message": f"Erro ao calcular métricas: {str(e)}"})
 
 
-# ========= FUNÇÕES DE ITERAÇÃO COM O GATEWAY =========
-
-@app.get("/auth/gateway-login")
-async def gateway_login(request: Request, token: str, state: str = None, redirect: str = "/"):
-    return await gateway_login_helper(request, token, state, redirect)
-
-
-@app.get("/gateway_info", tags=["gateway"], summary="Informações para integração ao Application Gateway")
-async def gateway_info():
-    """
-    Endpoint público que fornece ao Application Gateway
-    as informações necessárias para auto-preenchimento da
-    tela de cadastro de aplicativos internos.
-    """
-
-    data = {
-        "name": "Ads Generator",
-        "slug": settings.app_slug,
-        "description": "Gerador de anúncios",
-        "icon_url":
-            "http://127.0.0.1:5002/static/favicon.svg"
-            if settings.dev_mode
-            else "https://ads-generator.rapidopracachorro.com/static/favicon.svg",
-        "tooltip": "Gerador de anúncios",
-        "app_url":
-            "http://127.0.0.1:5002/auth/gateway-login"
-            if settings.dev_mode
-            else "https://ads-generator.rapidopracachorro.com/auth/gateway-login",
-        "auth_type": "GATEWAY_TOKEN",
-        "button_color": "#161824"
-    }
-
-    return JSONResponse(content=data)
+## Gateway auth routes (/auth/gateway-login, /gateway_info, /api/auth/*)
+## are now registered automatically by the ApplicationGatewayAuth SDK router.
 
 
 # ============================================================================

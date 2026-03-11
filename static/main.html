@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ads Generator — Gerador de Anúncios Multi-Marketplace</title>
+  <script src="/static/appgtw-auth.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
@@ -2374,32 +2375,23 @@
   window.__adsGeneratorBootMarker = window.__adsGeneratorBootMarker || `boot-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   window.__adsGeneratorBootCount = (window.__adsGeneratorBootCount || 0) + 1;
 
+  // Initialize Application Gateway Auth SDK
+  ApplicationGatewayAuth.init({
+    refreshEndpoint: "/api/auth/refresh",
+    tokenInfoEndpoint: "/api/auth/token-info",
+    refreshBeforeExpiry: 300,
+    skipRetryPaths: ["/api/canva/"],
+    onSessionExpired: () => {
+      showToast("Sessão expirada. Redirecionando para login...", "warning");
+      setTimeout(() => window.location.reload(), 1500);
+    },
+  });
+
   /**
-   * Wrapper robusto para fetch que lida com 401 (Unauthorized)
-   * Se o backend renovar o token no fundo, este wrapper pode tentar novamente
+   * Wrapper for fetch with transparent 401 retry via ApplicationGatewayAuth SDK.
    */
   async function fetchWithAuth(url, options = {}) {
-    const response = await fetch(url, options);
-
-    if (response.status === 401) {
-      console.warn(`Sessão expirada ou inválida na URL: ${url}`);
-
-      // Se o backend enviou uma URL de login no header, redirecionamos
-      const redirectUrl = response.headers.get("X-Redirect-Login");
-      if (redirectUrl) {
-        window.location.href = redirectUrl;
-        return response;
-      }
-
-      const isCanvaEndpoint = typeof url === "string" && url.startsWith("/api/canva/");
-      // Em endpoints Canva, 401 pode significar apenas expiração da conexão com Canva.
-      if (!isCanvaEndpoint) {
-        showToast("Sessão expirada. Redirecionando para login...", "warning");
-        setTimeout(() => window.location.reload(), 1500);
-      }
-    }
-
-    return response;
+    return ApplicationGatewayAuth.fetch(url, options);
   }
 
   let appConfig = {

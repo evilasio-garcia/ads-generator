@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import app as app_module
 import tiny_service
-from auth_helpers import CurrentUser
+from appgtw_auth import CurrentUser
 
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "tiny" / "tiny_sku_fixture.json"
