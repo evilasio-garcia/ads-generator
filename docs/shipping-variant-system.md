@@ -416,12 +416,32 @@ Estas regras DEVEM ser mantidas em qualquer mudanca futura nesta area:
    e seguro, mas o custo enviado a API sera diferente do que `autoPricing` usaria
    (falta a multiplicacao por 2 de `getShippingDecisionBaseCost`).
 
-7. **`shippingCostLocked` nao afeta kits.** A condicao `shouldAutoFillShipping` em
-   `autoPricing` ignora `shippingCostLocked` para kits — kits recalculam se frete <= 0.
+7. **`shippingCostLocked` afeta TODAS as variantes igualmente (simples e kits).**
+   Quando o usuario edita o frete manualmente (inclusive digitando 0), `shippingCostLocked = true`
+   e `autoPricing` NAO sobrescreve o valor — independente de ser simples ou kit.
+   O lock so e desativado pelo botao "Buscar no Marketplace", troca de marketplace,
+   ou **troca de aba** quando a nova variante tem snapshot de frete vazio.
+   Na troca de aba, `switchVariantTab` sincroniza o lock com o snapshot da nova variante:
+   se o snapshot tem um valor (inclusive "0"), o lock e ativado; se o snapshot e vazio,
+   o lock e desativado para permitir auto-fill.
 
 8. **O guard `Number(null)` e uma armadilha de JavaScript.** Sempre usar
    `val != null && Number.isFinite(Number(val))` ao verificar parametros opcionais
    numericos. `Number(null) === 0` e `Number.isFinite(0) === true`.
+
+9. **Frete pode ser qualquer valor >= 0 digitado manualmente.** Ao editar o campo de frete
+   com qualquer valor valido (incluindo 0), `shippingCostLocked = true` e ativado. Isso impede
+   que `autoPricing` sobrescreva o valor, tanto para simples quanto para kits.
+   A condicao de lock e: `val !== '' && Number.isFinite(parseFloat(val)) && parseFloat(val) >= 0`.
+
+10. **Frete zero e valido — NAO e campo vazio.** A validacao de publicacao
+    (`validateWorkspaceForMlPublish`) verifica se o campo esta **vazio** (string vazia),
+    nao se o valor e zero. Zero e um valor legitimo (frete gratis para itens ate R$ 78,99).
+
+11. **Alerta de frete zero em anuncios caros.** Se o frete e 0 mas o preco do anuncio
+    e maior que R$ 78,99, o sistema exibe um modal de confirmacao (`zeroFreightModal`)
+    antes de publicar. O usuario pode cancelar ou confirmar com "Ok, estou ciente".
+    Se o preco <= R$ 78,99, a publicacao segue sem alerta (frete gratis e esperado).
 
 ---
 

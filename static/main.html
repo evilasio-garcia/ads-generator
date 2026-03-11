@@ -2294,6 +2294,30 @@
     <p>Esse mapeamento e aplicado somente ao clicar em <strong>Cadastrar KIT</strong>.</p>
   </template>
 
+  <!-- Modal: Alerta frete zero com preço alto -->
+  <div id="zeroFreightModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card card p-6" style="max-width:440px">
+      <div class="flex items-start gap-3 mb-3">
+        <svg class="w-6 h-6 shrink-0 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86l-8.1 14a1 1 0 00.87 1.5h16.18a1 1 0 00.87-1.5l-8.1-14a1 1 0 00-1.74 0z"/>
+        </svg>
+        <div>
+          <h3 class="text-base font-semibold text-gray-800">Frete zerado em anúncio acima de R$ 79</h3>
+          <p class="text-sm text-gray-600 mt-1">
+            O preço do anúncio é <strong id="zeroFreightPrice"></strong> e o custo de frete está zerado.
+            Publicar sem custo de frete pode gerar prejuízo, já que o ML cobra frete do vendedor em anúncios acima de R$ 78,99.
+          </p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button id="zeroFreightCancel" class="btn">Cancelar</button>
+        <button id="zeroFreightOk"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600">Ok, estou ciente</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Adicionar Atributo ML Opcional -->
   <div id="mlOptionalAttrModal" class="modal" role="dialog" aria-modal="true">
     <div class="modal-card card p-6" style="max-width:480px">
@@ -3707,7 +3731,7 @@
     tinyCostPrice.value = resolvedCost;
     tinyShippingCost.value = resolvedShipping;
     // Lock shipping if workspace has a persisted value (manual or ML-published)
-    shippingCostLocked = resolvedShipping !== '' && parseFloat(resolvedShipping) > 0;
+    shippingCostLocked = resolvedShipping !== '' && Number.isFinite(parseFloat(resolvedShipping)) && parseFloat(resolvedShipping) >= 0;
     tinyWidth.value = resolvedWidth;
     tinyWeight.value = resolvedWeight;
 
@@ -5262,9 +5286,8 @@
       const shouldAutoFillShipping = (
         channel === 'mercadolivre' &&
         shippingDecisionCostBase > 78.99 &&
-        (isKitVariant
-          ? currentShippingCost <= 0
-          : currentShippingCost <= 0 && !shippingCostLocked)
+        currentShippingCost <= 0 &&
+        !shippingCostLocked
       );
       if (shouldAutoFillShipping) {
         const autoShipping = await autoFillShippingCost({
@@ -5543,8 +5566,9 @@
   tinyShippingCost.addEventListener('change', () => {
     if (variantSwitchInProgress) return;
     const val = tinyShippingCost.value.trim();
-    // Lock shipping when user types a value; only unlocks via "Buscar no Marketplace" button
-    if (val !== '' && parseFloat(val) > 0) {
+    // Lock shipping when user types any valid value (including 0);
+    // only unlocks via "Buscar no Marketplace" button or marketplace change
+    if (val !== '' && Number.isFinite(parseFloat(val)) && parseFloat(val) >= 0) {
       shippingCostLocked = true;
     }
     if (activeVariantKey === "simple") {
@@ -7666,6 +7690,13 @@ Restricoes:
       updateVariantTabsUi();
       syncRegenBusyUiForActiveVariant();
 
+      // Sync shippingCostLocked with the new variant's snapshot:
+      // if the snapshot has an explicit value (even "0"), keep locked;
+      // if the snapshot is empty, unlock so autoPricing can auto-fill.
+      const shippingSnap = history.shippingCostSnapshot;
+      shippingCostLocked = shippingSnap !== undefined && shippingSnap !== null
+        && shippingSnap !== '' && Number.isFinite(parseFloat(shippingSnap)) && parseFloat(shippingSnap) >= 0;
+
       // Recalcular atributos ML controlados pela aba ativa
       if (mlCurrentAttributes.length > 0) {
         const newVariantDef = VARIANT_BY_KEY[nextKey] || VARIANT_BY_KEY.simple;
@@ -9765,6 +9796,27 @@ Restricoes:
     'activating',
   ];
 
+  function showZeroFreightWarning(listingPrice) {
+    return new Promise(resolve => {
+      const modal = document.getElementById('zeroFreightModal');
+      const priceSpan = document.getElementById('zeroFreightPrice');
+      if (priceSpan) priceSpan.textContent = `R$ ${listingPrice.toFixed(2).replace('.', ',')}`;
+      modal.classList.add('open');
+      const btnOk = document.getElementById('zeroFreightOk');
+      const btnCancel = document.getElementById('zeroFreightCancel');
+      function cleanup(result) {
+        modal.classList.remove('open');
+        btnOk.removeEventListener('click', onOk);
+        btnCancel.removeEventListener('click', onCancel);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+      btnOk.addEventListener('click', onOk);
+      btnCancel.addEventListener('click', onCancel);
+    });
+  }
+
   function validateWorkspaceForMlPublish() {
     const missing = [];
     const activeTabBtn = document.querySelector('.price-tab-btn.active');
@@ -9775,7 +9827,7 @@ Restricoes:
     if (!document.getElementById('outDesc').value.trim()) missing.push('Descrição');
     if (!priceEl || !parseFloat(priceEl.value)) missing.push('Preço do anúncio');
     if (!parseFloat(document.getElementById('tinyCostPrice').value)) missing.push('Custo base');
-    if (!parseFloat(document.getElementById('tinyShippingCost').value)) missing.push('Custo de frete');
+    if (document.getElementById('tinyShippingCost').value.trim() === '') missing.push('Custo de frete');
     if (!parseFloat(document.getElementById('tinyWeight').value)) missing.push('Peso');
     if (!parseFloat(document.getElementById('tinyHeight').value)) missing.push('Altura');
     if (!parseFloat(document.getElementById('tinyWidth').value)) missing.push('Largura');
@@ -9829,6 +9881,16 @@ Restricoes:
       if (missing.length > 0) {
         showToast(`Campos obrigatórios não preenchidos: ${missing.join(', ')}`, 'error', 8000);
         return;
+      }
+
+      // Zero-freight warning: if shipping cost is 0 but listing price > 78.99, ask for confirmation
+      const shippingVal = parseFloat(document.getElementById('tinyShippingCost').value) || 0;
+      const activeTabBtn = document.querySelector('.price-tab-btn.active');
+      const isMaxPreCheck = activeTabBtn && activeTabBtn.dataset.tab === 'max';
+      const pricePreCheck = parseFloat(document.getElementById(isMaxPreCheck ? 'tinyAnnouncePriceMax' : 'tinyAnnouncePriceMin')?.value || '') || 0;
+      if (shippingVal === 0 && pricePreCheck > 78.99) {
+        const confirmed = await showZeroFreightWarning(pricePreCheck);
+        if (!confirmed) return;
       }
 
       const listingTypeId = getActiveListingTypeId();
