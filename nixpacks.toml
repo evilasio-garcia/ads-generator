@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["python3", "postgresql_16.dev", "gcc", "git"]
+
+[phases.install]
+cmds = [
+    "git config --global url.\"https://${GITHUB_TOKEN}@github.com/\".insteadOf \"https://github.com/\"",
+    "python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt",
+]
+
+[start]
+cmd = "uvicorn app:app --host 0.0.0.0 --port 3000"
