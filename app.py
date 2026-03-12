@@ -797,7 +797,9 @@ async def save_config(
         cfg = UserConfig(user_id=user_id, data=payload_dict)
         db.add(cfg)
     else:
-        cfg.data = payload_dict
+        current_data = dict(cfg.data or {})
+        current_data.update(payload_dict)
+        cfg.data = current_data
 
     db.commit()
     db.refresh(cfg)
@@ -1440,6 +1442,13 @@ async def sku_workspace_save(
             }
         )
 
+    # Preserve tiny_product_data from existing workspace when the incoming
+    # payload does not include it (frontend may save without tinyProductData
+    # if the variable was cleared after a page refresh).
+    if normalized_base.get("tiny_product_data") is None:
+        existing_tpd = (workspace.base_state or {}).get("tiny_product_data")
+        if existing_tpd:
+            normalized_base["tiny_product_data"] = existing_tpd
     workspace.base_state = normalized_base
     workspace.versioned_state_current = merged_versioned
     workspace.updated_by_user_id = user_id
@@ -5164,6 +5173,9 @@ async def ml_get_category_attributes(
             "values": attr.get("values") or [],
             "tooltip": attr.get("tooltip") or "",
             "example": attr.get("example") or "",
+            "allow_custom_value": bool(tags.get("allow_custom_value")),
+            "fixed": bool(tags.get("fixed")),
+            "multivalued": bool(tags.get("multivalued")),
         })
 
     # Buscar atributos de anúncios existentes com o mesmo SKU base (preferir o com mais vendas)

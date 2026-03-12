@@ -853,7 +853,7 @@
         </div>
       </div>
 
-      <div class="mt-4 grid sm:grid-cols-2 gap-4">
+      <div class="mt-4 grid sm:grid-cols-2 gap-4 items-end">
         <div>
           <label class="text-sm text-gray-700 font-medium">Origem de dados</label>
           <select id="tinyInstance"
@@ -1842,18 +1842,16 @@
       <button id="ttsPauseFloat" class="btn" title="Pausar"><svg class="icon" viewBox="0 0 24 24">
           <path d="M7 5h4v14H7zM13 5h4v14h-4z" stroke-width="1.5" />
         </svg></button>
+      <button id="ttsStopFloat" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24">
+          <path d="M6 6h12v12H6z" stroke-width="1.5" />
+        </svg></button>
+      <button id="ttsRateFloat" class="btn" title="Velocidade">1x</button>
     </div>
   </div>
 
   <!-- Zoom Overlay -->
   <div id="zoomOverlay" class="zoom-overlay">
     <img id="zoomImage" src="" alt="Zoom" class="zoom-image">
-  </div>
-  <button id="ttsStopFloat" class="btn" title="Parar"><svg class="icon" viewBox="0 0 24 24">
-      <path d="M6 6h12v12H6z" stroke-width="1.5" />
-    </svg></button>
-  <button id="ttsRateFloat" class="btn" title="Velocidade">1x</button>
-  </div>
   </div>
 
   <!-- Modal Prompt -->
@@ -2887,7 +2885,8 @@
         span.className = 'text-sm text-gray-600 bg-gray-100 px-2 py-1.5 rounded block';
         span.textContent = attr.current_value;
         tdValue.appendChild(span);
-      } else if (attr.values && attr.values.length > 0 && !ML_FORCE_TEXT_ATTRS.has(attr.id)) {
+      } else if (attr.values && attr.values.length > 0 && attr.fixed && !ML_FORCE_TEXT_ATTRS.has(attr.id)) {
+        // Lista fechada (fixed): somente valores pré-definidos
         const select = document.createElement('select');
         select.className = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm';
         select.innerHTML = '<option value="">— selecione —</option>';
@@ -2906,6 +2905,142 @@
           mlCurrentAttributes[idx].current_value_id = selOpt?.id || '';
         });
         tdValue.appendChild(select);
+      } else if (attr.values && attr.values.length > 0 && !attr.fixed) {
+        // Lista aberta: input com sugestões (datalist) + suporte a múltiplos valores
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative';
+
+        // Tags dos valores já selecionados
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'flex flex-wrap gap-1 mb-1';
+        tagsContainer.id = `ml-attr-tags-${idx}`;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm';
+        input.placeholder = attr.example ? `Ex.: ${attr.example}` : 'Digite ou selecione...';
+        input.autocomplete = 'off';
+
+        // Dropdown de sugestões
+        const dropdown = document.createElement('div');
+        dropdown.className = 'absolute z-50 w-full bg-white border border-gray-300 rounded-b shadow-lg max-h-48 overflow-y-auto hidden';
+        dropdown.style.top = '100%';
+
+        // Parsear valores atuais (separados por vírgula)
+        const currentValues = (attr.current_value || '')
+          .split(',')
+          .map(v => v.trim())
+          .filter(Boolean);
+
+        function renderTags() {
+          tagsContainer.innerHTML = '';
+          currentValues.forEach((val, vi) => {
+            const tag = document.createElement('span');
+            tag.className = 'inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded';
+            tag.textContent = val;
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'text-blue-500 hover:text-blue-700 font-bold';
+            removeBtn.textContent = '\u00d7';
+            removeBtn.addEventListener('click', () => {
+              currentValues.splice(vi, 1);
+              syncValue();
+              renderTags();
+              renderDropdown();
+            });
+            tag.appendChild(removeBtn);
+            tagsContainer.appendChild(tag);
+          });
+        }
+
+        function syncValue() {
+          mlCurrentAttributes[idx].current_value = currentValues.join(', ');
+          // Se existe exatamente 1 valor e bate com um value da lista, guardar o id
+          if (currentValues.length === 1) {
+            const match = attr.values.find(v => v.name === currentValues[0]);
+            mlCurrentAttributes[idx].current_value_id = match?.id || '';
+          } else {
+            mlCurrentAttributes[idx].current_value_id = '';
+          }
+        }
+
+        function addValue(val) {
+          const trimmed = val.trim();
+          if (trimmed && !currentValues.includes(trimmed)) {
+            currentValues.push(trimmed);
+            syncValue();
+            renderTags();
+          }
+          input.value = '';
+          renderDropdown();
+        }
+
+        function renderDropdown(filter = '') {
+          dropdown.innerHTML = '';
+          const lowerFilter = filter.toLowerCase();
+          const available = attr.values.filter(v =>
+            !currentValues.includes(v.name) &&
+            (!lowerFilter || v.name.toLowerCase().includes(lowerFilter))
+          );
+          if (available.length === 0) {
+            dropdown.classList.add('hidden');
+            return;
+          }
+          available.slice(0, 30).forEach(v => {
+            const item = document.createElement('div');
+            item.className = 'px-3 py-1.5 text-sm cursor-pointer hover:bg-blue-50';
+            item.textContent = v.name;
+            item.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              addValue(v.name);
+            });
+            dropdown.appendChild(item);
+          });
+          dropdown.classList.remove('hidden');
+        }
+
+        input.addEventListener('focus', () => renderDropdown(input.value));
+        input.addEventListener('input', () => renderDropdown(input.value));
+        input.addEventListener('blur', () => {
+          setTimeout(() => dropdown.classList.add('hidden'), 150);
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (input.value.trim()) {
+              addValue(input.value);
+            }
+          }
+        });
+
+        // Se NÃO é multivalued, simplificar: input com datalist, sem tags
+        if (!attr.multivalued) {
+          // Input simples com sugestões (datalist nativo)
+          const dlId = `ml-attr-dl-${idx}`;
+          const datalist = document.createElement('datalist');
+          datalist.id = dlId;
+          attr.values.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            datalist.appendChild(opt);
+          });
+          input.setAttribute('list', dlId);
+          input.value = attr.current_value || '';
+          input.addEventListener('input', () => {
+            mlCurrentAttributes[idx].current_value = input.value;
+            const match = attr.values.find(v => v.name === input.value);
+            mlCurrentAttributes[idx].current_value_id = match?.id || '';
+          });
+          tdValue.appendChild(input);
+          tdValue.appendChild(datalist);
+        } else {
+          // Multivalued: tags + dropdown
+          renderTags();
+          wrapper.appendChild(tagsContainer);
+          wrapper.appendChild(input);
+          wrapper.appendChild(dropdown);
+          tdValue.appendChild(wrapper);
+        }
       } else {
         const input = document.createElement('input');
         input.type = attr.value_type === 'number' ? 'number' : 'text';
@@ -2916,14 +3051,6 @@
           mlCurrentAttributes[idx].current_value = input.value;
         });
         tdValue.appendChild(input);
-        // Atributos forçados como texto: mostrar valores possíveis como sugestão
-        if (ML_FORCE_TEXT_ATTRS.has(attr.id) && attr.values && attr.values.length > 0) {
-          const hint = document.createElement('div');
-          hint.className = 'text-xs text-gray-400 mt-1';
-          const names = attr.values.map(v => v.name).slice(0, 8).join(', ');
-          hint.textContent = `Alguns dos valores possíveis são: ${names}`;
-          tdValue.appendChild(hint);
-        }
       }
 
       const tdAction = document.createElement('td');
@@ -3615,6 +3742,7 @@
   }
 
   async function saveWorkspaceNow(action = "manual") {
+    if (!currentWorkspaceId) return;
     const sku = getWorkspaceSkuForPersistence();
     if (!sku) return;
 
