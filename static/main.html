@@ -9507,7 +9507,8 @@ Restricoes:
     container.querySelectorAll('.btn-ml-edit-cat').forEach(btn => {
       btn.addEventListener('click', () => {
         mlOpenCategoryModal(btn.dataset.mlUserId);
-        // Pre-fill modal with existing data for editing
+        // Track original name for edit (so backend removes old entry)
+        mlCatEditingOriginalName = btn.dataset.adsgen;
         const adsgenInput = document.getElementById('mlCatAdsgenName');
         if (adsgenInput) adsgenInput.value = btn.dataset.adsgen;
         mlCatSelectedCategory = {
@@ -9570,10 +9571,12 @@ Restricoes:
   // ── ML Category Mapping Modal ─────────────────────────────────────────────
   let mlCatModalUserId = null;
   let mlCatSelectedCategory = null;
+  let mlCatEditingOriginalName = null;
 
   function mlOpenCategoryModal(mlUserId) {
     mlCatModalUserId = mlUserId;
     mlCatSelectedCategory = null;
+    mlCatEditingOriginalName = null;
     const searchInput = document.getElementById('mlCatSearchInput');
     const adsgenInput = document.getElementById('mlCatAdsgenName');
     const results = document.getElementById('mlCatSearchResults');
@@ -9593,6 +9596,7 @@ Restricoes:
     if (modal) modal.classList.remove('open');
     mlCatModalUserId = null;
     mlCatSelectedCategory = null;
+    mlCatEditingOriginalName = null;
   }
 
   async function mlCatDoSearch(limit = 20) {
@@ -9673,6 +9677,7 @@ Restricoes:
             ml_category_id: mlCatSelectedCategory.id,
             ml_category_name: mlCatSelectedCategory.name,
             ml_category_path: mlCatSelectedCategory.path || '',
+            original_adsgen_name: mlCatEditingOriginalName || '',
           }),
         });
         if (!res.ok) throw new Error((await res.json()).detail || 'Erro ao salvar');

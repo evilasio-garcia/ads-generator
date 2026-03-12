@@ -5065,6 +5065,7 @@ class MLCategoryMapping(BaseModel):
     ml_category_id: str
     ml_category_name: str = ""
     ml_category_path: str = ""
+    original_adsgen_name: str = ""
 
 
 @app.get("/api/ml/categories")
@@ -5090,12 +5091,21 @@ async def ml_add_category(
         db.add(cfg)
     current_data = dict(cfg.data or {})
     mappings = list(current_data.get("ml_category_mappings") or [])
-    # Remove existing entry for same (ml_user_id, adsgen_name) pair before inserting
+    # Remove existing entry: by original name (edit) or by new name (add/overwrite)
+    remove_name = payload.original_adsgen_name or payload.adsgen_name
     mappings = [
         m for m in mappings
-        if not (m.get("adsgen_name") == payload.adsgen_name and m.get("ml_user_id") == payload.ml_user_id)
+        if not (m.get("adsgen_name") == remove_name and m.get("ml_user_id") == payload.ml_user_id)
     ]
-    mappings.append(payload.model_dump())
+    # Also remove by new name to avoid duplicates when renaming
+    if payload.original_adsgen_name and payload.original_adsgen_name != payload.adsgen_name:
+        mappings = [
+            m for m in mappings
+            if not (m.get("adsgen_name") == payload.adsgen_name and m.get("ml_user_id") == payload.ml_user_id)
+        ]
+    entry = payload.model_dump()
+    entry.pop("original_adsgen_name", None)
+    mappings.append(entry)
     current_data["ml_category_mappings"] = mappings
     cfg.data = current_data
     db.commit()
