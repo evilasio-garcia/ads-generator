@@ -130,6 +130,9 @@ def search_categories(query, limit=20):
 
     scored = []
     for node_id, node in tree.items():
+        # Only return leaf categories (ML requires leaf for listings)
+        if not node.get("leaf", False):
+            continue
         node_tokens = _tokenize(node["path"])
         score = _score_node(query_tokens, node_tokens)
         if score > 0:
