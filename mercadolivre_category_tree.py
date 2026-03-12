@@ -60,9 +60,59 @@ def _normalize(text):
 
 # ── Fuzzy search ─────────────────────────────────────────────────────────────
 
+_TOKENIZE_RE = None
+
+
+def _tokenize(text):
+    """Split text into lowercase accent-stripped tokens."""
+    global _TOKENIZE_RE
+    if _TOKENIZE_RE is None:
+        import re
+        _TOKENIZE_RE = re.compile(r"[a-z0-9]+")
+    return _TOKENIZE_RE.findall(_normalize(text))
+
+
+def _score_node(query_tokens, node_tokens):
+    # type: (List[str], List[str]) -> float
+    """Score a node against query tokens.
+
+    Strategy: for each query token, find the best-matching node token.
+
+    Scoring per token pair:
+    - Exact match: 100
+    - Node token starts with query token (prefix, min 3 chars): 95
+    - Fuzzy ratio >= 95 (handles typos/plurals like gato/gatos): ratio
+
+    Final score = average of best matches per query token.
+    Threshold: each token must score >= 90 to avoid false positives.
+    """
+    if not query_tokens or not node_tokens:
+        return 0.0
+
+    token_scores = []
+    for qt in query_tokens:
+        best = 0.0
+        for nt in node_tokens:
+            if qt == nt:
+                best = 100.0
+                break
+            elif nt.startswith(qt) and len(qt) >= 3:
+                best = max(best, 95.0)
+            else:
+                ratio = fuzz.ratio(qt, nt)
+                if ratio >= 95:
+                    best = max(best, ratio)
+        token_scores.append(best)
+
+    if any(s < 90 for s in token_scores):
+        return 0.0
+
+    return sum(token_scores) / len(token_scores)
+
+
 def search_categories(query, limit=20):
     # type: (str, int) -> Dict[str, Any]
-    """Search the in-memory tree with fuzzy matching.
+    """Search the in-memory tree with token-based fuzzy matching.
 
     Returns dict with keys: results, total_found, showing, has_more.
     """
@@ -74,27 +124,26 @@ def search_categories(query, limit=20):
     if not query_norm.strip():
         return {"results": [], "total_found": 0, "showing": 0, "has_more": False}
 
-    # Build choices dict: node_id -> searchable text (name + path)
-    choices = {}
+    query_tokens = _tokenize(query)
+    if not query_tokens:
+        return {"results": [], "total_found": 0, "showing": 0, "has_more": False}
+
+    scored = []
     for node_id, node in tree.items():
-        choices[node_id] = _normalize(node["name"]) + " " + _normalize(node["path"])
+        node_tokens = _tokenize(node["path"])
+        score = _score_node(query_tokens, node_tokens)
+        if score > 0:
+            scored.append((score, node_id))
 
-    # rapidfuzz process.extract returns list of (match_str, score, key)
-    # Use limit=0 (or None) to get all results above threshold
-    all_matches = process.extract(
-        query_norm,
-        choices,
-        scorer=fuzz.WRatio,
-        limit=len(choices),
-        score_cutoff=50,
-    )
+    # Sort by score desc, then by name for stability
+    scored.sort(key=lambda x: (-x[0], tree[x[1]]["name"]))
 
-    total_found = len(all_matches)
+    total_found = len(scored)
 
     if limit > 0:
-        matches = all_matches[:limit]
+        matches = scored[:limit]
     else:
-        matches = all_matches
+        matches = scored
 
     results = [
         {
@@ -102,7 +151,7 @@ def search_categories(query, limit=20):
             "name": tree[node_id]["name"],
             "path": tree[node_id]["path"],
         }
-        for _, _score, node_id in matches
+        for _score, node_id in matches
     ]
 
     return {

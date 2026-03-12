@@ -194,22 +194,35 @@ def get_db():
         db.close()
 
 
+def _run_alembic_migrations() -> None:
+    """Run alembic upgrade head. All migrations are idempotent."""
+    import subprocess
+    logger.info("Running alembic upgrade head...")
+    result = subprocess.run(
+        ["alembic", "upgrade", "head"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        logger.error("Alembic migration failed:\n%s\n%s", result.stdout, result.stderr)
+        raise RuntimeError("Alembic migration failed: " + result.stderr)
+    logger.info("Alembic migrations applied successfully.")
+
+
 def _ensure_schema_ready() -> None:
+    _run_alembic_migrations()
     inspector = inspect(engine)
     required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history", "tiny_kit_resolution", "ml_category_baseline", "mercadolivre_category_tree_cache"}
     existing = set(inspector.get_table_names())
     missing = sorted(required - existing)
     if missing:
         raise RuntimeError(
-            "Schema desatualizado. Tabelas ausentes: "
+            "Schema desatualizado após migrations. Tabelas ausentes: "
             + ", ".join(missing)
-            + ". Execute: alembic upgrade head"
         )
     sku_workspace_columns = {col["name"] for col in inspector.get_columns("sku_workspace")}
     if "marketplace_normalized" not in sku_workspace_columns:
         raise RuntimeError(
-            "Schema desatualizado. Coluna ausente: sku_workspace.marketplace_normalized. "
-            "Execute: alembic upgrade head"
+            "Schema desatualizado após migrations. Coluna ausente: sku_workspace.marketplace_normalized."
         )
 
 
