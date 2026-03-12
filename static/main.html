@@ -10225,6 +10225,13 @@ Restricoes:
 
       if (step === 'error') {
         const failStep = failed_at || 'activating';
+        // Mark all prior steps as done (handles skipped steps)
+        const failIdx = ML_STEP_ORDER.indexOf(failStep);
+        for (let i = 0; i < failIdx; i++) {
+          if (mlPanelStepStates[ML_STEP_ORDER[i]] !== 'failed') {
+            mlPanelStepStates[ML_STEP_ORDER[i]] = 'done';
+          }
+        }
         if (mlPanelStepStates[failStep] !== 'done') {
           mlPanelStepStates[failStep] = 'failed';
         }

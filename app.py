@@ -28,6 +28,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import tiny_service
 import canva_service
 import mercadolivre_service
+from image_selection import select_ad_images
 from appgtw_auth import ApplicationGatewayAuth, ApplicationGatewayAuthConfig, CurrentUser
 from config import settings
 
@@ -2416,11 +2417,16 @@ def _find_file_in_folder(service, folder_id: str, filename: str) -> Optional[str
 
 ML_MAX_IMAGES = 12
 
-def _list_drive_images_for_sku(service, root_folder_id: str, sku: str) -> list:
+def _list_drive_images_for_sku(
+    service, root_folder_id: str, sku: str, display_sku: str = ""
+) -> list:
     """
     Lists image file IDs directly inside {root_folder}/{sku}/ (no subdirectories),
-    sorted alphabetically, capped at ML_MAX_IMAGES.
+    selected and ordered by image_selection logic, capped at ML_MAX_IMAGES.
     Returns list of Drive file IDs.
+
+    When display_sku differs from sku (e.g. "XPTOCB2" vs "XPTO"), the ad is
+    treated as a kit and kit_size is extracted from the CB suffix.
     """
     sku_folder_id = _get_or_create_subfolder(service, root_folder_id, sku)
     query = (
@@ -2436,8 +2442,27 @@ def _list_drive_images_for_sku(service, root_folder_id: str, sku: str) -> list:
         includeItemsFromAllDrives=True,
     ).execute()
     files = results.get("files", [])
-    files.sort(key=lambda f: f["name"])
-    return [f["id"] for f in files[:ML_MAX_IMAGES]]
+
+    # Determine ad type and kit_size from SKU comparison
+    ad_type = "simple"
+    kit_size = None
+    effective_display = (display_sku or sku).strip().upper()
+    effective_base = sku.strip().upper()
+    if effective_display != effective_base:
+        cb_match = re.search(r"CB(\d+)$", effective_display, re.IGNORECASE)
+        if cb_match:
+            ad_type = "kit"
+            kit_size = int(cb_match.group(1))
+
+    # Use image_selection logic for proper ordering
+    filenames = [f["name"] for f in files]
+    selected = select_ad_images(sku, ad_type, filenames, kit_size)
+
+    # Map selected filenames back to Drive file IDs
+    name_to_id = {f["name"]: f["id"] for f in files}
+    ordered_ids = [name_to_id[img["fileName"]] for img in selected if img["fileName"] in name_to_id]
+
+    return ordered_ids[:ML_MAX_IMAGES]
 
 
 # ---- Validation Endpoints ----
@@ -4457,7 +4482,7 @@ async def _run_ml_publish_job(
                     raise Exception("Pasta raíz do Google Drive não configurada.")
                 image_sku = base_sku_normalized or sku_normalized
                 image_urls = await asyncio.to_thread(
-                    _list_drive_images_for_sku, service, root_folder_id, image_sku
+                    _list_drive_images_for_sku, service, root_folder_id, image_sku, sku_normalized
                 )
                 if not image_urls:
                     raise Exception(f"Nenhuma imagem encontrada em Drive/{image_sku}/")
