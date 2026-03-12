@@ -29,6 +29,7 @@ import tiny_service
 import canva_service
 import mercadolivre_service
 from image_selection import select_ad_images
+import mercadolivre_category_tree
 from appgtw_auth import ApplicationGatewayAuth, ApplicationGatewayAuthConfig, CurrentUser
 from config import settings
 
@@ -152,6 +153,17 @@ class MlCategoryBaseline(Base):
     )
 
 
+class MercadoLivreCategoryTreeCache(Base):
+    __tablename__ = "mercadolivre_category_tree_cache"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    site_id = Column(String, unique=True, nullable=False, default="MLB")
+    tree_data = Column(JSONB, nullable=False, default=dict)
+    node_count = Column(Integer, nullable=False, default=0)
+    loaded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+
+
 class TinyKitResolution(Base):
     __tablename__ = "tiny_kit_resolution"
     __table_args__ = (
@@ -184,7 +196,7 @@ def get_db():
 
 def _ensure_schema_ready() -> None:
     inspector = inspect(engine)
-    required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history", "tiny_kit_resolution", "ml_category_baseline"}
+    required = {"alembic_version", "user_config", "sku_workspace", "sku_workspace_history", "tiny_kit_resolution", "ml_category_baseline", "mercadolivre_category_tree_cache"}
     existing = set(inspector.get_table_names())
     missing = sorted(required - existing)
     if missing:
@@ -204,6 +216,12 @@ def _ensure_schema_ready() -> None:
 @app.on_event("startup")
 def _startup_schema_guard() -> None:
     _ensure_schema_ready()
+
+
+@app.on_event("startup")
+async def _startup_category_tree() -> None:
+    """Load ML category tree in background on app startup."""
+    asyncio.create_task(mercadolivre_category_tree.initialise_category_tree(SessionLocal))
 
 
 @app.get("/", include_in_schema=False)
@@ -5033,6 +5051,7 @@ class MLCategoryMapping(BaseModel):
     adsgen_name: str
     ml_category_id: str
     ml_category_name: str = ""
+    ml_category_path: str = ""
 
 
 @app.get("/api/ml/categories")
@@ -5210,7 +5229,13 @@ async def ml_search_categories(
         )
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail="Erro ao buscar categorias no ML.")
-    return JSONResponse(content=resp.json())
+    raw = resp.json()
+    categories = [
+        {"id": item["category_id"], "name": item["category_name"]}
+        for item in (raw if isinstance(raw, list) else [])
+        if "category_id" in item and "category_name" in item
+    ]
+    return JSONResponse(content={"categories": categories})
 
 
 @app.delete("/api/ml/categories/{adsgen_name}")
@@ -5330,6 +5355,86 @@ async def ml_auto_populate_categories(
         "discovered": len(discovered),
         "total_mappings": len(existing),
     })
+
+
+# ─── Mercado Livre — Árvore de Categorias (busca local) ─────────────────────
+
+
+@app.get("/api/ml/categories/tree/status")
+async def ml_category_tree_status():
+    """Return current status of the category tree cache."""
+    return JSONResponse(content={"status": mercadolivre_category_tree.get_tree_status()})
+
+
+@app.get("/api/ml/categories/tree/search")
+async def ml_category_tree_search(
+    q: str,
+    limit: int = 20,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """Fuzzy search in the local category tree."""
+    tree = mercadolivre_category_tree.get_tree()
+
+    # If tree is not loaded yet, try on-demand loading
+    if tree is None:
+        cfg = db.query(UserConfig).filter(UserConfig.user_id == str(current_user.user_id)).first()
+        ml_accounts = list(((cfg.data if cfg else {}) or {}).get("ml_accounts") or [])
+        if not ml_accounts:
+            raise HTTPException(status_code=400, detail="Nenhuma conta ML conectada e árvore não carregada.")
+
+        account = ml_accounts[0]
+        try:
+            access_token, _ = await mercadolivre_service.get_valid_access_token(
+                account=account,
+                client_id=settings.ml_client_id,
+                client_secret=settings.ml_client_secret,
+            )
+        except mercadolivre_service.MLAuthError as exc:
+            raise HTTPException(status_code=401, detail=str(exc))
+
+        await mercadolivre_category_tree.ensure_tree_loaded(SessionLocal, access_token)
+
+    result = mercadolivre_category_tree.search_categories(q, limit=limit)
+    return JSONResponse(content=result)
+
+
+class MigrateCategoryPathsPayload(BaseModel):
+    category_ids: List[str]
+
+
+@app.post("/api/ml/categories/migrate-paths")
+async def ml_migrate_category_paths(
+    payload: MigrateCategoryPathsPayload,
+    current_user: CurrentUser = Depends(get_current_user_master),
+    db: Session = Depends(get_db),
+):
+    """Migrate old category mappings to include full path."""
+    if not payload.category_ids:
+        return JSONResponse(content={"migrated": 0})
+
+    paths = await mercadolivre_category_tree.migrate_category_paths(payload.category_ids)
+
+    # Update mappings in user config
+    user_id = str(current_user.user_id)
+    cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
+    if not cfg:
+        return JSONResponse(content={"migrated": 0})
+
+    current_data = dict(cfg.data or {})
+    mappings = list(current_data.get("ml_category_mappings") or [])
+    migrated = 0
+    for m in mappings:
+        cat_id = m.get("ml_category_id", "")
+        if cat_id in paths and not m.get("ml_category_path"):
+            m["ml_category_path"] = paths[cat_id]
+            migrated += 1
+
+    current_data["ml_category_mappings"] = mappings
+    cfg.data = current_data
+    db.commit()
+
+    return JSONResponse(content={"migrated": migrated, "mappings": mappings})
 
 
 # ========= MAIN PARA RODAR DEBUGANDO =========

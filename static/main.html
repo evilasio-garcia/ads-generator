@@ -9419,7 +9419,7 @@ Restricoes:
         ? cats.map(c => `
           <tr>
             <td class="px-2 py-1">${c.adsgen_name}</td>
-            <td class="px-2 py-1">${c.ml_category_name || ''}<br><span class="text-gray-400 text-[10px]">${c.ml_category_id}</span></td>
+            <td class="px-2 py-1">${c.ml_category_path || c.ml_category_name || ''}<br><span class="text-gray-400 text-[10px]">${c.ml_category_id}</span></td>
             <td class="px-2 py-1 text-center">
               <button class="text-xs text-red-500 hover:text-red-700 btn-ml-remove-cat" data-adsgen="${c.adsgen_name}">Remover</button>
             </td>
@@ -9465,7 +9465,11 @@ Restricoes:
     container.querySelectorAll('.btn-ml-toggle-cats').forEach(btn => {
       btn.addEventListener('click', () => {
         const panel = container.querySelector(`.ml-cats-panel[data-ml-user-id="${btn.dataset.mlUserId}"]`);
-        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+        if (panel) {
+          const wasHidden = panel.style.display === 'none';
+          panel.style.display = wasHidden ? '' : 'none';
+          if (wasHidden) mlMaybeMigrateCategoryPaths();
+        }
       });
     });
     container.querySelectorAll('.btn-ml-add-cat').forEach(btn => {
@@ -9543,40 +9547,63 @@ Restricoes:
     mlCatSelectedCategory = null;
   }
 
+  async function mlCatDoSearch(limit = 20) {
+    const q = document.getElementById('mlCatSearchInput').value.trim();
+    if (!q) return;
+    const resultsEl = document.getElementById('mlCatSearchResults');
+    resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500">Buscando...</div>';
+    resultsEl.style.display = '';
+    try {
+      const res = await fetch(`/api/ml/categories/tree/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.detail || `Erro ${res.status}`);
+      }
+      const body = await res.json();
+      const items = body.results || [];
+      if (items.length === 0) {
+        resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500 italic">Nenhuma categoria encontrada.</div>';
+        return;
+      }
+      let html = items.map(c =>
+        `<button class="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 ml-cat-result-btn" data-id="${c.id}" data-name="${c.name}" data-path="${(c.path || '').replace(/"/g, '&quot;')}">
+          <span class="font-medium">${c.path || c.name}</span>
+          <span class="text-gray-400 ml-1">(${c.id})</span>
+        </button>`
+      ).join('');
+      if (body.has_more) {
+        html += `<button id="btnMlCatShowAll" class="w-full text-center px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-medium border-t border-gray-200">
+          Mostrar todos os resultados (${body.total_found} encontrados)
+        </button>`;
+      }
+      resultsEl.innerHTML = html;
+      resultsEl.querySelectorAll('.ml-cat-result-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          mlCatSelectedCategory = { id: btn.dataset.id, name: btn.dataset.name, path: btn.dataset.path };
+          const info = document.getElementById('mlCatSelectedInfo');
+          info.textContent = `Selecionado: ${mlCatSelectedCategory.path || mlCatSelectedCategory.name} (${mlCatSelectedCategory.id})`;
+          info.style.display = '';
+          document.getElementById('btnMlCatSave').disabled = false;
+        });
+      });
+      const showAllBtn = document.getElementById('btnMlCatShowAll');
+      if (showAllBtn) {
+        showAllBtn.addEventListener('click', () => mlCatDoSearch(0));
+      }
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="p-2 text-xs text-red-500">Erro: ${err.message}</div>`;
+    }
+  }
+
   const btnMlCatSearch = document.getElementById('btnMlCatSearch');
   if (btnMlCatSearch) {
-    btnMlCatSearch.addEventListener('click', async () => {
-      const q = document.getElementById('mlCatSearchInput').value.trim();
-      if (!q) return;
-      const resultsEl = document.getElementById('mlCatSearchResults');
-      resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500">Buscando...</div>';
-      resultsEl.style.display = '';
-      try {
-        const res = await fetch(`/api/ml/categories/search?q=${encodeURIComponent(q)}`);
-        const body = await res.json();
-        const items = body.categories || [];
-        if (items.length === 0) {
-          resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500 italic">Nenhuma categoria encontrada.</div>';
-          return;
-        }
-        resultsEl.innerHTML = items.map(c =>
-          `<button class="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 ml-cat-result-btn" data-id="${c.id}" data-name="${c.name}">
-            <span class="font-medium">${c.name}</span>
-            <span class="text-gray-400 ml-1">${c.id}</span>
-          </button>`
-        ).join('');
-        resultsEl.querySelectorAll('.ml-cat-result-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            mlCatSelectedCategory = { id: btn.dataset.id, name: btn.dataset.name };
-            const info = document.getElementById('mlCatSelectedInfo');
-            info.textContent = `Selecionado: ${mlCatSelectedCategory.name} (${mlCatSelectedCategory.id})`;
-            info.style.display = '';
-            document.getElementById('btnMlCatSave').disabled = false;
-          });
-        });
-      } catch (err) {
-        resultsEl.innerHTML = `<div class="p-2 text-xs text-red-500">Erro: ${err.message}</div>`;
-      }
+    btnMlCatSearch.addEventListener('click', () => mlCatDoSearch(20));
+  }
+
+  const mlCatSearchInput = document.getElementById('mlCatSearchInput');
+  if (mlCatSearchInput) {
+    mlCatSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); mlCatDoSearch(20); }
     });
   }
 
@@ -9597,6 +9624,7 @@ Restricoes:
             adsgen_name: adsgenName,
             ml_category_id: mlCatSelectedCategory.id,
             ml_category_name: mlCatSelectedCategory.name,
+            ml_category_path: mlCatSelectedCategory.path || '',
           }),
         });
         if (!res.ok) throw new Error((await res.json()).detail || 'Erro ao salvar');
@@ -9617,6 +9645,27 @@ Restricoes:
       await loadConfigFromServer();
     } catch (err) {
       showToast(`Erro: ${err.message}`, 'error');
+    }
+  }
+
+  let _mlPathMigrationDone = false;
+  async function mlMaybeMigrateCategoryPaths() {
+    if (_mlPathMigrationDone) return;
+    const mappings = (appConfig && appConfig.ml_category_mappings) || [];
+    const needsMigration = mappings.filter(m => m.ml_category_id && !m.ml_category_path);
+    if (needsMigration.length === 0) { _mlPathMigrationDone = true; return; }
+    try {
+      const res = await fetch('/api/ml/categories/migrate-paths', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category_ids: needsMigration.map(m => m.ml_category_id) }),
+      });
+      if (res.ok) {
+        _mlPathMigrationDone = true;
+        await loadConfigFromServer();
+      }
+    } catch (err) {
+      console.warn('Category path migration failed:', err);
     }
   }
 

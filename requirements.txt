@@ -17,4 +17,6 @@ google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
 alembic
+rapidfuzz
+unidecode
 appgtw-auth[fastapi] @ git+https://github.com/evilasio-garcia/application-gateway.git#subdirectory=sdk
