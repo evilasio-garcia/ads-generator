@@ -10161,7 +10161,7 @@ Restricoes:
         warranty_type: wType || undefined,
         warranty_days: wDays > 0 ? wDays : undefined,
         cost_price: parseFloat(document.getElementById('tinyCostPrice')?.value || '') || undefined,
-        shipping_cost: parseFloat(document.getElementById('tinyShippingCost')?.value || '') || undefined,
+        shipping_cost: (() => { const v = parseFloat(document.getElementById('tinyShippingCost')?.value || ''); return Number.isFinite(v) ? v : undefined; })(),
         weight_kg: parseFloat(document.getElementById('tinyWeight')?.value || '') || undefined,
         height_cm: parseFloat(document.getElementById('tinyHeight')?.value || '') || undefined,
         width_cm: parseFloat(document.getElementById('tinyWidth')?.value || '') || undefined,

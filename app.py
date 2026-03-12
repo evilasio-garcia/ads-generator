@@ -4644,7 +4644,8 @@ async def _run_ml_publish_job(
                 return
 
         shipping_cache = base.get("shipping_cost_cache") or {}
-        adsgen_freight = float(shipping_cache.get("value") or 0.0)
+        _raw_freight = shipping_cache.get("value")
+        adsgen_freight = float(_raw_freight) if _raw_freight is not None else 0.0
         freight_result = mercadolivre_service.compare_freight(ml_freight, adsgen_freight)
 
         # Prepare pricing context (used by freight adjustment, wholesale, and promotions)

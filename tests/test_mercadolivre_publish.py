@@ -460,3 +460,41 @@ def test_validate_workspace_reports_multiple_missing():
     ws["base_state"]["product_fields"]["image_urls"] = []
     missing = mercadolivre_service.validate_workspace_for_publish(ws)
     assert len(missing) >= 3
+
+
+# ── Frete zero é válido (invariantes #9 e #10 de shipping-variant-system.md) ──
+
+
+def test_validate_workspace_passes_with_zero_shipping():
+    ws = _full_workspace()
+    ws["base_state"]["shipping_cost_cache"] = {"value": 0}
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert not any("frete" in m.lower() for m in missing)
+
+
+def test_validate_workspace_passes_with_zero_shipping_float():
+    ws = _full_workspace()
+    ws["base_state"]["shipping_cost_cache"] = {"value": 0.0}
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert not any("frete" in m.lower() for m in missing)
+
+
+def test_validate_workspace_fails_with_missing_shipping():
+    ws = _full_workspace()
+    del ws["base_state"]["shipping_cost_cache"]
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert any("frete" in m.lower() for m in missing)
+
+
+def test_validate_workspace_fails_with_empty_shipping():
+    ws = _full_workspace()
+    ws["base_state"]["shipping_cost_cache"] = {"value": ""}
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert any("frete" in m.lower() for m in missing)
+
+
+def test_validate_workspace_passes_with_positive_shipping():
+    ws = _full_workspace()
+    ws["base_state"]["shipping_cost_cache"] = {"value": 18.5}
+    missing = mercadolivre_service.validate_workspace_for_publish(ws)
+    assert not any("frete" in m.lower() for m in missing)

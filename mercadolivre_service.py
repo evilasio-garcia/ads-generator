@@ -610,9 +610,9 @@ def validate_workspace_for_publish(workspace: Dict[str, Any]) -> list[str]:
     if float(cost_price) <= 0:
         missing.append("Custo do produto não informado")
 
-    # Frete Ads Gen
-    shipping_value = shipping_cache.get("value") or 0.0
-    if float(shipping_value) <= 0:
+    # Frete Ads Gen (zero é válido — invariantes #9 e #10)
+    shipping_value = shipping_cache.get("value")
+    if shipping_value is None or str(shipping_value).strip() == "":
         missing.append("Custo de frete do Ads Gen não calculado")
 
     # Peso e dimensões
