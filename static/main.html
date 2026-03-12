@@ -7000,6 +7000,7 @@
   }
 
 
+  let _mlPathMigrationDone = false;
   async function loadConfigFromServer() {
     try {
       const r = await fetch("/api/config", { method: "GET" });
@@ -7010,6 +7011,31 @@
       const data = await r.json();
       appConfig = data || {};
       mlAccounts = Array.isArray(appConfig.ml_accounts) ? appConfig.ml_accounts : [];
+
+      // Auto-migrate category paths before rendering (once per session)
+      if (!_mlPathMigrationDone) {
+        const mappings = (appConfig.ml_category_mappings) || [];
+        const needsMigration = mappings.filter(m => m.ml_category_id && !m.ml_category_path);
+        if (needsMigration.length > 0) {
+          try {
+            const migRes = await fetch('/api/ml/categories/migrate-paths', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ category_ids: needsMigration.map(m => m.ml_category_id) }),
+            });
+            if (migRes.ok) {
+              const migBody = await migRes.json();
+              if (migBody.mappings) {
+                appConfig.ml_category_mappings = migBody.mappings;
+              }
+            }
+          } catch (err) {
+            console.warn('Category path migration failed:', err);
+          }
+        }
+        _mlPathMigrationDone = true;
+      }
+
       renderMlAccounts();
       populateMlCategorySelect();
       saveGeneralConfig(getGeneralConfig());
@@ -9472,11 +9498,7 @@ Restricoes:
     container.querySelectorAll('.btn-ml-toggle-cats').forEach(btn => {
       btn.addEventListener('click', () => {
         const panel = container.querySelector(`.ml-cats-panel[data-ml-user-id="${btn.dataset.mlUserId}"]`);
-        if (panel) {
-          const wasHidden = panel.style.display === 'none';
-          panel.style.display = wasHidden ? '' : 'none';
-          if (wasHidden) mlMaybeMigrateCategoryPaths();
-        }
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
       });
     });
     container.querySelectorAll('.btn-ml-add-cat').forEach(btn => {
@@ -9671,27 +9693,6 @@ Restricoes:
       await loadConfigFromServer();
     } catch (err) {
       showToast(`Erro: ${err.message}`, 'error');
-    }
-  }
-
-  let _mlPathMigrationDone = false;
-  async function mlMaybeMigrateCategoryPaths() {
-    if (_mlPathMigrationDone) return;
-    const mappings = (appConfig && appConfig.ml_category_mappings) || [];
-    const needsMigration = mappings.filter(m => m.ml_category_id && !m.ml_category_path);
-    if (needsMigration.length === 0) { _mlPathMigrationDone = true; return; }
-    try {
-      const res = await fetch('/api/ml/categories/migrate-paths', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category_ids: needsMigration.map(m => m.ml_category_id) }),
-      });
-      if (res.ok) {
-        _mlPathMigrationDone = true;
-        await loadConfigFromServer();
-      }
-    } catch (err) {
-      console.warn('Category path migration failed:', err);
     }
   }
 
