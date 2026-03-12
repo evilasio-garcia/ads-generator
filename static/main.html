@@ -7000,6 +7000,7 @@
   }
 
 
+  let _mlPathMigrationDone = false;
   async function loadConfigFromServer() {
     try {
       const r = await fetch("/api/config", { method: "GET" });
@@ -7010,6 +7011,31 @@
       const data = await r.json();
       appConfig = data || {};
       mlAccounts = Array.isArray(appConfig.ml_accounts) ? appConfig.ml_accounts : [];
+
+      // Auto-migrate category paths before rendering (once per session)
+      if (!_mlPathMigrationDone) {
+        const mappings = (appConfig.ml_category_mappings) || [];
+        const needsMigration = mappings.filter(m => m.ml_category_id && !m.ml_category_path);
+        if (needsMigration.length > 0) {
+          try {
+            const migRes = await fetch('/api/ml/categories/migrate-paths', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ category_ids: needsMigration.map(m => m.ml_category_id) }),
+            });
+            if (migRes.ok) {
+              const migBody = await migRes.json();
+              if (migBody.mappings) {
+                appConfig.ml_category_mappings = migBody.mappings;
+              }
+            }
+          } catch (err) {
+            console.warn('Category path migration failed:', err);
+          }
+        }
+        _mlPathMigrationDone = true;
+      }
+
       renderMlAccounts();
       populateMlCategorySelect();
       saveGeneralConfig(getGeneralConfig());
@@ -9392,6 +9418,11 @@ Restricoes:
   function renderMlAccounts() {
     const container = document.getElementById('mlAccountsList');
     if (!container) return;
+    // Preserve expanded panels across re-renders
+    const expandedPanels = new Set();
+    container.querySelectorAll('.ml-cats-panel').forEach(panel => {
+      if (panel.style.display !== 'none') expandedPanels.add(panel.dataset.mlUserId);
+    });
     if (!mlAccounts || mlAccounts.length === 0) {
       container.innerHTML = '<p class="text-xs text-gray-500 italic">Nenhuma conta ML conectada</p>';
       return;
@@ -9419,8 +9450,10 @@ Restricoes:
         ? cats.map(c => `
           <tr>
             <td class="px-2 py-1">${c.adsgen_name}</td>
-            <td class="px-2 py-1">${c.ml_category_name || ''}<br><span class="text-gray-400 text-[10px]">${c.ml_category_id}</span></td>
-            <td class="px-2 py-1 text-center">
+            <td class="px-2 py-1">${c.ml_category_path || c.ml_category_name || ''}<br><span class="text-gray-400 text-[10px]">${c.ml_category_id}</span></td>
+            <td class="px-2 py-1 text-center whitespace-nowrap">
+              <button class="text-xs text-indigo-500 hover:text-indigo-700 btn-ml-edit-cat" data-adsgen="${c.adsgen_name}" data-cat-id="${c.ml_category_id}" data-cat-name="${(c.ml_category_name || '').replace(/"/g, '&quot;')}" data-cat-path="${(c.ml_category_path || '').replace(/"/g, '&quot;')}" data-ml-user-id="${acc.ml_user_id}">Editar</button>
+              <span class="text-gray-300 mx-1">|</span>
               <button class="text-xs text-red-500 hover:text-red-700 btn-ml-remove-cat" data-adsgen="${c.adsgen_name}">Remover</button>
             </td>
           </tr>`).join('')
@@ -9440,7 +9473,7 @@ Restricoes:
               <button class="btn text-xs btn-ml-toggle-cats" data-ml-user-id="${acc.ml_user_id}" title="Expandir/colapsar categorias">▼</button>
             </div>
           </div>
-          <div class="ml-cats-panel px-3 pb-3 bg-gray-50 border-t border-gray-100" data-ml-user-id="${acc.ml_user_id}" style="display:none">
+          <div class="ml-cats-panel px-3 pb-3 bg-gray-50 border-t border-gray-100" data-ml-user-id="${acc.ml_user_id}" style="${expandedPanels.has(acc.ml_user_id) ? '' : 'display:none'}">
             <div class="flex items-center justify-between mt-2 mb-1">
               <span class="text-xs font-semibold text-gray-600">Mapeamento de Categorias</span>
               <button class="btn text-xs btn-ml-add-cat" data-ml-user-id="${acc.ml_user_id}">+ Adicionar categoria</button>
@@ -9470,6 +9503,26 @@ Restricoes:
     });
     container.querySelectorAll('.btn-ml-add-cat').forEach(btn => {
       btn.addEventListener('click', () => mlOpenCategoryModal(btn.dataset.mlUserId));
+    });
+    container.querySelectorAll('.btn-ml-edit-cat').forEach(btn => {
+      btn.addEventListener('click', () => {
+        mlOpenCategoryModal(btn.dataset.mlUserId);
+        // Track original name for edit (so backend removes old entry)
+        mlCatEditingOriginalName = btn.dataset.adsgen;
+        const adsgenInput = document.getElementById('mlCatAdsgenName');
+        if (adsgenInput) adsgenInput.value = btn.dataset.adsgen;
+        mlCatSelectedCategory = {
+          id: btn.dataset.catId,
+          name: btn.dataset.catName,
+          path: btn.dataset.catPath,
+        };
+        const info = document.getElementById('mlCatSelectedInfo');
+        if (info) {
+          info.textContent = `Selecionado: ${mlCatSelectedCategory.path || mlCatSelectedCategory.name} (${mlCatSelectedCategory.id})`;
+          info.style.display = '';
+        }
+        document.getElementById('btnMlCatSave').disabled = false;
+      });
     });
     container.querySelectorAll('.btn-ml-remove-cat').forEach(btn => {
       btn.addEventListener('click', () => mlRemoveCategory(btn.dataset.adsgen));
@@ -9518,10 +9571,12 @@ Restricoes:
   // ── ML Category Mapping Modal ─────────────────────────────────────────────
   let mlCatModalUserId = null;
   let mlCatSelectedCategory = null;
+  let mlCatEditingOriginalName = null;
 
   function mlOpenCategoryModal(mlUserId) {
     mlCatModalUserId = mlUserId;
     mlCatSelectedCategory = null;
+    mlCatEditingOriginalName = null;
     const searchInput = document.getElementById('mlCatSearchInput');
     const adsgenInput = document.getElementById('mlCatAdsgenName');
     const results = document.getElementById('mlCatSearchResults');
@@ -9541,42 +9596,66 @@ Restricoes:
     if (modal) modal.classList.remove('open');
     mlCatModalUserId = null;
     mlCatSelectedCategory = null;
+    mlCatEditingOriginalName = null;
+  }
+
+  async function mlCatDoSearch(limit = 20) {
+    const q = document.getElementById('mlCatSearchInput').value.trim();
+    if (!q) return;
+    const resultsEl = document.getElementById('mlCatSearchResults');
+    resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500">Buscando...</div>';
+    resultsEl.style.display = '';
+    try {
+      const res = await fetch(`/api/ml/categories/tree/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.detail || `Erro ${res.status}`);
+      }
+      const body = await res.json();
+      const items = body.results || [];
+      if (items.length === 0) {
+        resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500 italic">Nenhuma categoria encontrada.</div>';
+        return;
+      }
+      let html = items.map(c =>
+        `<button class="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 ml-cat-result-btn" data-id="${c.id}" data-name="${c.name}" data-path="${(c.path || '').replace(/"/g, '&quot;')}">
+          <span class="font-medium">${c.path || c.name}</span>
+          <span class="text-gray-400 ml-1">(${c.id})</span>
+        </button>`
+      ).join('');
+      if (body.has_more) {
+        html += `<button id="btnMlCatShowAll" class="w-full text-center px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-medium border-t border-gray-200">
+          Mostrar todos os resultados (${body.total_found} encontrados)
+        </button>`;
+      }
+      resultsEl.innerHTML = html;
+      resultsEl.querySelectorAll('.ml-cat-result-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          mlCatSelectedCategory = { id: btn.dataset.id, name: btn.dataset.name, path: btn.dataset.path };
+          const info = document.getElementById('mlCatSelectedInfo');
+          info.textContent = `Selecionado: ${mlCatSelectedCategory.path || mlCatSelectedCategory.name} (${mlCatSelectedCategory.id})`;
+          info.style.display = '';
+          document.getElementById('btnMlCatSave').disabled = false;
+        });
+      });
+      const showAllBtn = document.getElementById('btnMlCatShowAll');
+      if (showAllBtn) {
+        showAllBtn.addEventListener('click', () => mlCatDoSearch(0));
+      }
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="p-2 text-xs text-red-500">Erro: ${err.message}</div>`;
+    }
   }
 
   const btnMlCatSearch = document.getElementById('btnMlCatSearch');
   if (btnMlCatSearch) {
-    btnMlCatSearch.addEventListener('click', async () => {
-      const q = document.getElementById('mlCatSearchInput').value.trim();
-      if (!q) return;
-      const resultsEl = document.getElementById('mlCatSearchResults');
-      resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500">Buscando...</div>';
-      resultsEl.style.display = '';
-      try {
-        const res = await fetch(`/api/ml/categories/search?q=${encodeURIComponent(q)}`);
-        const body = await res.json();
-        const items = body.categories || [];
-        if (items.length === 0) {
-          resultsEl.innerHTML = '<div class="p-2 text-xs text-gray-500 italic">Nenhuma categoria encontrada.</div>';
-          return;
-        }
-        resultsEl.innerHTML = items.map(c =>
-          `<button class="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 ml-cat-result-btn" data-id="${c.id}" data-name="${c.name}">
-            <span class="font-medium">${c.name}</span>
-            <span class="text-gray-400 ml-1">${c.id}</span>
-          </button>`
-        ).join('');
-        resultsEl.querySelectorAll('.ml-cat-result-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            mlCatSelectedCategory = { id: btn.dataset.id, name: btn.dataset.name };
-            const info = document.getElementById('mlCatSelectedInfo');
-            info.textContent = `Selecionado: ${mlCatSelectedCategory.name} (${mlCatSelectedCategory.id})`;
-            info.style.display = '';
-            document.getElementById('btnMlCatSave').disabled = false;
-          });
-        });
-      } catch (err) {
-        resultsEl.innerHTML = `<div class="p-2 text-xs text-red-500">Erro: ${err.message}</div>`;
-      }
+    btnMlCatSearch.addEventListener('click', () => mlCatDoSearch(20));
+  }
+
+  const mlCatSearchInput = document.getElementById('mlCatSearchInput');
+  if (mlCatSearchInput) {
+    mlCatSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); mlCatDoSearch(20); }
     });
   }
 
@@ -9597,6 +9676,8 @@ Restricoes:
             adsgen_name: adsgenName,
             ml_category_id: mlCatSelectedCategory.id,
             ml_category_name: mlCatSelectedCategory.name,
+            ml_category_path: mlCatSelectedCategory.path || '',
+            original_adsgen_name: mlCatEditingOriginalName || '',
           }),
         });
         if (!res.ok) throw new Error((await res.json()).detail || 'Erro ao salvar');
