@@ -5204,7 +5204,7 @@ async def ml_search_categories(
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             "https://api.mercadolibre.com/sites/MLB/domain_discovery/search",
-            params={"q": q, "limit": 10},
+            params={"q": q, "limit": 8},
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10.0,
         )
