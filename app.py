@@ -791,10 +791,11 @@ async def save_config(
     user_id = str(current_user.user_id)
 
     cfg = db.query(UserConfig).filter(UserConfig.user_id == user_id).first()
-    payload_dict = payload.model_dump()
+    payload_dict = payload.model_dump(exclude_unset=True)
 
     if cfg is None:
-        cfg = UserConfig(user_id=user_id, data=payload_dict)
+        full = payload.model_dump()
+        cfg = UserConfig(user_id=user_id, data=full)
         db.add(cfg)
     else:
         current_data = dict(cfg.data or {})

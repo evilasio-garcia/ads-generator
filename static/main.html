@@ -6864,18 +6864,20 @@
   }
 
   function getGeneralConfig() {
-    if (!appConfig || typeof appConfig !== "object") return { kit_name_replacements: [...DEFAULT_KIT_NAME_REPLACEMENTS] };
+    if (!appConfig || typeof appConfig !== "object") return { kit_name_replacements: [...DEFAULT_KIT_NAME_REPLACEMENTS], tts_rate: 1 };
     const rawGeneral = appConfig.general && typeof appConfig.general === "object" ? appConfig.general : {};
     const fromCfg = normalizeKitNameReplacements(rawGeneral.kit_name_replacements, true);
     const effective = fromCfg.length > 0 ? fromCfg : [...DEFAULT_KIT_NAME_REPLACEMENTS];
-    return { kit_name_replacements: effective };
+    const ttsRate = parseFloat(rawGeneral.tts_rate) || 1;
+    return { kit_name_replacements: effective, tts_rate: ttsRate };
   }
 
   function saveGeneralConfig(nextGeneral) {
     if (!appConfig || typeof appConfig !== "object") appConfig = {};
     const safe = nextGeneral && typeof nextGeneral === "object" ? nextGeneral : {};
     appConfig.general = {
-      kit_name_replacements: normalizeKitNameReplacements(safe.kit_name_replacements, true)
+      kit_name_replacements: normalizeKitNameReplacements(safe.kit_name_replacements, true),
+      tts_rate: parseFloat(safe.tts_rate) || 1,
     };
   }
 
@@ -7166,7 +7168,13 @@
 
       renderMlAccounts();
       populateMlCategorySelect();
-      saveGeneralConfig(getGeneralConfig());
+      const generalCfg = getGeneralConfig();
+      saveGeneralConfig(generalCfg);
+      if (generalCfg.tts_rate && generalCfg.tts_rate !== rate) {
+        rate = generalCfg.tts_rate;
+        if (ttsRateBtn) ttsRateBtn.textContent = rate + 'x';
+        if (ttsRateFloat) ttsRateFloat.textContent = rate + 'x';
+      }
       updateTinyInstanceSelect();
       updateSearchButtonStatus();
     } catch (e) {
@@ -8939,11 +8947,18 @@ Restricoes:
     stopTtsPlayback({ resetIndex: true, force: true });
   });
   ttsRateBtn.addEventListener("click", () => {
-    let next = 1;
-    if (rate === 1) next = 1.5; else if (rate === 1.5) next = 2; else next = 1;
-    rate = next;
+    const speeds = [1, 1.5, 2, 2.5, 3];
+    const curIdx = speeds.indexOf(rate);
+    rate = curIdx < 0 || curIdx >= speeds.length - 1 ? speeds[0] : speeds[curIdx + 1];
     ttsRateBtn.textContent = rate + "x";
     ttsRateFloat.textContent = rate + "x";
+    const updatedGeneral = { ...getGeneralConfig(), tts_rate: rate };
+    saveGeneralConfig(updatedGeneral);
+    fetchWithAuth("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ general: updatedGeneral })
+    }).catch(() => {});
     if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); speakCurrent(); }
   });
 
