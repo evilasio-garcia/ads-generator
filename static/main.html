@@ -9392,6 +9392,11 @@ Restricoes:
   function renderMlAccounts() {
     const container = document.getElementById('mlAccountsList');
     if (!container) return;
+    // Preserve expanded panels across re-renders
+    const expandedPanels = new Set();
+    container.querySelectorAll('.ml-cats-panel').forEach(panel => {
+      if (panel.style.display !== 'none') expandedPanels.add(panel.dataset.mlUserId);
+    });
     if (!mlAccounts || mlAccounts.length === 0) {
       container.innerHTML = '<p class="text-xs text-gray-500 italic">Nenhuma conta ML conectada</p>';
       return;
@@ -9420,7 +9425,9 @@ Restricoes:
           <tr>
             <td class="px-2 py-1">${c.adsgen_name}</td>
             <td class="px-2 py-1">${c.ml_category_path || c.ml_category_name || ''}<br><span class="text-gray-400 text-[10px]">${c.ml_category_id}</span></td>
-            <td class="px-2 py-1 text-center">
+            <td class="px-2 py-1 text-center whitespace-nowrap">
+              <button class="text-xs text-indigo-500 hover:text-indigo-700 btn-ml-edit-cat" data-adsgen="${c.adsgen_name}" data-cat-id="${c.ml_category_id}" data-cat-name="${(c.ml_category_name || '').replace(/"/g, '&quot;')}" data-cat-path="${(c.ml_category_path || '').replace(/"/g, '&quot;')}" data-ml-user-id="${acc.ml_user_id}">Editar</button>
+              <span class="text-gray-300 mx-1">|</span>
               <button class="text-xs text-red-500 hover:text-red-700 btn-ml-remove-cat" data-adsgen="${c.adsgen_name}">Remover</button>
             </td>
           </tr>`).join('')
@@ -9440,7 +9447,7 @@ Restricoes:
               <button class="btn text-xs btn-ml-toggle-cats" data-ml-user-id="${acc.ml_user_id}" title="Expandir/colapsar categorias">▼</button>
             </div>
           </div>
-          <div class="ml-cats-panel px-3 pb-3 bg-gray-50 border-t border-gray-100" data-ml-user-id="${acc.ml_user_id}" style="display:none">
+          <div class="ml-cats-panel px-3 pb-3 bg-gray-50 border-t border-gray-100" data-ml-user-id="${acc.ml_user_id}" style="${expandedPanels.has(acc.ml_user_id) ? '' : 'display:none'}">
             <div class="flex items-center justify-between mt-2 mb-1">
               <span class="text-xs font-semibold text-gray-600">Mapeamento de Categorias</span>
               <button class="btn text-xs btn-ml-add-cat" data-ml-user-id="${acc.ml_user_id}">+ Adicionar categoria</button>
@@ -9474,6 +9481,25 @@ Restricoes:
     });
     container.querySelectorAll('.btn-ml-add-cat').forEach(btn => {
       btn.addEventListener('click', () => mlOpenCategoryModal(btn.dataset.mlUserId));
+    });
+    container.querySelectorAll('.btn-ml-edit-cat').forEach(btn => {
+      btn.addEventListener('click', () => {
+        mlOpenCategoryModal(btn.dataset.mlUserId);
+        // Pre-fill modal with existing data for editing
+        const adsgenInput = document.getElementById('mlCatAdsgenName');
+        if (adsgenInput) adsgenInput.value = btn.dataset.adsgen;
+        mlCatSelectedCategory = {
+          id: btn.dataset.catId,
+          name: btn.dataset.catName,
+          path: btn.dataset.catPath,
+        };
+        const info = document.getElementById('mlCatSelectedInfo');
+        if (info) {
+          info.textContent = `Selecionado: ${mlCatSelectedCategory.path || mlCatSelectedCategory.name} (${mlCatSelectedCategory.id})`;
+          info.style.display = '';
+        }
+        document.getElementById('btnMlCatSave').disabled = false;
+      });
     });
     container.querySelectorAll('.btn-ml-remove-cat').forEach(btn => {
       btn.addEventListener('click', () => mlRemoveCategory(btn.dataset.adsgen));
