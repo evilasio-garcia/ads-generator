@@ -1,17 +1,15 @@
-"""Playwright GUI tests: zero shipping cost is a valid manual input.
+"""Playwright GUI tests: GTIN/EAN per-variant editing and persistence.
 
 Covers:
-- Typing 0 in shipping field locks the value (shippingCostLocked = true)
-- Kit variants respect zero shipping without auto-recalculating
-- Simple variant respects zero shipping without auto-recalculating
-- Tab switch round-trips preserve zero shipping
-- Publish validation accepts zero shipping (field is not empty)
+- GTIN editable on kit tabs (not readOnly).
+- Each kit variant has its own GTIN that survives tab switches.
+- Simple variant GTIN survives re-search (snapshot priority over Tiny).
+- Kit GTIN starts empty when first opened, stays editable.
 """
 import json
 import socket
 import threading
 from contextlib import contextmanager
-from decimal import Decimal
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -28,6 +26,14 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 SKU = "NEWGD60C7"
 
 ALL_VARIANTS = ["simple", "kit2", "kit3", "kit4", "kit5"]
+
+# NEWGD60C7 original GTIN from Tiny API
+TINY_GTIN = "7898590070977"
+
+# Manual GTIN values for testing
+MANUAL_GTIN_SIMPLE = "1111111111111"
+MANUAL_GTIN_KIT2 = "2222222222222"
+MANUAL_GTIN_KIT3 = "3333333333333"
 
 
 def _load_products():
@@ -88,15 +94,8 @@ def _json_response(route, payload, status=200):
     route.fulfill(status=status, headers={"Content-Type": "application/json"}, body=json.dumps(payload))
 
 
-def _shipping_for_decision_base(dc):
-    if dc == Decimal("99.60"):
-        return 19.31
-    if dc in {Decimal("149.40"), Decimal("199.20"), Decimal("249.00")}:
-        return 22.45
-    return round(float(dc) * 0.1, 2)
-
-
 def _build_route_handler(products, fake_db):
+    """Route handler that intercepts API calls and returns fake responses."""
     def handle_routes(route, request):
         path = urlparse(request.url).path
         method = request.method.upper()
@@ -142,10 +141,7 @@ def _build_route_handler(products, fake_db):
                 "wholesale_tiers": [{"min_quantity": 2, "price": round(listing * 0.92, 2), "metrics": m}],
             })
         if path == "/api/shipping/calculate_ml" and method == "POST":
-            body = request.post_data_json or {}
-            dc = Decimal(str(body.get("cost_price", 0)))
-            sc = _shipping_for_decision_base(dc)
-            return _json_response(route, {"shipping_cost": sc})
+            return _json_response(route, {"shipping_cost": 0})
         if path == "/api/canva/list":
             return _json_response(route, {"design": None})
         return route.continue_()
@@ -186,177 +182,157 @@ def _switch_tab(page, variant):
     page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
 
 
-def _get_shipping(page):
-    return page.input_value("#tinyShippingCost").strip()
-
-
-def _set_shipping_zero(page):
-    """Clear shipping field, type 0, and trigger change event."""
-    page.fill("#tinyShippingCost", "0")
-    page.press("#tinyShippingCost", "Tab")
-    page.wait_for_timeout(300)
+def _re_search_sku(page):
+    """Click 'Pesquisar SKU no Tiny' and wait for reload to finish."""
+    page.click("#btnTinySearch")
+    page.wait_for_function("() => !isFetchingTinyData", timeout=10000)
     page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
+    page.wait_for_timeout(500)
 
 
 @pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_kit_zero_shipping_stays_zero():
-    """Typing 0 in shipping on a kit tab must NOT auto-recalculate."""
+def test_gtin_editable_on_kit_tab():
+    """GTIN field must NOT be readOnly on kit tabs."""
     products = _load_products()
+    fake_db = {}
     with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
         try:
             _load_sku(page, SKU)
 
-            # Switch to kit2 (which would normally auto-fill shipping)
+            # Verify GTIN loaded from Tiny on simple tab
+            gtin_val = page.input_value("#tinyGTIN").strip()
+            assert gtin_val == TINY_GTIN, f"Expected GTIN {TINY_GTIN}, got {gtin_val}"
+
+            # Verify GTIN is NOT readOnly on simple
+            assert not page.evaluate("document.getElementById('tinyGTIN').readOnly"), \
+                "GTIN should be editable on simple tab"
+
+            # Switch to kit2
             _switch_tab(page, "kit2")
-            auto_filled = _get_shipping(page)
 
-            # Now manually set shipping to 0
-            _set_shipping_zero(page)
+            # Verify GTIN is NOT readOnly on kit tab
+            assert not page.evaluate("document.getElementById('tinyGTIN').readOnly"), \
+                "GTIN should be editable on kit2 tab"
 
-            # Verify it stayed 0 and shippingCostLocked is true
-            assert _get_shipping(page) == "0", \
-                f"Kit2 shipping should be 0 after manual input, got {_get_shipping(page)}"
-            locked = page.evaluate("() => shippingCostLocked")
-            assert locked is True, "shippingCostLocked should be true after typing 0"
-
-            # Wait extra time to ensure no async auto-fill overwrites it
-            page.wait_for_timeout(2000)
-            assert _get_shipping(page) == "0", \
-                f"Kit2 shipping was overwritten after 2s, got {_get_shipping(page)}"
         finally:
             browser.close()
 
 
 @pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_simple_zero_shipping_stays_zero():
-    """Typing 0 in shipping on simple tab must NOT auto-recalculate."""
+def test_kit_gtin_starts_empty():
+    """When switching to a kit tab for the first time, GTIN should be empty."""
     products = _load_products()
+    fake_db = {}
     with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
         try:
             _load_sku(page, SKU)
 
-            # Simple variant — set shipping to 0
-            _set_shipping_zero(page)
+            # Simple has Tiny GTIN
+            assert page.input_value("#tinyGTIN").strip() == TINY_GTIN
 
-            assert _get_shipping(page) == "0", \
-                f"Simple shipping should be 0 after manual input, got {_get_shipping(page)}"
-            locked = page.evaluate("() => shippingCostLocked")
-            assert locked is True, "shippingCostLocked should be true after typing 0"
+            # Switch to kit2 — first time, should be empty
+            _switch_tab(page, "kit2")
+            kit2_gtin = page.input_value("#tinyGTIN").strip()
+            assert kit2_gtin == "", f"Kit2 GTIN should be empty on first visit, got '{kit2_gtin}'"
 
-            page.wait_for_timeout(2000)
-            assert _get_shipping(page) == "0", \
-                f"Simple shipping was overwritten after 2s, got {_get_shipping(page)}"
         finally:
             browser.close()
 
 
 @pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_zero_shipping_survives_tab_switch():
-    """Zero shipping on kit2 must survive round-trip: kit2→kit3→kit2."""
+def test_each_kit_has_own_gtin():
+    """Each kit variant must have its own independent GTIN value."""
     products = _load_products()
+    fake_db = {}
     with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
         try:
             _load_sku(page, SKU)
 
-            # Go to kit2, set shipping to 0
+            # Set kit2 GTIN
             _switch_tab(page, "kit2")
-            _set_shipping_zero(page)
-            assert _get_shipping(page) == "0"
+            page.fill("#tinyGTIN", MANUAL_GTIN_KIT2)
+            page.press("#tinyGTIN", "Tab")
+            page.wait_for_timeout(300)
 
-            # Switch to kit3, then back to kit2
+            # Set kit3 GTIN
             _switch_tab(page, "kit3")
+            page.fill("#tinyGTIN", MANUAL_GTIN_KIT3)
+            page.press("#tinyGTIN", "Tab")
+            page.wait_for_timeout(300)
+
+            # Verify kit2 still has its own GTIN
+            _switch_tab(page, "kit2")
+            assert page.input_value("#tinyGTIN").strip() == MANUAL_GTIN_KIT2, \
+                f"Kit2 GTIN should be {MANUAL_GTIN_KIT2}"
+
+            # Verify kit3 still has its own GTIN
+            _switch_tab(page, "kit3")
+            assert page.input_value("#tinyGTIN").strip() == MANUAL_GTIN_KIT3, \
+                f"Kit3 GTIN should be {MANUAL_GTIN_KIT3}"
+
+            # Verify simple still has original GTIN
+            _switch_tab(page, "simple")
+            assert page.input_value("#tinyGTIN").strip() == TINY_GTIN, \
+                f"Simple GTIN should be {TINY_GTIN}"
+
+        finally:
+            browser.close()
+
+
+@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
+def test_simple_gtin_survives_re_search():
+    """Manually edited GTIN on simple tab must survive SKU re-search."""
+    products = _load_products()
+    fake_db = {}
+    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
+        try:
+            _load_sku(page, SKU)
+
+            # Edit GTIN on simple
+            page.fill("#tinyGTIN", MANUAL_GTIN_SIMPLE)
+            page.press("#tinyGTIN", "Tab")
+            page.wait_for_timeout(1500)  # Wait for persist debounce
+
+            # Re-search
+            _re_search_sku(page)
+
+            # Verify manually edited GTIN survived
+            gtin_after = page.input_value("#tinyGTIN").strip()
+            assert gtin_after == MANUAL_GTIN_SIMPLE, \
+                f"Simple GTIN should be {MANUAL_GTIN_SIMPLE} after re-search, got {gtin_after}"
+
+        finally:
+            browser.close()
+
+
+@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
+def test_kit_gtin_survives_tab_round_trip():
+    """Kit GTIN must survive tab round-trips: kit2→kit3→simple→kit2."""
+    products = _load_products()
+    fake_db = {}
+    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
+        try:
+            _load_sku(page, SKU)
+
+            # Set GTIN on kit2
+            _switch_tab(page, "kit2")
+            page.fill("#tinyGTIN", MANUAL_GTIN_KIT2)
+            page.press("#tinyGTIN", "Tab")
+            page.wait_for_timeout(300)
+
+            # Round-trip: kit2 → kit3 → simple → kit2
+            _switch_tab(page, "kit3")
+            _switch_tab(page, "simple")
             _switch_tab(page, "kit2")
 
-            val = _get_shipping(page)
-            assert val == "0", \
-                f"Kit2 shipping should still be 0 after tab round-trip, got {val}"
-        finally:
-            browser.close()
+            gtin_after = page.input_value("#tinyGTIN").strip()
+            assert gtin_after == MANUAL_GTIN_KIT2, \
+                f"Kit2 GTIN should be {MANUAL_GTIN_KIT2} after round-trip, got {gtin_after}"
 
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_zero_shipping_passes_publish_validation():
-    """validateWorkspaceForMlPublish must accept zero shipping (field is not empty)."""
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
-
-            # Set shipping to 0
-            _set_shipping_zero(page)
-
-            # Fill required fields for publish validation
-            page.evaluate("""() => {
-                document.getElementById('outTitle').value = 'Test Title';
-                document.getElementById('outDesc').value = 'Test Description';
-            }""")
-
-            # Wait for prices to be calculated
-            page.wait_for_function(
-                "() => parseFloat(document.getElementById('tinyAnnouncePriceMin')?.value || '0') > 0",
-                timeout=5000,
-            )
-
-            # Run validation
-            missing = page.evaluate("() => validateWorkspaceForMlPublish()")
-            assert "Custo de frete" not in missing, \
-                f"Validation should accept zero shipping, but got missing: {missing}"
-        finally:
-            browser.close()
-
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_empty_shipping_fails_publish_validation():
-    """validateWorkspaceForMlPublish must reject empty (blank) shipping field."""
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
-
-            # Clear the shipping field completely
-            page.evaluate("() => { document.getElementById('tinyShippingCost').value = ''; }")
-
-            missing = page.evaluate("() => validateWorkspaceForMlPublish()")
-            assert "Custo de frete" in missing, \
-                f"Validation should reject empty shipping, but missing list was: {missing}"
-        finally:
-            browser.close()
-
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_buscar_marketplace_button_unlocks_zero_shipping():
-    """Clicking 'Buscar no Marketplace' should unlock shipping and auto-fill.
-
-    For NEWGD60C7 (cost_price=24.9), kit2 cost = 49.80,
-    decision base = 99.60 > 78.99, so the API returns 19.31.
-    """
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
-
-            # Go to kit2, set shipping to 0
-            _switch_tab(page, "kit2")
-            _set_shipping_zero(page)
-            assert _get_shipping(page) == "0"
-            assert page.evaluate("() => shippingCostLocked") is True
-
-            # Click "Buscar no Marketplace" — should unlock and recalculate
-            page.click("#btnAutoFillShipping")
-            page.wait_for_timeout(1500)
-            page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
-
-            locked_after = page.evaluate("() => shippingCostLocked")
-            assert locked_after is False, "shippingCostLocked should be false after button click"
-
-            val = _get_shipping(page)
-            assert val != "0" and float(val) > 0, \
-                f"Shipping should be auto-filled after button click, got {val}"
         finally:
             browser.close()

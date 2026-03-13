@@ -1,17 +1,14 @@
-"""Playwright GUI tests: zero shipping cost is a valid manual input.
+"""Playwright GUI tests: manually edited dimension fields survive SKU re-search.
 
 Covers:
-- Typing 0 in shipping field locks the value (shippingCostLocked = true)
-- Kit variants respect zero shipping without auto-recalculating
-- Simple variant respects zero shipping without auto-recalculating
-- Tab switch round-trips preserve zero shipping
-- Publish validation accepts zero shipping (field is not empty)
+- Editing height_cm and length_cm manually → values persist after re-searching
+  the same SKU via "Pesquisar SKU no Tiny" button.
+- Width and weight (already have snapshot support) also survive for comparison.
 """
 import json
 import socket
 import threading
 from contextlib import contextmanager
-from decimal import Decimal
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -28,6 +25,16 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 SKU = "NEWGD60C7"
 
 ALL_VARIANTS = ["simple", "kit2", "kit3", "kit4", "kit5"]
+
+# NEWGD60C7 original values from Tiny API (may include decimals)
+TINY_HEIGHT = 52.0
+TINY_LENGTH = 18.0
+TINY_WIDTH = 30.0
+TINY_WEIGHT = 0.2
+
+# Values we'll manually type
+MANUAL_HEIGHT = "99"
+MANUAL_LENGTH = "88"
 
 
 def _load_products():
@@ -88,15 +95,8 @@ def _json_response(route, payload, status=200):
     route.fulfill(status=status, headers={"Content-Type": "application/json"}, body=json.dumps(payload))
 
 
-def _shipping_for_decision_base(dc):
-    if dc == Decimal("99.60"):
-        return 19.31
-    if dc in {Decimal("149.40"), Decimal("199.20"), Decimal("249.00")}:
-        return 22.45
-    return round(float(dc) * 0.1, 2)
-
-
 def _build_route_handler(products, fake_db):
+    """Route handler that intercepts API calls and returns fake responses."""
     def handle_routes(route, request):
         path = urlparse(request.url).path
         method = request.method.upper()
@@ -142,10 +142,7 @@ def _build_route_handler(products, fake_db):
                 "wholesale_tiers": [{"min_quantity": 2, "price": round(listing * 0.92, 2), "metrics": m}],
             })
         if path == "/api/shipping/calculate_ml" and method == "POST":
-            body = request.post_data_json or {}
-            dc = Decimal(str(body.get("cost_price", 0)))
-            sc = _shipping_for_decision_base(dc)
-            return _json_response(route, {"shipping_cost": sc})
+            return _json_response(route, {"shipping_cost": 0})
         if path == "/api/canva/list":
             return _json_response(route, {"design": None})
         return route.continue_()
@@ -177,6 +174,68 @@ def _load_sku(page, sku):
     page.wait_for_timeout(500)
 
 
+def _re_search_sku(page):
+    """Click 'Pesquisar SKU no Tiny' and wait for reload to finish."""
+    page.click("#btnTinySearch")
+    page.wait_for_function("() => !isFetchingTinyData", timeout=10000)
+    page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
+    page.wait_for_timeout(500)
+
+
+@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
+def test_manual_height_and_length_survive_sku_re_search():
+    """Manually edited height and length must NOT be overwritten by re-searching the SKU.
+
+    Steps:
+    1. Load NEWGD60C7 (height=52, length=18 from Tiny)
+    2. Manually set height=99, length=88
+    3. Wait for persist (debounce flush)
+    4. Re-search the same SKU via button
+    5. Verify height=99 and length=88 are preserved
+    """
+    products = _load_products()
+    fake_db = {}
+    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
+        try:
+            _load_sku(page, SKU)
+
+            # Verify initial Tiny values loaded (compare as floats to handle formatting)
+            assert float(page.input_value("#heightCm").strip()) == TINY_HEIGHT, \
+                f"Initial height should be {TINY_HEIGHT}"
+            assert float(page.input_value("#lengthCm").strip()) == TINY_LENGTH, \
+                f"Initial length should be {TINY_LENGTH}"
+
+            # Manually edit height and length
+            page.fill("#heightCm", MANUAL_HEIGHT)
+            page.press("#heightCm", "Tab")
+            page.fill("#lengthCm", MANUAL_LENGTH)
+            page.press("#lengthCm", "Tab")
+            page.wait_for_timeout(300)
+
+            # Verify manual values are in the fields
+            assert page.input_value("#heightCm").strip() == MANUAL_HEIGHT
+            assert page.input_value("#lengthCm").strip() == MANUAL_LENGTH
+
+            # Wait for persist debounce to flush (600ms + margin)
+            page.wait_for_timeout(1500)
+
+            # Re-search the same SKU
+            _re_search_sku(page)
+
+            # Verify: manually edited values MUST survive the re-search
+            height_after = page.input_value("#heightCm").strip()
+            length_after = page.input_value("#lengthCm").strip()
+
+            assert height_after == MANUAL_HEIGHT, \
+                f"Height should be {MANUAL_HEIGHT} after re-search, got {height_after} (Tiny would set {TINY_HEIGHT})"
+            assert length_after == MANUAL_LENGTH, \
+                f"Length should be {MANUAL_LENGTH} after re-search, got {length_after} (Tiny would set {TINY_LENGTH})"
+
+        finally:
+            browser.close()
+
+
 def _switch_tab(page, variant):
     page.wait_for_function("() => !variantSwitchInProgress")
     page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
@@ -186,177 +245,95 @@ def _switch_tab(page, variant):
     page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
 
 
-def _get_shipping(page):
-    return page.input_value("#tinyShippingCost").strip()
-
-
-def _set_shipping_zero(page):
-    """Clear shipping field, type 0, and trigger change event."""
-    page.fill("#tinyShippingCost", "0")
-    page.press("#tinyShippingCost", "Tab")
-    page.wait_for_timeout(300)
-    page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
-
-
 @pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_kit_zero_shipping_stays_zero():
-    """Typing 0 in shipping on a kit tab must NOT auto-recalculate."""
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
+def test_manual_dimensions_survive_re_search_on_kit_tab():
+    """Manually edited height/length on simple tab must survive re-search even when on a kit tab.
 
-            # Switch to kit2 (which would normally auto-fill shipping)
-            _switch_tab(page, "kit2")
-            auto_filled = _get_shipping(page)
-
-            # Now manually set shipping to 0
-            _set_shipping_zero(page)
-
-            # Verify it stayed 0 and shippingCostLocked is true
-            assert _get_shipping(page) == "0", \
-                f"Kit2 shipping should be 0 after manual input, got {_get_shipping(page)}"
-            locked = page.evaluate("() => shippingCostLocked")
-            assert locked is True, "shippingCostLocked should be true after typing 0"
-
-            # Wait extra time to ensure no async auto-fill overwrites it
-            page.wait_for_timeout(2000)
-            assert _get_shipping(page) == "0", \
-                f"Kit2 shipping was overwritten after 2s, got {_get_shipping(page)}"
-        finally:
-            browser.close()
-
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_simple_zero_shipping_stays_zero():
-    """Typing 0 in shipping on simple tab must NOT auto-recalculate."""
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
-
-            # Simple variant — set shipping to 0
-            _set_shipping_zero(page)
-
-            assert _get_shipping(page) == "0", \
-                f"Simple shipping should be 0 after manual input, got {_get_shipping(page)}"
-            locked = page.evaluate("() => shippingCostLocked")
-            assert locked is True, "shippingCostLocked should be true after typing 0"
-
-            page.wait_for_timeout(2000)
-            assert _get_shipping(page) == "0", \
-                f"Simple shipping was overwritten after 2s, got {_get_shipping(page)}"
-        finally:
-            browser.close()
-
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_zero_shipping_survives_tab_switch():
-    """Zero shipping on kit2 must survive round-trip: kit2→kit3→kit2."""
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
-
-            # Go to kit2, set shipping to 0
-            _switch_tab(page, "kit2")
-            _set_shipping_zero(page)
-            assert _get_shipping(page) == "0"
-
-            # Switch to kit3, then back to kit2
-            _switch_tab(page, "kit3")
-            _switch_tab(page, "kit2")
-
-            val = _get_shipping(page)
-            assert val == "0", \
-                f"Kit2 shipping should still be 0 after tab round-trip, got {val}"
-        finally:
-            browser.close()
-
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_zero_shipping_passes_publish_validation():
-    """validateWorkspaceForMlPublish must accept zero shipping (field is not empty)."""
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
-
-            # Set shipping to 0
-            _set_shipping_zero(page)
-
-            # Fill required fields for publish validation
-            page.evaluate("""() => {
-                document.getElementById('outTitle').value = 'Test Title';
-                document.getElementById('outDesc').value = 'Test Description';
-            }""")
-
-            # Wait for prices to be calculated
-            page.wait_for_function(
-                "() => parseFloat(document.getElementById('tinyAnnouncePriceMin')?.value || '0') > 0",
-                timeout=5000,
-            )
-
-            # Run validation
-            missing = page.evaluate("() => validateWorkspaceForMlPublish()")
-            assert "Custo de frete" not in missing, \
-                f"Validation should accept zero shipping, but got missing: {missing}"
-        finally:
-            browser.close()
-
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_empty_shipping_fails_publish_validation():
-    """validateWorkspaceForMlPublish must reject empty (blank) shipping field."""
-    products = _load_products()
-    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
-        try:
-            _load_sku(page, SKU)
-
-            # Clear the shipping field completely
-            page.evaluate("() => { document.getElementById('tinyShippingCost').value = ''; }")
-
-            missing = page.evaluate("() => validateWorkspaceForMlPublish()")
-            assert "Custo de frete" in missing, \
-                f"Validation should reject empty shipping, but missing list was: {missing}"
-        finally:
-            browser.close()
-
-
-@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
-def test_buscar_marketplace_button_unlocks_zero_shipping():
-    """Clicking 'Buscar no Marketplace' should unlock shipping and auto-fill.
-
-    For NEWGD60C7 (cost_price=24.9), kit2 cost = 49.80,
-    decision base = 99.60 > 78.99, so the API returns 19.31.
+    Steps:
+    1. Load NEWGD60C7
+    2. Manually set height=99, length=88 on simple tab
+    3. Switch to kit2 tab
+    4. Re-search the same SKU
+    5. Switch back to simple tab
+    6. Verify height=99 and length=88 are preserved
     """
     products = _load_products()
+    fake_db = {}
     with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
-        browser, context, page = _setup_page(p, base_url, products, {})
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
         try:
             _load_sku(page, SKU)
 
-            # Go to kit2, set shipping to 0
+            # Manually edit height and length on simple tab
+            page.fill("#heightCm", MANUAL_HEIGHT)
+            page.press("#heightCm", "Tab")
+            page.fill("#lengthCm", MANUAL_LENGTH)
+            page.press("#lengthCm", "Tab")
+            page.wait_for_timeout(300)
+
+            # Switch to kit2
             _switch_tab(page, "kit2")
-            _set_shipping_zero(page)
-            assert _get_shipping(page) == "0"
-            assert page.evaluate("() => shippingCostLocked") is True
 
-            # Click "Buscar no Marketplace" — should unlock and recalculate
-            page.click("#btnAutoFillShipping")
+            # Verify kit2 shows the edited values (height/length don't scale with quantity)
+            kit_height = page.input_value("#heightCm").strip()
+            kit_length = page.input_value("#lengthCm").strip()
+            assert float(kit_height) == float(MANUAL_HEIGHT), \
+                f"Kit2 height should be {MANUAL_HEIGHT}, got {kit_height}"
+            assert float(kit_length) == float(MANUAL_LENGTH), \
+                f"Kit2 length should be {MANUAL_LENGTH}, got {kit_length}"
+
+            # Wait for persist
             page.wait_for_timeout(1500)
-            page.wait_for_function("() => !autoPricingInProgress", timeout=5000)
 
-            locked_after = page.evaluate("() => shippingCostLocked")
-            assert locked_after is False, "shippingCostLocked should be false after button click"
+            # Re-search the same SKU while on kit2
+            _re_search_sku(page)
 
-            val = _get_shipping(page)
-            assert val != "0" and float(val) > 0, \
-                f"Shipping should be auto-filled after button click, got {val}"
+            # Switch back to simple
+            _switch_tab(page, "simple")
+
+            # Verify: manually edited values survived
+            height_after = page.input_value("#heightCm").strip()
+            length_after = page.input_value("#lengthCm").strip()
+            assert height_after == MANUAL_HEIGHT, \
+                f"Height should be {MANUAL_HEIGHT} after kit re-search, got {height_after}"
+            assert length_after == MANUAL_LENGTH, \
+                f"Length should be {MANUAL_LENGTH} after kit re-search, got {length_after}"
+
+        finally:
+            browser.close()
+
+
+@pytest.mark.skipif(sync_playwright is None, reason="playwright not installed")
+def test_manual_dimensions_survive_tab_round_trip():
+    """Manually edited height/length must survive tab round-trips: simple→kit2→kit3→simple.
+
+    This verifies the snapshot system works for height and length across all variant tabs.
+    """
+    products = _load_products()
+    fake_db = {}
+    with _static_server(ROOT_DIR) as base_url, sync_playwright() as p:
+        browser, context, page = _setup_page(p, base_url, products, fake_db)
+        try:
+            _load_sku(page, SKU)
+
+            # Manually edit height and length
+            page.fill("#heightCm", MANUAL_HEIGHT)
+            page.press("#heightCm", "Tab")
+            page.fill("#lengthCm", MANUAL_LENGTH)
+            page.press("#lengthCm", "Tab")
+            page.wait_for_timeout(300)
+
+            # Round-trip: simple → kit2 → kit3 → simple
+            _switch_tab(page, "kit2")
+            _switch_tab(page, "kit3")
+            _switch_tab(page, "simple")
+
+            height_after = page.input_value("#heightCm").strip()
+            length_after = page.input_value("#lengthCm").strip()
+            assert height_after == MANUAL_HEIGHT, \
+                f"Height should be {MANUAL_HEIGHT} after round-trip, got {height_after}"
+            assert length_after == MANUAL_LENGTH, \
+                f"Length should be {MANUAL_LENGTH} after round-trip, got {length_after}"
+
         finally:
             browser.close()

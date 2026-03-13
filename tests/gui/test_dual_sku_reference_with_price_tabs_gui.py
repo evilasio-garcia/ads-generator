@@ -331,10 +331,10 @@ def _make_workspace_from_tiny(product: dict, marketplace: str = "mercadolivre") 
                 "product_name": title,
                 "tiny_gtin": gtin,
                 "tiny_sku_display": sku,
-                "tiny_height": f"{height:.2f}",
-                "tiny_width": f"{width:.2f}",
-                "tiny_length": f"{length:.2f}",
-                "tiny_weight": f"{weight:.3f}",
+                "height_cm": f"{height:.2f}",
+                "width_cm": f"{width:.2f}",
+                "length_cm": f"{length:.2f}",
+                "weight_kg": f"{weight:.3f}",
                 "tiny_cost_price": f"{cost:.2f}",
                 "tiny_shipping_cost": f"{shipping:.2f}",
             },
@@ -724,10 +724,10 @@ def test_reference_dual_sku_navigation_with_price_tabs_and_refresh_stays_exact()
                 assert read_input("#tinySKUDisplay").upper() == base["sku"], (
                     f"{step_label} sku: expected {base['sku']}, got {read_input('#tinySKUDisplay')}"
                 )
-                _assert_exact_decimal(read_input("#tinyHeight"), base["height"], f"{step_label} height")
-                _assert_exact_decimal(read_input("#tinyWidth"), base["width"], f"{step_label} width")
-                _assert_exact_decimal(read_input("#tinyLength"), base["length"], f"{step_label} length")
-                _assert_exact_decimal(read_input("#tinyWeight"), base["weight"], f"{step_label} weight")
+                _assert_exact_decimal(read_input("#heightCm"), base["height"], f"{step_label} height")
+                _assert_exact_decimal(read_input("#widthCm"), base["width"], f"{step_label} width")
+                _assert_exact_decimal(read_input("#lengthCm"), base["length"], f"{step_label} length")
+                _assert_exact_decimal(read_input("#weightKg"), base["weight"], f"{step_label} weight")
                 _assert_exact_decimal(read_input("#tinyCostPrice"), base["cost"], f"{step_label} cost")
                 _assert_exact_decimal(read_input("#tinyShippingCost"), base["shipping"], f"{step_label} shipping")
 

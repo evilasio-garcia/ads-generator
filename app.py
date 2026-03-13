@@ -4596,7 +4596,13 @@ async def _run_ml_publish_job(
                     return
                 _emit_ml_event(job_id, "creating_listing", "Retomando criação do anúncio...")
             except mercadolivre_service.MLAPIError as exc:
-                _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {exc}", failed_at="creating_listing")
+                error_msg = str(exc)
+                if "item.attribute.missing_conditional_required" in error_msg and "GTIN" in error_msg.upper():
+                    error_msg = (
+                        "O Mercado Livre exige GTIN/EAN para esta categoria. "
+                        "Preencha o campo GTIN/EAN na aba ativa antes de publicar."
+                    )
+                _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {error_msg}", failed_at="creating_listing")
                 return
 
         # ── 5b. Adicionar descrição (API separada) ────────────────────────

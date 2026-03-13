@@ -212,10 +212,10 @@ def _make_workspace_from_tiny(product: dict, marketplace: str = "mercadolivre") 
                 "product_name": title,
                 "tiny_gtin": gtin,
                 "tiny_sku_display": sku,
-                "tiny_height": f"{height:.2f}",
-                "tiny_width": f"{width:.2f}",
-                "tiny_length": f"{length:.2f}",
-                "tiny_weight": f"{weight:.3f}",
+                "height_cm": f"{height:.2f}",
+                "width_cm": f"{width:.2f}",
+                "length_cm": f"{length:.2f}",
+                "weight_kg": f"{weight:.3f}",
                 "tiny_cost_price": f"{cost:.2f}",
                 "tiny_shipping_cost": f"{shipping:.2f}",
             },
@@ -447,16 +447,16 @@ def test_gui_tiny_fake_fixture_sanity_and_variant_consistency():
                     raise AssertionError(
                         f"simple cost {sku}: esperado {cost_expected}, recebido {cost_ui}, debug={debug_state}"
                     )
-                _assert_close(ui_float("#tinyWidth"), float(product["width_cm"]), f"simple width {sku}")
-                _assert_close(ui_float("#tinyWeight"), float(product["weight_kg"]), f"simple weight {sku}", tol=0.005)
+                _assert_close(ui_float("#widthCm"), float(product["width_cm"]), f"simple width {sku}")
+                _assert_close(ui_float("#weightKg"), float(product["weight_kg"]), f"simple weight {sku}", tol=0.005)
                 gtin_ui = page.input_value("#tinyGTIN")
                 assert str(product["gtin"]) in gtin_ui
 
             def assert_kit_ui_derived_from_simple(multiplier: int, sku: str):
                 product = products[sku]
                 _assert_close(ui_float("#tinyCostPrice"), float(product["cost_price"]) * multiplier, f"kit{multiplier} cost {sku}")
-                _assert_close(ui_float("#tinyWidth"), float(product["width_cm"]) * multiplier, f"kit{multiplier} width {sku}")
-                _assert_close(ui_float("#tinyWeight"), float(product["weight_kg"]) * multiplier, f"kit{multiplier} weight {sku}", tol=0.02)
+                _assert_close(ui_float("#widthCm"), float(product["width_cm"]) * multiplier, f"kit{multiplier} width {sku}")
+                _assert_close(ui_float("#weightKg"), float(product["weight_kg"]) * multiplier, f"kit{multiplier} weight {sku}", tol=0.02)
 
             def switch_variant(variant_key: str):
                 page.wait_for_function("() => (typeof variantSwitchInProgress === 'undefined') || !variantSwitchInProgress")
@@ -494,8 +494,8 @@ def test_gui_tiny_fake_fixture_sanity_and_variant_consistency():
                 assert last_save_a is not None
                 fields_a = (((last_save_a["payload"] or {}).get("base_state") or {}).get("product_fields") or {})
                 _assert_close(_as_float(fields_a.get("tiny_cost_price")), float(products[sku_a]["cost_price"]), f"db simple cost A on kit{multiplier}")
-                _assert_close(_as_float(fields_a.get("tiny_width")), float(products[sku_a]["width_cm"]), f"db simple width A on kit{multiplier}")
-                _assert_close(_as_float(fields_a.get("tiny_weight")), float(products[sku_a]["weight_kg"]), f"db simple weight A on kit{multiplier}", tol=0.005)
+                _assert_close(_as_float(fields_a.get("width_cm")), float(products[sku_a]["width_cm"]), f"db simple width A on kit{multiplier}")
+                _assert_close(_as_float(fields_a.get("weight_kg")), float(products[sku_a]["weight_kg"]), f"db simple weight A on kit{multiplier}", tol=0.005)
 
             # back to simple: no leakage from kit values
             switch_variant("simple")
@@ -526,8 +526,8 @@ def test_gui_tiny_fake_fixture_sanity_and_variant_consistency():
                 assert last_save_b is not None
                 fields_b = (((last_save_b["payload"] or {}).get("base_state") or {}).get("product_fields") or {})
                 _assert_close(_as_float(fields_b.get("tiny_cost_price")), float(products[sku_b]["cost_price"]), f"db simple cost B on kit{multiplier}")
-                _assert_close(_as_float(fields_b.get("tiny_width")), float(products[sku_b]["width_cm"]), f"db simple width B on kit{multiplier}")
-                _assert_close(_as_float(fields_b.get("tiny_weight")), float(products[sku_b]["weight_kg"]), f"db simple weight B on kit{multiplier}", tol=0.005)
+                _assert_close(_as_float(fields_b.get("width_cm")), float(products[sku_b]["width_cm"]), f"db simple width B on kit{multiplier}")
+                _assert_close(_as_float(fields_b.get("weight_kg")), float(products[sku_b]["weight_kg"]), f"db simple weight B on kit{multiplier}", tol=0.005)
 
             # SKU A again: now should be DB hit and still equal to fixture/simple state
             search_sku(sku_a)
@@ -542,11 +542,11 @@ def test_gui_tiny_fake_fixture_sanity_and_variant_consistency():
             ws_a = fake_db[(sku_a, "mercadolivre")]
             ws_fields_a = (((ws_a.get("base_state") or {}).get("product_fields")) or {})
             _assert_close(_as_float(ws_fields_a.get("tiny_cost_price")), ui_float("#tinyCostPrice"), "final db vs ui cost A")
-            _assert_close(_as_float(ws_fields_a.get("tiny_width")), ui_float("#tinyWidth"), "final db vs ui width A")
-            _assert_close(_as_float(ws_fields_a.get("tiny_weight")), ui_float("#tinyWeight"), "final db vs ui weight A", tol=0.005)
+            _assert_close(_as_float(ws_fields_a.get("width_cm")), ui_float("#widthCm"), "final db vs ui width A")
+            _assert_close(_as_float(ws_fields_a.get("weight_kg")), ui_float("#weightKg"), "final db vs ui weight A", tol=0.005)
             _assert_close(_as_float(ws_fields_a.get("tiny_cost_price")), float(products[sku_a]["cost_price"]), "final db vs tiny cost A")
-            _assert_close(_as_float(ws_fields_a.get("tiny_width")), float(products[sku_a]["width_cm"]), "final db vs tiny width A")
-            _assert_close(_as_float(ws_fields_a.get("tiny_weight")), float(products[sku_a]["weight_kg"]), "final db vs tiny weight A", tol=0.005)
+            _assert_close(_as_float(ws_fields_a.get("width_cm")), float(products[sku_a]["width_cm"]), "final db vs tiny width A")
+            _assert_close(_as_float(ws_fields_a.get("weight_kg")), float(products[sku_a]["weight_kg"]), "final db vs tiny weight A", tol=0.005)
 
             browser.close()
 
@@ -711,8 +711,8 @@ def test_gui_hardcoded_price_sanity_for_two_skus():
                 label = f"{sku}:{variant_key}"
 
                 _assert_close(ui_float("#tinyCostPrice"), expected["cost"], f"{label} cost")
-                _assert_close(ui_float("#tinyWidth"), expected["width"], f"{label} width")
-                _assert_close(ui_float("#tinyWeight"), expected["weight"], f"{label} weight", tol=0.01)
+                _assert_close(ui_float("#widthCm"), expected["width"], f"{label} width")
+                _assert_close(ui_float("#weightKg"), expected["weight"], f"{label} weight", tol=0.01)
                 _assert_close(ui_float("#tinyShippingCost"), expected["shipping"], f"{label} shipping")
 
                 _assert_close(ui_float("#tinyAnnouncePriceMin"), expected["announce_min"], f"{label} announce min")
