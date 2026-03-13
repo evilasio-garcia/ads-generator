@@ -40,13 +40,13 @@ EXPECTED_SHIPPING = {
 }
 
 # Expected shipping from button click (uses getShippingDecisionBaseCost)
-# Simple: cost=24.90, decisionBase=49.80 -> shipping mock = 49.80*0.1=4.98
+# Simple: cost=24.90, decisionBase=49.80 -> below threshold (<=78.99) -> 0.00
 # kit2: cost=49.80, decisionBase=99.60 -> 19.31
 # kit3: cost=74.70, decisionBase=149.40 -> 22.45
 # kit4: cost=99.60, decisionBase=199.20 -> 22.45
 # kit5: cost=124.50, decisionBase=249.00 -> 22.45
 BUTTON_SHIPPING = {
-    "simple": "4.98",
+    "simple": "0.00",
     "kit2": "19.31",
     "kit3": "22.45",
     "kit4": "22.45",

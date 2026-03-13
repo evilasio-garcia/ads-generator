@@ -5405,19 +5405,27 @@
       const isKitVariant = requestVariantKey !== "simple";
       const shouldAutoFillShipping = (
         channel === 'mercadolivre' &&
-        shippingDecisionCostBase > 78.99 &&
+        shippingDecisionCostBase > 0 &&
         currentShippingCost <= 0 &&
         !shippingCostLocked
       );
       if (shouldAutoFillShipping) {
-        const autoShipping = await autoFillShippingCost({
-          silent: true,
-          forceRefresh: isKitVariant,
-          usePromoReference: false,
-          shippingDecisionCostBase
-        });
-        if (Number.isFinite(autoShipping) && autoShipping >= 0) {
-          currentShippingCost = autoShipping;
+        if (shippingDecisionCostBase <= 78.99) {
+          // Abaixo do threshold: frete grátis, preencher 0 sem chamar API
+          tinyShippingCost.value = '0.00';
+          currentShippingCost = 0;
+          const cacheKey = `${normalizeSkuCacheKey(tinySKU.value)}:${channel}:${normalizeVariantKey(requestVariantKey)}`;
+          shippingCostCache[cacheKey] = 0;
+        } else {
+          const autoShipping = await autoFillShippingCost({
+            silent: true,
+            forceRefresh: isKitVariant,
+            usePromoReference: false,
+            shippingDecisionCostBase
+          });
+          if (Number.isFinite(autoShipping) && autoShipping >= 0) {
+            currentShippingCost = autoShipping;
+          }
         }
       }
       if (!isRequestStillCurrent()) {
@@ -6195,11 +6203,22 @@
   btnAutoFillShipping.addEventListener('click', async () => {
     shippingCostLocked = false;
     const costPrice = parseFloat(tinyCostPrice.value) || 0;
-    const result = await autoFillShippingCost({
-      forceRefresh: true,
-      usePromoReference: true,
-      shippingDecisionCostBase: getShippingDecisionBaseCost(costPrice),
-    });
+    const decisionBase = getShippingDecisionBaseCost(costPrice);
+    let result;
+    if (decisionBase > 0 && decisionBase <= 78.99) {
+      // Abaixo do threshold: frete grátis, preencher 0 sem chamar API
+      tinyShippingCost.value = '0.00';
+      const cacheKey = `${normalizeSkuCacheKey(tinySKU.value)}:${marketplace.value}:${normalizeVariantKey(activeVariantKey)}`;
+      shippingCostCache[cacheKey] = 0;
+      result = 0;
+      showToast('Frete R$ 0,00 — item abaixo do threshold de R$ 78,99 (frete grátis).', 'info');
+    } else {
+      result = await autoFillShippingCost({
+        forceRefresh: true,
+        usePromoReference: true,
+        shippingDecisionCostBase: decisionBase,
+      });
+    }
     if (result != null && Number.isFinite(result)) {
       // Sync snapshot with the new shipping value
       if (activeVariantKey === "simple") {
