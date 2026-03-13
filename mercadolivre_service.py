@@ -415,6 +415,9 @@ async def get_seller_shipping_cost(
             timeout=15.0,
             on_rate_limit=on_rate_limit,
         )
+        if resp_ship.status_code == 404:
+            # Item sem custo de frete para o vendedor (ex: preço <= R$78,99)
+            return 0.0
         if resp_ship.status_code != 200:
             raise MLAPIError(
                 f"Erro {resp_ship.status_code} ao consultar frete do vendedor",

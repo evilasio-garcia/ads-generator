@@ -498,3 +498,30 @@ def test_validate_workspace_passes_with_positive_shipping():
     ws["base_state"]["shipping_cost_cache"] = {"value": 18.5}
     missing = mercadolivre_service.validate_workspace_for_publish(ws)
     assert not any("frete" in m.lower() for m in missing)
+
+
+# ── shipping_options/free 404 returns 0.0 (items below R$78.99) ──
+
+
+@pytest.mark.asyncio
+async def test_get_seller_shipping_cost_returns_zero_on_404():
+    """When shipping_options/free returns 404 (cheap item), cost should be 0.0."""
+    item_resp = {"shipping": {"tags": []}}
+    not_found_resp = MagicMock()
+    not_found_resp.status_code = 404
+
+    with patch("mercadolivre_service.httpx.AsyncClient") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(
+            side_effect=[
+                _mock_http_get(item_resp),  # item fetch OK
+                not_found_resp,             # shipping 404
+            ]
+        )
+        mock_cls.return_value = mock_client
+
+        cost = await mercadolivre_service.get_seller_shipping_cost("TOKEN", "MLB1", "123456")
+
+    assert cost == 0.0

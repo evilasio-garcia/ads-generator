@@ -4014,11 +4014,8 @@ def _emit_ml_event(job_id: str, step: str, message: str, **extra) -> None:
     job["status"] = step
 
 
-async def _handle_rate_limit_pause(job_id: str, step_name: str, listing_id: str = None) -> str:
-    """Emit rate_limited event, pause the job, and wait for user action (resume or cancel).
-
-    Returns "resume" or "cancel".
-    """
+async def _pause_for_user_action(job_id: str, step_name: str) -> str:
+    """Pause the job and wait for user to resume or cancel.  Returns "resume" or "cancel"."""
     job = ML_PUBLISH_JOBS.get(job_id)
     if not job:
         return "cancel"
@@ -4031,19 +4028,26 @@ async def _handle_rate_limit_pause(job_id: str, step_name: str, listing_id: str 
     # Extend TTL so the job doesn't expire while paused
     job["created_at"] = time.time()
 
-    _emit_ml_event(
-        job_id, "rate_limited",
-        "Limite de requisições do Mercado Livre atingido. Aguarde e tente novamente.",
-        paused_at=step_name,
-        listing_id=listing_id,
-    )
-
     await resume_event.wait()
 
     action = job.get("resume_action", "cancel")
     job["resume_event"] = None
     job["paused_at_step"] = None
     return action
+
+
+async def _handle_rate_limit_pause(job_id: str, step_name: str, listing_id: str = None) -> str:
+    """Emit rate_limited event, pause the job, and wait for user action (resume or cancel).
+
+    Returns "resume" or "cancel".
+    """
+    _emit_ml_event(
+        job_id, "rate_limited",
+        "Limite de requisições do Mercado Livre atingido. Aguarde e tente novamente.",
+        paused_at=step_name,
+        listing_id=listing_id,
+    )
+    return await _pause_for_user_action(job_id, step_name)
 
 
 async def _cancel_ml_publish(job_id: str, step_name: str, access_token: str, listing_id: str = None):
@@ -4635,13 +4639,24 @@ async def _run_ml_publish_job(
                     return
                 _emit_ml_event(job_id, "checking_freight", "Retomando consulta de frete...")
             except Exception as exc:
+                # Freight check failed — let user choose to continue with Ads Gen freight or cancel
+                shipping_cache = base.get("shipping_cost_cache") or {}
+                _raw_freight = shipping_cache.get("value")
+                fallback_freight = float(_raw_freight) if _raw_freight is not None else 0.0
                 _emit_ml_event(
-                    job_id, "error",
-                    f"Falha ao consultar frete: {exc}",
-                    failed_at="checking_freight",
+                    job_id, "rate_limited",
+                    f"Falha ao consultar frete ML: {exc}. Continuar com frete Ads Gen (R$ {fallback_freight:.2f})?",
+                    paused_at="checking_freight",
                     listing_id=listing_id,
                 )
-                return
+                action = await _pause_for_user_action(job_id, "checking_freight")
+                if action == "cancel":
+                    await _cancel_ml_publish(job_id, "checking_freight", access_token, listing_id)
+                    return
+                # User chose to continue — use Ads Gen freight
+                ml_freight = fallback_freight
+                _emit_ml_event(job_id, "checking_freight", f"Continuando com frete Ads Gen: R$ {fallback_freight:.2f}")
+                break
 
         shipping_cache = base.get("shipping_cost_cache") or {}
         _raw_freight = shipping_cache.get("value")
