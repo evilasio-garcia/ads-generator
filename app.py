@@ -4139,21 +4139,24 @@ def _validate_category_attributes(
     added = sorted(current_required_set - prev_required)
     removed = sorted(prev_required - current_required_set)
 
+    # Auto-inject SELLER_PACKAGE_* from UI dimensions regardless of tag combination.
+    # Some categories mark them as hidden+writable, others as required — always inject
+    # when the attribute exists in the category and the user hasn't filled it manually.
+    all_category_attr_ids = {a.get("id", "") for a in ml_api_attrs}
     auto_injected = []
-    for hw_id in current_hidden_writable:
-        if hw_id in ui_attr_ids:
+    for fill_id, (field_name, multiplier, unit) in _HIDDEN_WRITABLE_AUTO_FILL.items():
+        if fill_id not in all_category_attr_ids:
             continue
-        fill = _HIDDEN_WRITABLE_AUTO_FILL.get(hw_id)
-        if fill:
-            field_name, multiplier, unit = fill
-            raw_val = float(ui_dimensions.get(field_name) or 0)
-            if raw_val > 0:
-                numeric = int(raw_val * multiplier)
-                auto_injected.append({
-                    "id": hw_id,
-                    "value_name": f"{numeric} {unit}",
-                    "value_struct": {"number": numeric, "unit": unit},
-                })
+        if fill_id in ui_attr_ids:
+            continue
+        raw_val = float(ui_dimensions.get(field_name) or 0)
+        if raw_val > 0:
+            numeric = int(raw_val * multiplier)
+            auto_injected.append({
+                "id": fill_id,
+                "value_name": f"{numeric} {unit}",
+                "value_struct": {"number": numeric, "unit": unit},
+            })
 
     auto_injected_ids = {a["id"] for a in auto_injected}
     all_provided = ui_attr_ids | auto_injected_ids
@@ -4165,10 +4168,10 @@ def _validate_category_attributes(
         if (tags.get("required") or tags.get("catalog_required")) and aid not in all_provided:
             missing_attrs.append({"id": aid, "name": attr.get("name", aid)})
 
-    for hw_id in current_hidden_writable:
-        if hw_id in _HIDDEN_WRITABLE_AUTO_FILL and hw_id not in all_provided:
-            attr_name = next((a.get("name", hw_id) for a in ml_api_attrs if a.get("id") == hw_id), hw_id)
-            missing_attrs.append({"id": hw_id, "name": attr_name})
+    for fill_id in _HIDDEN_WRITABLE_AUTO_FILL:
+        if fill_id in all_category_attr_ids and fill_id not in all_provided:
+            attr_name = next((a.get("name", fill_id) for a in ml_api_attrs if a.get("id") == fill_id), fill_id)
+            missing_attrs.append({"id": fill_id, "name": attr_name})
 
     if missing_attrs:
         return {
@@ -4451,6 +4454,8 @@ async def _run_ml_publish_job(
                 "listing_type_id": listing_type_id,
                 "status": "paused",
             }
+            if ml_attributes:
+                listing_payload["attributes"] = ml_attributes
             if sale_terms:
                 listing_payload["sale_terms"] = sale_terms
         elif is_catalog_required:
