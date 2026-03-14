@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pytest
-from app import _validate_category_attributes
+from app import _validate_category_attributes, _humanize_ml_error
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -210,3 +210,58 @@ def test_auto_inject_seller_package_values():
     assert injected["SELLER_PACKAGE_LENGTH"]["value_name"] == "35 cm"
     assert injected["SELLER_PACKAGE_WEIGHT"]["value_name"] == "1200 g"
     assert injected["SELLER_PACKAGE_WEIGHT"]["value_struct"] == {"number": 1200, "unit": "g"}
+
+
+def test_auto_inject_seller_package_enforces_ml_floor():
+    """ML rejects seller_package values below 4 cm / 10 g — floor must be applied."""
+    ml_api_attrs = _make_attrs([
+        ("SELLER_PACKAGE_HEIGHT", {"hidden": True}),
+        ("SELLER_PACKAGE_WIDTH", {"hidden": True}),
+        ("SELLER_PACKAGE_LENGTH", {"hidden": True}),
+        ("SELLER_PACKAGE_WEIGHT", {"hidden": True}),
+    ])
+    result = _validate_category_attributes(
+        ml_api_attrs=ml_api_attrs,
+        baseline=None,
+        ui_ml_attributes=[],
+        ui_dimensions={"height_cm": 2, "width_cm": 1, "length_cm": 3, "weight_kg": 0.005},
+    )
+    assert result["status"] == "ok"
+    injected = {a["id"]: a for a in result["auto_injected"]}
+    assert injected["SELLER_PACKAGE_HEIGHT"]["value_struct"]["number"] == 4   # floor: 2 → 4
+    assert injected["SELLER_PACKAGE_WIDTH"]["value_struct"]["number"] == 4    # floor: 1 → 4
+    assert injected["SELLER_PACKAGE_LENGTH"]["value_struct"]["number"] == 4   # floor: 3 → 4
+    assert injected["SELLER_PACKAGE_WEIGHT"]["value_struct"]["number"] == 10  # floor: 5 → 10
+
+
+# ── Humanization of ML API errors ──────────────────────────────────────────
+
+def test_humanize_gtin_missing_conditional_required():
+    raw = ("Validation error | cause: [{'code': "
+           "'item.attribute.missing_conditional_required', 'message': 'GTIN is required'}]")
+    result = _humanize_ml_error(raw)
+    assert "GTIN/EAN" in result
+    assert "categoria" in result
+
+
+def test_humanize_gtin_cross_category():
+    raw = ("Validation error | cause: [{'code': "
+           "'item.attribute.invalid_product_identifier', 'message': "
+           "'Insira um código universal que você não tenha usado'}]")
+    result = _humanize_ml_error(raw)
+    assert "outra categoria" in result
+    assert "GTIN/EAN" in result
+
+
+def test_humanize_seller_package_dimensions():
+    raw = ("Validation error | cause: [{'code': "
+           "'item.attribute.invalid.seller.package.dimensions', 'message': "
+           "'do not have proper values'}]")
+    result = _humanize_ml_error(raw)
+    assert "dimensões" in result
+    assert "embalagem" in result
+
+
+def test_humanize_unknown_error_returns_raw():
+    raw = "Some unknown ML error"
+    assert _humanize_ml_error(raw) == raw

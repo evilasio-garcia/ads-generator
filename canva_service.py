@@ -367,12 +367,32 @@ async def download_and_validate_zip(url: str, sku: str) -> List[Tuple[str, bytes
     )
 
 
+def _extract_page_name_from_xmp(file_data: bytes) -> Optional[str]:
+    """Extrai nome da página do metadata XMP/RDF embutido no PNG."""
+    try:
+        match = re.search(
+            rb"""<rdf:li\s+xml:lang=['"']x-default['"']>([^<]+)</rdf:li>""",
+            file_data
+        )
+        if not match:
+            return None
+        full_title = match.group(1).decode("utf-8", errors="replace").strip()
+        if not full_title:
+            return None
+        if " - " in full_title:
+            return full_title.rsplit(" - ", 1)[1].strip() or None
+        return full_title
+    except Exception:
+        return None
+
+
 async def download_and_validate_exports(urls: List[str], sku: str) -> List[Tuple[str, bytes]]:
     """
     Baixa TODAS as URLs de export retornadas pelo job.
-    Regra de nome:
-    - Se começar com SKU, preserva exatamente o nome da página.
-    - Caso contrário, normaliza para SKU###.png.
+    Regra de nome (por prioridade):
+    1. Nome da página extraído do metadata XMP do PNG.
+    2. Se XMP indisponível e nome original começa com SKU, preserva o nome.
+    3. Caso contrário, normaliza para SKU###.png.
     A ordem final segue a ordem das URLs e dos itens internos de cada pacote.
     """
     if not urls:
@@ -397,20 +417,26 @@ async def download_and_validate_exports(urls: List[str], sku: str) -> List[Tuple
                 return candidate
 
     for original_name, file_data in all_files:
-        safe_name = (original_name or "").strip()
-        starts_with_sku = safe_name.upper().startswith(sku_upper)
+        xmp_name = _extract_page_name_from_xmp(file_data)
 
-        if starts_with_sku:
-            final_name = safe_name
-            # Garante extensão png para compatibilidade no upload/visualização.
+        if xmp_name:
+            final_name = xmp_name
             if not final_name.lower().endswith(".png"):
                 final_name = f"{final_name}.png"
-
-            # Evita colisão se páginas tiverem nomes iguais.
             if final_name.lower() in used_names_ci:
                 final_name = _next_auto_name()
         else:
-            final_name = _next_auto_name()
+            # Fallback: lógica original baseada no nome do arquivo
+            safe_name = (original_name or "").strip()
+            starts_with_sku = safe_name.upper().startswith(sku_upper)
+            if starts_with_sku:
+                final_name = safe_name
+                if not final_name.lower().endswith(".png"):
+                    final_name = f"{final_name}.png"
+                if final_name.lower() in used_names_ci:
+                    final_name = _next_auto_name()
+            else:
+                final_name = _next_auto_name()
 
         used_names_ci.add(final_name.lower())
         final_files.append((final_name, file_data))

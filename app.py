@@ -4086,6 +4086,42 @@ def _build_pricing_ctx_for_ml(pricing_config: list) -> Dict[str, Any]:
     return {}
 
 
+# ── ML API error humanization ──────────────────────────────────────────────
+
+_ML_ERROR_HUMANIZERS = [
+    # (code_substring, extra_condition_on_message, human_message)
+    (
+        "item.attribute.missing_conditional_required",
+        lambda msg: "GTIN" in msg.upper(),
+        "O Mercado Livre exige GTIN/EAN para esta categoria. "
+        "Preencha o campo GTIN/EAN na aba ativa antes de publicar.",
+    ),
+    (
+        "item.attribute.invalid_product_identifier",
+        None,
+        "O código GTIN/EAN informado já está associado a um anúncio em outra "
+        "categoria do Mercado Livre. Use um GTIN/EAN diferente ou deixe o campo "
+        "vazio caso a categoria permita.",
+    ),
+    (
+        "item.attribute.invalid.seller.package.dimensions",
+        None,
+        "As dimensões da embalagem (altura, largura, comprimento ou peso) estão "
+        "com valores inválidos para esta categoria. Verifique se todos os campos "
+        "de dimensões estão preenchidos com valores maiores que zero.",
+    ),
+]
+
+
+def _humanize_ml_error(raw_error: str) -> str:
+    """Replace known ML API error codes with user-friendly Portuguese messages."""
+    for code_substr, extra_check, human_msg in _ML_ERROR_HUMANIZERS:
+        if code_substr in raw_error:
+            if extra_check is None or extra_check(raw_error):
+                return human_msg
+    return raw_error
+
+
 # ── Category sanity check (pure function) ─────────────────────────────────
 
 _HIDDEN_WRITABLE_AUTO_FILL = {
@@ -4094,6 +4130,8 @@ _HIDDEN_WRITABLE_AUTO_FILL = {
     "SELLER_PACKAGE_LENGTH": ("length_cm", 1,    "cm"),
     "SELLER_PACKAGE_WEIGHT": ("weight_kg", 1000, "g"),
 }
+# ML enforces minimums for seller_package: 4 cm per dimension, 10 g weight.
+_SP_FLOOR = {"cm": 4, "g": 10}
 
 
 def _validate_category_attributes(
@@ -4151,7 +4189,7 @@ def _validate_category_attributes(
             continue
         raw_val = float(ui_dimensions.get(field_name) or 0)
         if raw_val > 0:
-            numeric = int(raw_val * multiplier)
+            numeric = max(_SP_FLOOR.get(unit, 0), int(raw_val * multiplier))
             auto_injected.append({
                 "id": fill_id,
                 "value_name": f"{numeric} {unit}",
@@ -4419,6 +4457,31 @@ async def _run_ml_publish_job(
         if display_sku:
             ml_attributes = [a for a in ml_attributes if a.get("id") != "SELLER_SKU"]
             ml_attributes.append({"id": "SELLER_SKU", "value_name": display_sku})
+
+        # Always inject fresh SELLER_PACKAGE_* from current UI dimensions.
+        # Overrides any stale values from previous auto-injections.
+        # ML enforces minimums: 4 cm per dimension, 10 g weight.
+        _SELLER_PACKAGE_IDS = {
+            "SELLER_PACKAGE_HEIGHT", "SELLER_PACKAGE_WIDTH",
+            "SELLER_PACKAGE_LENGTH", "SELLER_PACKAGE_WEIGHT",
+        }
+        _SP_MIN_CM = 4
+        _SP_MIN_G = 10
+        ml_attributes = [a for a in ml_attributes if a.get("id") not in _SELLER_PACKAGE_IDS]
+        if height_cm > 0 and width_cm > 0 and length_cm > 0 and weight_kg > 0:
+            for sp_id, raw_val, multiplier, unit, floor in [
+                ("SELLER_PACKAGE_HEIGHT", height_cm, 1,    "cm", _SP_MIN_CM),
+                ("SELLER_PACKAGE_WIDTH",  width_cm,  1,    "cm", _SP_MIN_CM),
+                ("SELLER_PACKAGE_LENGTH", length_cm, 1,    "cm", _SP_MIN_CM),
+                ("SELLER_PACKAGE_WEIGHT", weight_kg, 1000, "g",  _SP_MIN_G),
+            ]:
+                numeric = max(floor, round(raw_val * multiplier))
+                ml_attributes.append({
+                    "id": sp_id,
+                    "value_name": f"{numeric} {unit}",
+                    "value_struct": {"number": numeric, "unit": unit},
+                })
+
         # Build sale_terms for WARRANTY (ML requires sale_terms, not attributes)
         sale_terms = []
         if ui_warranty_type:
@@ -4442,7 +4505,6 @@ async def _run_ml_publish_job(
         is_catalog_required = bool(category_settings.get("catalog_domain"))
 
         if catalog_product_id:
-            # Catalog listing: title comes from catalog, not settable
             listing_payload = {
                 "catalog_product_id": catalog_product_id,
                 "family_name": title_text,
@@ -4459,8 +4521,6 @@ async def _run_ml_publish_job(
             if sale_terms:
                 listing_payload["sale_terms"] = sale_terms
         elif is_catalog_required:
-            # Category requires catalog format but no catalog_product_id provided:
-            # title and shipping are rejected by ML
             listing_payload = {
                 "family_name": title_text,
                 "category_id": category_id,
@@ -4492,10 +4552,10 @@ async def _run_ml_publish_job(
                     "local_pick_up": False,
                     "free_shipping": False,
                     "dimensions": {
-                        "width": int(width_cm),
-                        "height": int(height_cm),
-                        "length": int(length_cm),
-                        "weight": int(weight_kg * 1000),
+                        "width": max(_SP_MIN_CM, round(width_cm)),
+                        "height": max(_SP_MIN_CM, round(height_cm)),
+                        "length": max(_SP_MIN_CM, round(length_cm)),
+                        "weight": max(_SP_MIN_G, round(weight_kg * 1000)),
                     },
                 },
             }
@@ -4596,12 +4656,7 @@ async def _run_ml_publish_job(
                     return
                 _emit_ml_event(job_id, "creating_listing", "Retomando criação do anúncio...")
             except mercadolivre_service.MLAPIError as exc:
-                error_msg = str(exc)
-                if "item.attribute.missing_conditional_required" in error_msg and "GTIN" in error_msg.upper():
-                    error_msg = (
-                        "O Mercado Livre exige GTIN/EAN para esta categoria. "
-                        "Preencha o campo GTIN/EAN na aba ativa antes de publicar."
-                    )
+                error_msg = _humanize_ml_error(str(exc))
                 _emit_ml_event(job_id, "error", f"Falha ao criar anúncio: {error_msg}", failed_at="creating_listing")
                 return
 

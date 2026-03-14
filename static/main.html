@@ -972,6 +972,34 @@
         </button>
       </div>
 
+      <!-- Container Canva (Aparece se houver design) -->
+      <div id="canvaExportContainer" class="mt-4 hidden">
+        <div
+          class="rounded-lg border border-purple-200 bg-purple-50 p-4 transition-all hover:bg-purple-100 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 stroke-purple-600 fill-none" viewBox="0 0 24 24">
+              <path
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div>
+              <p class="text-sm font-semibold text-purple-900" id="canvaDesignTitle">Canva Design Encontrado</p>
+              <p class="text-xs text-purple-700" id="canvaDesignSubtitle">Com o nome referente ao SKU. Deseja exportar e sincronizar?</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btnReauthCanvaInline"
+              class="hidden px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-sm disabled:opacity-50">
+              Reautorizar Canva
+            </button>
+            <button id="btnExportCanva"
+              class="px-3 py-1.5 rounded-md text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow-sm disabled:opacity-50">
+              Exportar para /Drive
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Seção da Galeria (Expansível) -->
       <div id="galleryContainer" class="gallery-container">
         <div class="card p-5 mt-4 border-indigo-100 bg-indigo-50/30">
@@ -1055,34 +1083,6 @@
               <tbody id="filesTableBody" class="divide-y divide-gray-200">
               </tbody>
             </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Container Canva (Aparece se houver design) -->
-      <div id="canvaExportContainer" class="mt-4 hidden">
-        <div
-          class="rounded-lg border border-purple-200 bg-purple-50 p-4 transition-all hover:bg-purple-100 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <svg class="w-6 h-6 stroke-purple-600 fill-none" viewBox="0 0 24 24">
-              <path
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <div>
-              <p class="text-sm font-semibold text-purple-900" id="canvaDesignTitle">Canva Design Encontrado</p>
-              <p class="text-xs text-purple-700" id="canvaDesignSubtitle">Com o nome referente ao SKU. Deseja exportar e sincronizar?</p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button id="btnReauthCanvaInline"
-              class="hidden px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-sm disabled:opacity-50">
-              Reautorizar Canva
-            </button>
-            <button id="btnExportCanva"
-              class="px-3 py-1.5 rounded-md text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow-sm disabled:opacity-50">
-              Exportar para /Drive
-            </button>
           </div>
         </div>
       </div>
